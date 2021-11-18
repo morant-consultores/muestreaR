@@ -89,6 +89,8 @@ empaquetar <- function(bd, grupo, tipo, peso_tamaño, metodo_prob){
       poblacion({{peso_tamaño}}) %>%
       probabilidad(metodo = metodo_prob)
   }
+  para_n <- tibble(nombres = names(aux)) %>% anti_join(tibble(nombres = names(bd)))
+  aux <- aux %>% group_by(across(all_of(c(grupo,para_n %>% pluck(1))))) %>% nest() %>% ungroup
   return(aux)
 }
 
