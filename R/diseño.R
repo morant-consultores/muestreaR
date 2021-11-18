@@ -9,10 +9,9 @@
 #'
 #' @return
 #' @export
-#'
 #' @examples
 etiquetar <- function(bd, grupo, tipo, i){
-  bd %>% group_by(across(all_of(grupo)), .add = T) %>% mutate(!!glue("{tipo}_{i}"):= cur_group_id())
+  bd %>% group_by(across(all_of(grupo)), .add = T) %>% mutate(!!glue::glue("{tipo}_{i}"):= cur_group_id())
 }
 
 #' Title
@@ -26,7 +25,7 @@ etiquetar <- function(bd, grupo, tipo, i){
 fpc <- function(bd){
   nivel <- bd %>% ungroup %>% select(last_col()) %>% names
   bd <- if(!grepl("strata",nivel)){
-    bd %>% left_join(bd %>% summarise(n())%>% summarise(!!sym(glue("fpc_{parse_number(nivel)}")):=n()))
+    bd %>% left_join(bd %>% summarise(n())%>% summarise(!!rlang::sym(glue::glue("fpc_{parse_number(nivel)}")):=n()))
   } else{
     bd
   }
@@ -44,7 +43,7 @@ fpc <- function(bd){
 #' @examples
 poblacion <- function(bd, peso){
   nivel <- bd %>% ungroup %>% select(last_col()) %>% names
-  aux <- bd %>% mutate(!!sym(glue("pob_{parse_number(nivel)}")) := sum({{peso}}))
+  aux <- bd %>% mutate(!!rlang::sym(glue::glue("pob_{parse_number(nivel)}")) := sum({{peso}}))
   return(aux)
 }
 
@@ -62,7 +61,7 @@ probabilidad <- function(bd, metodo){
     nivel <- bd %>% ungroup %>% select(last_col()-1) %>% names
     bd <- if(grepl("fpc",nivel)){
       id <- parse_number(nivel)
-      bd %>% mutate(!!sym(glue("prob_{id}")):=!!sym(glue("pob_{id}"))/!!sym(glue("pob_{id-1}")))
+      bd %>% mutate(!!rlang::sym(glue::glue("prob_{id}")):=!!rlang::sym(glue::glue("pob_{id}"))/!!rlang::sym(glue::glue("pob_{id-1}")))
     } else{
       bd
     }
@@ -94,14 +93,3 @@ empaquetar <- function(bd, grupo, tipo, peso_tamaño, metodo_prob){
 }
 
 
-#
-# etiquetar <- function(bd, grupo, i){
-#   browser()
-#   sep <- str_split(grupo,pattern = "/")
-#   grupo <- sep %>% pluck(1,1)
-#   tipo <- sep %>% pluck(1,2)
-#   aux <- bd %>% group_by(across(all_of(grupo)), .add = T) %>% mutate(!!glue("{tipo}_{i}"):= cur_group_id())
-#   return(aux)
-# }
-#
-# accumulate2(.x = c("NOM_MUN/s"),.y = "1",.f = ~etiquetar(bd = ags %>% select(NOM_MUN), grupo = .x, i = .y))
