@@ -43,7 +43,7 @@ fpc <- function(bd){
 #' @examples
 poblacion <- function(bd, peso){
   nivel <- bd %>% ungroup %>% select(last_col()) %>% names
-  aux <- bd %>% mutate(!!rlang::sym(glue::glue("pob_{parse_number(nivel)}")) := sum({{peso}}))
+  aux <- bd %>% mutate(!!rlang::sym(glue::glue("pob_{parse_number(nivel)}")) := sum({{peso}}, na.rm = T))
   return(aux)
 }
 
