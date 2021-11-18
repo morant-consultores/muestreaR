@@ -19,4 +19,6 @@ Depends:
 Imports: 
     dplyr,
     rlang,
-    glue
+    glue,
+    purrr,
+    sp
