@@ -4,6 +4,8 @@ library(sf)
 library(leaflet)
 library(purrr)
 library(readr)
+library(here)
+library(readxl)
 setwd("~/Dropbox (Selva)/Ciencia de datos/Consultoría Estadística/Recursos/Externos/INEGI/Censo 2020/AGEB/22_queretaro/conjunto_de_datos")
 mun <- st_read("22mun.shp", options = "ENCODING=CP1252") %>% st_transform(4326)
 mun <- mun %>% mutate(REGION = case_when(
@@ -56,6 +58,10 @@ ageb_r <- st_as_sf(ageb_r)
 localidad <- readOGR(dsn = "22l.shp", encoding = "CP1252") %>%
   spTransform(CRS("+init=epsg:4326")) %>%
   st_as_sf()
+
+localidad_punt <- readOGR(dsn = "22lpr.shp", encoding = "CP1252") %>%
+  spTransform(CRS("+init=epsg:4326")) %>%
+  st_as_sf()
 # Población ---------------------------------------------------------------
 
 setwd("~/Dropbox (Selva)/Ciencia de datos/Consultoría Estadística/Recursos/Externos/INEGI/Censo 2020/AGEB/22_queretaro/población")
@@ -63,9 +69,22 @@ poblacion <- read_csv("RESAGEBURB_22CSV20.csv", na = "*")%>%
   mutate(CVEGEO = glue::glue("{ENTIDAD}{MUN}{LOC}{AGEB}{MZA}"))
 poblacion <- poblacion %>% mutate(CVE_AGEB_R = glue::glue("{ENTIDAD}{MUN}{AGEB}"),
                                   CVE_AGEB_U = glue::glue("{ENTIDAD}{MUN}{LOC}{AGEB}"))
-poblacion <- poblacion %>% filter(NOM_LOC == "Total AGEB urbana")
+# poblacion <- poblacion %>% filter(NOM_LOC == "Total AGEB urbana")
 manzana <- manzana %>% left_join(poblacion %>% select(CVEGEO,POBTOT,TVIVPARHAB))
+m <- manzana %>% as_tibble
+m %>% count(is.na(POBTOT), AMBITO)
 
+pob_loc <- read_excel("~/Documents/Git/muestreaR/data-raw/ITER_22XLSX20.xlsx")
+localidad %>% left_join(pob_loc %>% select(CVE_ENT = ENTIDAD,CVE_MUN = MUN,CVE_LOC =LOC,POBTOT)) %>%
+  as_tibble %>% count(is.na(POBTOT),AMBITO)
+
+localidad_punt %>% left_join(pob_loc %>% select(CVE_ENT = ENTIDAD,CVE_MUN = MUN,CVE_LOC =LOC,POBTOT)) %>%
+  as_tibble %>% count(is.na(POBTOT))
+
+pal <- colorFactor(c("blue","red"), domain = unique(manzana$AMBITO))
+localidad %>% leaflet() %>% addPolygons(color = ~pal(AMBITO), weight = 1, label = ~NOMGEO) %>%
+  addCircleMarkers(data = localidad_punt, color = "green", radius = .0001, label = ~paste("punt ",NOMGEO)) %>%
+  addLegend(pal = pal, values = ~AMBITO)
 # pob ---------------------------------------------------------------------
 manzana %>% as_tibble() %>% select(CVEGEO,POBTOT,TVIVPARHAB) %>% na.omit
 
