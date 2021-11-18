@@ -1,3 +1,13 @@
+#' Title
+#'
+#' @param bd
+#' @param grupo
+#' @param tipo
+#'
+#' @return
+#' @export
+#'
+#' @examples
 etiquetar <- function(bd, grupo, tipo){
   aux <- bd
   for(i in seq_along(tipo)){
