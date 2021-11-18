@@ -75,14 +75,17 @@ m <- manzana %>% as_tibble
 m %>% count(is.na(POBTOT), AMBITO)
 
 pob_loc <- read_excel("~/Documents/Git/muestreaR/data-raw/ITER_22XLSX20.xlsx")
-localidad %>% left_join(pob_loc %>% select(CVE_ENT = ENTIDAD,CVE_MUN = MUN,CVE_LOC =LOC,POBTOT)) %>%
-  as_tibble %>% count(is.na(POBTOT),AMBITO)
 
+localidad <- localidad %>% left_join(pob_loc %>% select(CVE_ENT = ENTIDAD,CVE_MUN = MUN,CVE_LOC =LOC,POBTOT))
+localidad %>% as_tibble() %>% count(AMBITO,is.na(POBTOT))
 localidad_punt %>% left_join(pob_loc %>% select(CVE_ENT = ENTIDAD,CVE_MUN = MUN,CVE_LOC =LOC,POBTOT)) %>%
   as_tibble %>% count(is.na(POBTOT))
 
 pal <- colorFactor(c("blue","red"), domain = unique(manzana$AMBITO))
-localidad %>% leaflet() %>% addPolygons(color = ~pal(AMBITO), weight = 1, label = ~NOMGEO) %>%
+pal2 <- colorNumeric("Reds", manzana$POBTOT)
+localidad %>% leaflet() %>%
+  addPolygons(data = manzana, color = ~pal2(POBTOT), weight = 1, fill = F) %>%
+  addPolygons(color = ~pal(AMBITO), weight = 1, label = ~NOMGEO, fill = F) %>%
   addCircleMarkers(data = localidad_punt, color = "green", radius = .0001, label = ~paste("punt ",NOMGEO)) %>%
   addLegend(pal = pal, values = ~AMBITO)
 # pob ---------------------------------------------------------------------
