@@ -38,7 +38,7 @@ crear_mm <- function(a,b,cd){
            ALTITUD = as.numeric(ALTITUD))
 
   loc <- loc_no_murb %>% st_as_sf(coords = c("LONGITUD","LATITUD"), crs = 4326) %>%
-    st_intersection(ageb_r %>% mutate(valid = st_is_valid(geometry)) %>% filter(valid)) %>% as_tibble %>%
+    st_join(ageb_r %>% mutate(valid = st_is_valid(geometry)) %>% filter(valid)) %>% as_tibble %>%
     select(MUN,LOC,AGEB = CVE_AGEB)
 
   loc_no_murb <- loc_no_murb %>% left_join(loc)
