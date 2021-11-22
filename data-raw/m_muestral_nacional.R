@@ -15,6 +15,6 @@ wd_shp <- list.files(paste(list.files(glue("{wd}/AGEB"), full.names = T)[1:32],"
 orden <- substr(wd_loc,nchar(wd_loc)-13,nchar(wd_loc)-12) %>% order
 
 
-mm_nacional <- pmap(tibble(a=wd_murb, b=wd_loc[orden], cd=wd_shp), function(a,b,cd) crear_mm(a, b, cd)) %>% bind_rows
+mm_nacional <- pmap(tibble(mza=wd_murb, loc=wd_loc[orden], ageb_shp=wd_shp), function(mza,loc,ageb_shp) crear_mm(mza, loc, ageb_shp)) %>% bind_rows
 beep()
 # usethis::use_data(mm_nacional)
