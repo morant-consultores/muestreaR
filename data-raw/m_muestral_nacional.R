@@ -17,4 +17,4 @@ orden <- substr(wd_loc,nchar(wd_loc)-13,nchar(wd_loc)-12) %>% order
 
 mm_nacional <- pmap(tibble(a=wd_murb, b=wd_loc[orden], cd=wd_shp), function(a,b,cd) crear_mm(a, b, cd)) %>% bind_rows
 beep()
-usethis::use_data(mm_nacional)
+# usethis::use_data(mm_nacional)
