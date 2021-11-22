@@ -72,6 +72,32 @@ probabilidad <- function(bd, metodo){
 #' Title
 #'
 #' @param bd
+#' @param id
+#' @param regiones
+#'
+#' @return
+#' @export
+#'
+#' @examples
+regiones <- function(bd, id, regiones){
+  aux <- regiones %>% enframe(name = "region", value = id) %>% unnest(all_of(id))
+  faltan <- bd %>% anti_join(aux) %>% distinct(!!sym(id)) %>% pull(1) %>% paste(collapse = ", ")
+  if(faltan != ""){
+    warning(glue("No se ha clasificado los siguientes {id}: {faltan}. \n Favor de agregarlos a la lista regiones"))
+  }
+
+  error <- aux %>% anti_join(bd) %>% distinct(!!sym(id)) %>% pull(1) %>% paste(collapse = ", ")
+  if(error != ""){
+    warning(glue("Los siguientes {id} no existen en la base de datos: {error}. \n Favor de rectificar la lista de regiones"))
+  }
+
+  bd %>% left_join(
+    aux
+  ) %>% select(region, everything())
+}
+#' Title
+#'
+#' @param bd
 #' @param grupo
 #' @param tipo
 #' @param peso
