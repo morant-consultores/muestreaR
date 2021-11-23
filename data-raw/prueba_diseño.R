@@ -1,6 +1,7 @@
 library(tidyverse)
 library(glue)
 library(sf)
+library(rgdal)
 library(sp)
 devtools::load_all()
 
@@ -35,14 +36,14 @@ marco <- regiones(qro, id = "MUN", regiones = prueba)
 
 # Cuántas personas mayores de 18 años hay en Querétaro?
 
-qro %>%
+marco %>%
   summarise(resultado=sum(P_18YMAS, na.rm=T)) %>%
   pull()
 
 # Porcentaje de población total:
 
 
-qro %>%
+marco %>%
   summarise(porcentaje=sum(P_18YMAS, na.rm=T)/sum(POBTOT, na.rm=T)) %>%
   pull()
 
@@ -51,6 +52,84 @@ qro %>%
 # Unidad de muestreo
 nrow(qro)
 
+
+# Población rural y urbana - total y mayores de 18
+
+marco %>%
+  group_by(AMBITO) %>%
+  summarise(pobtot=sum(POBTOT, na.rm=T))
+
+marco %>%
+  group_by(AMBITO) %>%
+  summarise(pobtot=sum(P_18YMAS, na.rm=T))
+
+# Población total de estratos (pob tot por municipio, pob tot de manzanas, pob tot de amanzanadas)
+
+# Total pobalción por municipio
+marco %>%
+  group_by(MUN,NOM_MUN, AMBITO) %>%
+  summarise(pobtot=sum(POBTOT, na.rm=T)) %>%
+  spread(AMBITO, pobtot)
+
+# total población manzanas
+
+marco %>%
+  filter(MZA!=" NA") %>%
+  group_by(MZA,AMBITO) %>%
+  summarise(pobtot=sum(POBTOT, na.rm=T)) %>%
+  spread(AMBITO, pobtot)
+
+# total localidades no amanzanadas
+
+marco %>%
+  filter(MZA==" NA") %>%
+  group_by(LOC) %>%
+  summarise(pobtot=sum(POBTOT, na.rm=T)) %>%
+  ungroup()
+
+
+# resumen de variable del censo
+
+marco %>%
+  select(c(VPH_AGUADV,VPH_SNBIEN, POCUPADA, VPH_C_ELEC)) %>%
+  summary()
+
+
+
+
+# graficar porcentajes de variable del censo
+
+## density
+
+marco %>%
+  mutate(
+         porc= VPH_AGUADV/VIVPARH_CV) %>%
+  arrange(desc(porc)) %>%
+  ggplot() +
+  geom_density(aes(x=porc, color=MUN)) +
+  facet_wrap(~AMBITO)
+
+## boxplot
+
+marco %>%
+  mutate(
+    porc= VPH_AGUADV/VIVPARH_CV) %>%
+  arrange(desc(porc)) %>%
+  ggplot() +
+  geom_boxplot(aes(y=porc, color=AMBITO))
+
+
+# calculo nivel municipal
+marco %>%
+  select(MUN, VPH_AGUADV, VIVPARH_CV) %>%
+  unique() %>%
+  mutate(dfi=VIVPARH_CV-VPH_AGUADV) %>%
+  View()
+  group_by(MUN) %>%
+  summarise(VPH_AGUADV=sum(VPH_AGUADV, na.rm=T),
+            VIVPARH_CV=sum(VIVPARH_CV, na.rm=T),
+            porc=VPH_AGUADV/VIVPARH_CV) %>%
+  ungroup()
 
 # Información muestral ----------------------------------------------------
 
