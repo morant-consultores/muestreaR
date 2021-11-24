@@ -42,6 +42,27 @@ muestra <- mstage(marco %>% distinct(MUN,LOC, .keep_all = T),
 marco %>% distinct(MUN,LOC, .keep_all = T) %>% count(region,NOM_MUN) %>% count(region)
 getdata(marco %>% distinct(LOC, .keep_all = T), muestra) %>% pluck(2) %>% as_tibble %>%
   count(region, MUN)
+# Análisis ----------------------------------------------------------------
+
+# Cuántas personas mayores de 18 años hay en Querétaro?
+
+qro %>%
+  summarise(resultado=sum(P_18YMAS, na.rm=T)) %>%
+  pull()
+
+# Porcentaje de población total:
+
+
+qro %>%
+  summarise(porcentaje=sum(P_18YMAS, na.rm=T)/sum(POBTOT, na.rm=T)) %>%
+  pull()
+
+
+
+# Unidad de muestreo
+nrow(qro)
+
+
 # Información muestral ----------------------------------------------------
 
 ja <- empaquetar(marco,
@@ -74,7 +95,4 @@ for(i in seq_along(t_niveles)){
 }
 
 
-# Análisis ----------------------------------------------------------------
-
-ja %>% ggplot(aes())
 
