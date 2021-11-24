@@ -2,6 +2,7 @@ library(tidyverse)
 library(glue)
 library(sf)
 library(sp)
+library(rgdal)
 devtools::load_all()
 
 # Crear marco muestral ----------------------------------------------------
@@ -17,7 +18,7 @@ orden <- substr(wd_loc,nchar(wd_loc)-13,nchar(wd_loc)-12) %>% order
 
 qro <- crear_mm(mza = wd_murb[22],loc = wd_loc[orden][22], ageb_shp = wd_shp[22], loc_shp = wd_shp_loc[22])
 
-usethis::use_data(qro)
+# usethis::use_data(qro)
 qro %>% count(AMBITO)
 # Región ------------------------------------------------------------------
 #cambiar a qro
@@ -31,13 +32,47 @@ prueba <- list(
 
 marco <- regiones(qro, id = "MUN", regiones = prueba)
 
+# Con sampling ------------------------------------------------------------
+
+muestra <- mstage(marco %>% distinct(MUN,LOC, .keep_all = T),
+       stage = c("stratified", "cluster"), varnames = c("region", "NOM_MUN"),
+       size = list(marco %>% distinct(LOC, .keep_all = T) %>% count(region) %>% pull(n),
+                   c(3,3,3)), method = list("","srswor","srswor"))
+
+marco %>% distinct(MUN,LOC, .keep_all = T) %>% count(region,NOM_MUN) %>% count(region)
+getdata(marco %>% distinct(LOC, .keep_all = T), muestra) %>% pluck(2) %>% as_tibble %>%
+  count(region, MUN)
 # Información muestral ----------------------------------------------------
 
 ja <- empaquetar(marco,
-                 c("region","NOM_MUN","NOM_LOC","AGEB"),
-                 c("strata","id","id","id"),
+                 c("region","NOM_MUN","AMBITO","ARLU","AULR"),
+                 c("strata","id","strata","id","id"),
                  peso_tamaño = POBTOT,
                  metodo_prob = "poblacion")
+
+ja %>% distinct(region,fpc_2,fpc_3,fpc_4) %>%
+  summarise(across(fpc_2:fpc_4, list(minimo = min, maximo = max),
+                   .names = "{.col}.{.fn}")) %>%
+  pivot_longer(everything()) %>% separate(name,into=c("col","stat"),sep = "\\.") %>%
+  pivot_wider(names_from = stat, values_from = value)
+
+
+niveles <- c("region","NOM_MUN","NOM_LOC")
+t_niveles <- c("strata","id","id")
+
+agrupar <- c()
+n_sortear <- c(3,3,6)
+
+aux <- ja
+for(i in seq_along(t_niveles)){
+  agrupar <- c(agrupar, niveles[i])
+
+  if(t_niveles[i] != "strata"){
+    aux <- aux %>% group_by(across(all_of(agrupar))) %>% nest %>% ungroup(niveles[i]) %>%
+      sample_n(n_sortear[i]) %>% unnest(data) %>% ungroup
+  }
+}
+
 
 # Análisis ----------------------------------------------------------------
 
