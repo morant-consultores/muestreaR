@@ -28,9 +28,33 @@ prueba <- list(
   reg3 = formatC(13:18,digits = 2,flag = "0")
 )
 
+region_anterior <- list(
+  `Sierra Gorda` = c("Arroyo Seco",
+    "Jalpan de Serra",
+    "Landa de Matamoros",
+    "Pinal de Amoles",
+    "San Joaquín",
+    "Cadereyta de Montes",
+    "Colón",
+    "Peñamiller",
+    "Tolimán"),
+  `Los Valles Centrales` = c(
+    "Ezequiel Montes",
+    "El Marqués",
+    "Tequisquiapan",
+    "Pedro Escobedo",
+    "San Juan del Río",
+    "Amealco de Bonfil"
+  ),
+  `El Bajío Queretano` = c(
+    "Querétaro",
+    "Corregidora",
+    "Huimilpan"
+  )
+)
 
 
-marco <- regiones(qro, id = "MUN", regiones = prueba)
+marco <- regiones(qro, id = "NOM_MUN", regiones = region_anterior)
 
 # Con sampling ------------------------------------------------------------
 
