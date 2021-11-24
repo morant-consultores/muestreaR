@@ -1,5 +1,22 @@
 #' Title
 #'
+#' @param var
+#' @param tama
+#' @param bandera
+#'
+#' @return
+#' @export
+#'
+#' @examples
+formato <- function(var, tamaño, bandera = 0){
+
+  parse_character(
+    formatC({{var}}, width = tamaño, flag = bandera)
+  )
+}
+
+#' Title
+#'
 #' @param a
 #' @param b
 #' @param cd
@@ -14,21 +31,27 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp){
   poblacion <- poblacion %>% mutate(across(POBTOT:VPH_SINTIC, ~as.numeric(.x)))
   str <- poblacion %>% select(MUN,LOC) %>% select_if(is.character) %>% ncol
   if(str != 2){
-    poblacion <- poblacion %>% mutate(MUN = formatC(MUN,width = 3,flag = "0"),
-                                      LOC = formatC(LOC,width = 4,flag = "0"))
+    poblacion <- poblacion %>% mutate(MUN = formato(MUN, tamaño = 3),
+                                      LOC = formato(LOC, tamaño = 4))
   }
+
   murb <- poblacion %>% filter(!grepl("Total ",NOM_LOC)) %>% mutate(
-    ENTIDAD = formatC(ENTIDAD, width = 2, flag = 0),
-    MUN =formatC(MUN, width = 3, flag = 0),
-    LOC = formatC(LOC, width = 4, flag = 0)
+    ENTIDAD = formato(ENTIDAD, tamaño = 2),
+    MUN = formato(MUN, tamaño = 3),
+    LOC = formato(LOC, tamaño = 4)
   )
 
   loc_shp <- readOGR(dsn=loc_shp,encoding = "CP1252") %>% spTransform(CRS("+init=epsg:4326")) %>% st_as_sf()
   murb <- murb %>% left_join(loc_shp %>% as_tibble() %>%
-                               transmute(ENTIDAD = formatC(CVE_ENT, width = 2, flag = 0),
-                                         MUN =formatC(CVE_MUN, width = 3, flag = 0),
-                                         LOC = formatC(CVE_LOC, width = 4, flag = 0),
+                               transmute(ENTIDAD = formato(CVE_ENT, tamaño = 2),
+                                         MUN =formato(CVE_MUN, tamaño = 3),
+                                         LOC = formato(CVE_LOC, tamaño = 4),
                                          AMBITO))
+  murb <- murb %>% mutate(tipo_localidad = "Localidad amanzanada",
+                          clave_ARLU = if_else(AMBITO == "Urbana", glue("{ENTIDAD}{MUN}{LOC}"), glue("{ENTIDAD}{MUN}{AGEB}")),
+                          clave_AULR = if_else(AMBITO == "Urbana", glue("{ENTIDAD}{MUN}{LOC}{AGEB}"), glue("{ENTIDAD}{MUN}{AGEB}{LOC}")),
+                          ARLU = if_else(AMBITO == "Urbana", "LU", "AR"),
+                          AULR = if_else(AMBITO == "Urbana", "AU", "LR"))
   # loc_shp <- st_read(loc_shp)%>%
   #   st_transform(4326)
 
@@ -40,12 +63,12 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp){
 
   loc_no_murb <- localidad %>% filter(!grepl("Total de|Localidades",NOM_LOC)) %>%
     mutate(
-      ENTIDAD = formatC(ENTIDAD, width = 2, flag = 0),
-      MUN =formatC(MUN, width = 3, flag = 0),
-      LOC = formatC(LOC, width = 4, flag = 0)) %>%
+      ENTIDAD = formato(ENTIDAD, tamaño = 2),
+      MUN =formato(MUN, tamaño = 3),
+      LOC = formato(LOC, tamaño = 4)) %>%
     anti_join(murb %>% distinct(MUN, LOC)) %>%
     # select(NOM_ENT,MUN,NOM_MUN,LOC,NOM_LOC,POBTOT) %>%
-    mutate(AMBITO = "Rural")
+    mutate(AMBITO = "Rural", tipo_localidad = "Localidad puntual")
 
   loc_no_murb <- loc_no_murb %>%
     mutate(LONGITUD=map_dbl(LONGITUD,~as.numeric(char2dms(.x,"°","'"))),
@@ -57,7 +80,10 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp){
     st_join(ageb_shp %>% mutate(valid = st_is_valid(geometry)) %>% filter(valid)) %>% as_tibble %>%
     select(MUN,LOC,AGEB = CVE_AGEB)
 
-  loc_no_murb <- loc_no_murb %>% left_join(loc)
+  loc_no_murb <- loc_no_murb %>% left_join(loc) %>% mutate(clave_ARLU = glue("{ENTIDAD}{MUN}{AGEB}"),
+                                                           clave_AULR = glue("{ENTIDAD}{MUN}{AGEB}{LOC}"),
+                                                           ARLU = "AR",
+                                                           AULR = "LR")
 
 
 
@@ -65,7 +91,7 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp){
     bind_rows(
       loc_no_murb
     ) %>% mutate(ENTIDAD = as.character(ENTIDAD),
-                 MZA = formatC(MZA,width = 3,flag = "0"))
+                 MZA = formato(MZA, tamaño = 3))
 
 
   # yo <- yo %>% summarise(sum(POBTOT)) %>% pull(1)
