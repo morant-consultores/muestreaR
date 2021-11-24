@@ -74,10 +74,11 @@ marco %>%
 # total población manzanas
 
 marco %>%
-  filter(MZA!=" NA") %>%
-  group_by(MZA,AMBITO) %>%
+  group_by(AMBITO) %>%
   summarise(pobtot=sum(POBTOT, na.rm=T)) %>%
   spread(AMBITO, pobtot)
+
+# concentración de municipios por ambito
 
 # total localidades no amanzanadas
 
@@ -103,17 +104,17 @@ marco %>%
 
 marco %>%
   mutate(
-         porc= VPH_AGUADV/VIVPARH_CV) %>%
+         porc= VPH_AGUADV/TVIVPARHAB) %>%
   arrange(desc(porc)) %>%
   ggplot() +
-  geom_density(aes(x=porc, color=MUN)) +
+  geom_density(aes(x=porc, color=AMBITO)) +
   facet_wrap(~AMBITO)
 
 ## boxplot
 
 marco %>%
   mutate(
-    porc= VPH_AGUADV/VIVPARH_CV) %>%
+    porc= VPH_AGUADV/TVIVPARHAB) %>%
   arrange(desc(porc)) %>%
   ggplot() +
   geom_boxplot(aes(y=porc, color=AMBITO))
@@ -121,15 +122,13 @@ marco %>%
 
 # calculo nivel municipal
 marco %>%
-  select(MUN, VPH_AGUADV, VIVPARH_CV) %>%
-  unique() %>%
-  mutate(dfi=VIVPARH_CV-VPH_AGUADV) %>%
-  View()
+  select(MUN:MZA, VPH_AGUADV, TVIVPARHAB) %>%
   group_by(MUN) %>%
   summarise(VPH_AGUADV=sum(VPH_AGUADV, na.rm=T),
-            VIVPARH_CV=sum(VIVPARH_CV, na.rm=T),
-            porc=VPH_AGUADV/VIVPARH_CV) %>%
-  ungroup()
+            TVIVPARHAB=sum(TVIVPARHAB, na.rm=T),
+            porc=VPH_AGUADV/TVIVPARHAB) %>%
+  ungroup() %>%
+  arrange(desc(porc))
 
 # Información muestral ----------------------------------------------------
 
