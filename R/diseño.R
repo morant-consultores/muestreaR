@@ -49,7 +49,7 @@ calcular_fpc <- function(bd, n_grupo, metodo_fpc = "probabilidad_inclusion", pes
                     ungroup() %>%
                     mutate(!!rlang::sym(glue::glue("fpc_{parse_number(nivel)}")):=
                              # Asumes que está muestreado con método de Tillé
-                             sampling::inclusionprobabilities(n = n_grupo, a = total)) %>%
+                             sampling::inclusionprobabilities(n = .y, a = total)) %>%
                     unnest(data)
 
                 }) %>% group_by(across(all_of(grupos)))
@@ -103,7 +103,6 @@ regiones <- function(bd, id, regiones){
 empaquetar <- function(bd, grupo, tipo, n, peso_tamaño, metodo_fpc, criterio_n = "peso"){
   aux <- bd
   for(i in seq_along(tipo)){
-
 
     aux <- etiquetar(aux, grupo[i], tipo[i],i)
 
