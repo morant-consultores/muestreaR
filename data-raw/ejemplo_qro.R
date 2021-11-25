@@ -16,8 +16,12 @@ wd_shp <- list.files(paste(list.files(glue("{wd}/AGEB"), full.names = T)[1:32],"
 wd_shp_loc <- list.files(paste(list.files(glue("{wd}/AGEB"), full.names = T)[1:32],"conjunto_de_datos", sep = "/"), full.names = T,pattern = "[[:digit:]]l.shp")
 orden <- substr(wd_loc,nchar(wd_loc)-13,nchar(wd_loc)-12) %>% order
 
+mza <- read_csv(wd_murb[[22]], na = "*")
+loc <- read_csv(wd_loc[orden][22], na = "*")
+ageb_shp <- st_read(wd_shp[22]) %>% st_transform(4326)
+loc_shp <- readOGR(dsn=wd_shp_loc[22],encoding = "CP1252") %>% spTransform(CRS("+init=epsg:4326")) %>% st_as_sf()
 
-qro <- crear_mm(mza = wd_murb[22],loc = wd_loc[orden][22], ageb_shp = wd_shp[22], loc_shp = wd_shp_loc[22])
+qro <- crear_mm(mza = mza, loc = loc, ageb_shp = ageb_shp, loc_shp = loc_shp)
 
 
 # Diseño de muestra -------------------------------------------------------
@@ -51,14 +55,14 @@ region_anterior <- list(
   )
 )
 marco <- regiones(qro, id = "NOM_MUN", regiones = region_anterior)
-n1 <- marco %>% nivel(1, grupo = "region", tipo = "strata", peso_tamaño = POBTOT, criterio_n = "peso")
+n1 <- marco %>% nivel(1, grupo = "region", tipo = "strata")
 
 
 # Segundo nivel -----------------------------------------------------------
 
 
 n2 <- n1 %>% nivel(2, grupo = "NOM_MUN", tipo = "id", n = 5, peso_tamaño = POBTOT, criterio_n = "peso")
-
+n2 %>%
 # Tercer nivel ------------------------------------------------------------
 
 
