@@ -95,7 +95,7 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp){
                  MUN=paste0(ENTIDAD, MUN),
                  LOC=paste0(MUN, LOC),
                  AGEB=paste0(LOC, AGEB),
-                 MZA=paste0(AGEB, MZA)) %>%
+                 MZA=if_else(is.na(MZA), AGEB, paste0(AGEB, MZA))) %>%
                  rownames_to_column("id")
 
 
