@@ -23,11 +23,6 @@ devtools::load_all()
 # qro %>% count(AMBITO)
 # Región ------------------------------------------------------------------
 #cambiar a qro
-prueba <- list(
-  reg1 = formatC(1:6,digits = 2,flag = "0"),
-  reg2 = formatC(7:12,digits =2,flag = "0"),
-  reg3 = formatC(13:18,digits = 2,flag = "0")
-)
 
 region_anterior <- list(
   `Sierra Gorda` = c("Arroyo Seco",
@@ -165,14 +160,15 @@ marco %>%
 
 # Información muestral ----------------------------------------------------
 ja <- empaquetar(bd = marco,
-                 grupo = c("region","NOM_MUN","NOM_LOC"),
-                 tipo = c("strata","id","id"),
-                 n = c(NA_integer_, 10,30),
+                 grupo = c("region","NOM_MUN","NOM_LOC","AGEB"),
+                 tipo = c("strata","id","id","id"),
+                 n = c(NA_integer_, 5,30,130),
                  peso_tamaño = POBTOT,
                  metodo_fpc = "probabilidad_inclusion",
                  criterio_n = "peso")
-ja %>% count(region, NOM_MUN,fpc_2) %>% count(region,wt = fpc_2)
-ja %>% count(region, NOM_MUN,NOM_LOC,fpc_3) %>% count(region,NOM_MUN,wt = fpc_3)
+ja %>% count(region, NOM_MUN,fpc_2) %>% count(region,wt = fpc_2, sort = T) %>% summarise(sum(n))
+ja %>% count(region, NOM_MUN,NOM_LOC,fpc_3) %>% count(region,NOM_MUN,wt = fpc_3,sort = T) %>% summarise(sum(n))
+ja %>% count(region, NOM_MUN,NOM_LOC,AGEB,fpc_4) %>% count(region,NOM_MUN,NOM_LOC,wt = fpc_4,sort = T)%>% summarise(sum(n))
 
 ja %>% distinct(region,fpc_2,fpc_3,fpc_4) %>%
   summarise(across(fpc_2:fpc_4, list(minimo = min, maximo = max),
