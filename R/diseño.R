@@ -22,13 +22,27 @@ etiquetar <- function(bd, grupo, tipo, i){
 #' @export
 #'
 #' @examples
-fpc <- function(bd){
+fpc <- function(bd, n, metodo_fpc = "probabilidad_inclusion"){
   nivel <- bd %>% ungroup %>% select(last_col()) %>% names
-  bd <- if(!grepl("strata",nivel)){
-    bd %>% left_join(bd %>% summarise(n())%>% summarise(!!rlang::sym(glue::glue("fpc_{parse_number(nivel)}")):=n()))
-  } else{
-    bd
+  if(tipo == "numero_unidades"){
+    bd <- if(!grepl("strata",nivel)){
+      bd %>% left_join(
+        bd %>% summarise(n())%>% summarise(!!rlang::sym(glue::glue("fpc_{parse_number(nivel)}")):=n())
+      )
+    } else{
+      bd
+    }
   }
+  if(tipo == "probabilidad_inclusion"){
+    bd <- if(!grepl("strata",nivel)){
+      bd %>% left_join(
+        bd %>% summarise(n()) %>% summarise(!!rlang::sym(glue::glue("fpc_{parse_number(nivel)}")):=n())
+        )
+    } else{
+      bd
+    }
+  }
+
   return(bd)
 }
 
@@ -107,13 +121,13 @@ regiones <- function(bd, id, regiones){
 #' @export
 #'
 #' @examples
-empaquetar <- function(bd, grupo, tipo, peso_tamaño, metodo_prob){
+empaquetar <- function(bd, grupo, tipo, peso_tamaño, metodo_fpc){
   aux <- bd
   for(i in seq_along(tipo)){
     aux <- etiquetar(aux, grupo[i], tipo[i],i) %>%
-      fpc() %>%
-      poblacion({{peso_tamaño}}) %>%
-      probabilidad(metodo = metodo_prob)
+      fpc(metodo_fpc = metodo_fpc) #%>%
+      # poblacion({{peso_tamaño}}) %>%
+    # probabilidad(metodo = metodo_prob)
   }
   # para_n <- tibble(nombres = names(aux)) %>% anti_join(tibble(nombres = names(bd)))
   # aux <- aux %>% group_by(across(all_of(c(grupo,para_n %>% pluck(1))))) %>% nest() %>% ungroup
