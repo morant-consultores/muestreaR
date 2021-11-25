@@ -19,8 +19,7 @@ devtools::load_all()
 #
 # qro <- crear_mm(mza = wd_murb[22],loc = wd_loc[orden][22], ageb_shp = wd_shp[22], loc_shp = wd_shp_loc[22])
 #
-# # usethis::use_data(qro)
-# qro %>% count(AMBITO)
+# usethis::use_data(qro, overwrite = T)
 # Región ------------------------------------------------------------------
 #cambiar a qro
 
@@ -160,11 +159,10 @@ marco %>%
 
 # Información muestral ----------------------------------------------------
 ja <- empaquetar(bd = marco,
-                 grupo = c("region","NOM_MUN","NOM_LOC","AGEB"),
-                 tipo = c("strata","id","id","id"),
-                 n = c(NA_integer_, 5,30,130),
+                 grupo = c("region","NOM_MUN","MZA"),
+                 tipo = c("strata","id","id"),
+                 n = c(NA_integer_, 5,130),
                  peso_tamaño = POBTOT,
-                 metodo_fpc = "probabilidad_inclusion",
                  criterio_n = "peso")
 ja %>% count(region, NOM_MUN,fpc_2) %>% count(region,wt = fpc_2, sort = T) %>% summarise(sum(n))
 ja %>% count(region, NOM_MUN,NOM_LOC,fpc_3) %>% count(region,NOM_MUN,wt = fpc_3,sort = T) %>% summarise(sum(n))
