@@ -22,9 +22,9 @@ etiquetar <- function(bd, grupo, tipo, i){
 #' @export
 #'
 #' @examples
-fpc <- function(bd, n, metodo_fpc = "probabilidad_inclusion"){
+calcular_fpc <- function(bd, n_grupo, metodo_fpc = "probabilidad_inclusion", peso_tamaño){
   nivel <- bd %>% ungroup %>% select(last_col()) %>% names
-  if(tipo == "numero_unidades"){
+  if(metodo_fpc == "numero_unidades"){
     bd <- if(!grepl("strata",nivel)){
       bd %>% left_join(
         bd %>% summarise(n())%>% summarise(!!rlang::sym(glue::glue("fpc_{parse_number(nivel)}")):=n())
@@ -33,11 +33,26 @@ fpc <- function(bd, n, metodo_fpc = "probabilidad_inclusion"){
       bd
     }
   }
-  if(tipo == "probabilidad_inclusion"){
+  if(metodo_fpc == "probabilidad_inclusion"){
     bd <- if(!grepl("strata",nivel)){
-      bd %>% left_join(
-        bd %>% summarise(n()) %>% summarise(!!rlang::sym(glue::glue("fpc_{parse_number(nivel)}")):=n())
-        )
+      nivel_anterior <- bd %>% ungroup %>% select(last_col()-1) %>% names
+      if(grepl("fpc",nivel_anterior)) nivel_anterior <- bd %>% ungroup() %>% select(last_col()-2) %>% names
+
+      grupos <- bd %>% group_vars
+
+      aux <- bd %>% split(.[[nivel_anterior]]) %>%
+        map2_df(.x=.,.y=n_grupo,
+                .f = ~{
+                  .x %>%
+                    mutate(total = sum({{peso_tamaño}},na.rm = T)) %>%
+                    group_by(total,.add = T) %>% nest() %>%
+                    ungroup() %>%
+                    mutate(!!rlang::sym(glue::glue("fpc_{parse_number(nivel)}")):=
+                             # Asumes que está muestreado con método de Tillé
+                             sampling::inclusionprobabilities(n = 1, a = total)) %>%
+                    unnest(data)
+
+                }) %>% group_by(across(all_of(grupos)))
     } else{
       bd
     }
@@ -46,42 +61,6 @@ fpc <- function(bd, n, metodo_fpc = "probabilidad_inclusion"){
   return(bd)
 }
 
-#' Title
-#'
-#' @param bd
-#' @param peso
-#'
-#' @return
-#' @export
-#'
-#' @examples
-poblacion <- function(bd, peso){
-  nivel <- bd %>% ungroup %>% select(last_col()) %>% names
-  aux <- bd %>% mutate(!!rlang::sym(glue::glue("pob_{parse_number(nivel)}")) := sum({{peso}}, na.rm = T))
-  return(aux)
-}
-
-#' Title
-#'
-#' @param bd
-#' @param metodo
-#'
-#' @return
-#' @export
-#'
-#' @examples
-probabilidad <- function(bd, metodo){
-  bd <- if(metodo == "poblacion"){
-    nivel <- bd %>% ungroup %>% select(last_col()-1) %>% names
-    bd <- if(grepl("fpc",nivel)){
-      id <- parse_number(nivel)
-      bd %>% mutate(!!rlang::sym(glue::glue("prob_{id}")):=!!rlang::sym(glue::glue("pob_{id}"))/!!rlang::sym(glue::glue("pob_{id-1}")))
-    } else{
-      bd
-    }
-  }
-  return(bd)
-}
 
 #' Title
 #'
@@ -121,13 +100,29 @@ regiones <- function(bd, id, regiones){
 #' @export
 #'
 #' @examples
-empaquetar <- function(bd, grupo, tipo, peso_tamaño, metodo_fpc){
+empaquetar <- function(bd, grupo, tipo, n, peso_tamaño, metodo_fpc, criterio_n = "peso"){
   aux <- bd
   for(i in seq_along(tipo)){
-    aux <- etiquetar(aux, grupo[i], tipo[i],i) %>%
-      fpc(metodo_fpc = metodo_fpc) #%>%
-      # poblacion({{peso_tamaño}}) %>%
+
+
+    aux <- etiquetar(aux, grupo[i], tipo[i],i)
+
+    nivel <- aux %>% ungroup %>% select(last_col()) %>% names
+    if(!grepl("strata",nivel)){
+      nivel_anterior <- aux %>% ungroup %>% select(last_col()-1) %>% names
+      if(grepl("fpc",nivel_anterior)) nivel_anterior <- aux %>% ungroup() %>% select(last_col()-2) %>% names
+      base_n <- criterio_N(base = aux %>% ungroup, variable_estrato = !!sym(nivel_anterior),
+                          variable_estudio = {{peso_tamaño}},num = n[i], tipo = criterio_n)
+
+    } else{
+      base_n <- NULL
+    }
+    aux <- aux %>% calcular_fpc(n_grupo = base_n$n, metodo_fpc = metodo_fpc, peso_tamaño = {{peso_tamaño}}) #%>%
+    # poblacion({{peso_tamaño}}) %>%
     # probabilidad(metodo = metodo_prob)
+
+
+
   }
   # para_n <- tibble(nombres = names(aux)) %>% anti_join(tibble(nombres = names(bd)))
   # aux <- aux %>% group_by(across(all_of(c(grupo,para_n %>% pluck(1))))) %>% nest() %>% ungroup
@@ -152,7 +147,6 @@ calcular_varianza_estratificada <- function(base, variable_estrato, variable_est
   if(is.null(estimador)) {
 
     bd <- base %>%
-      filter(!is.na({{variable_estudio}})) %>%
       group_by({{variable_estrato}}) %>%
       summarise(varianza=var({{variable_estudio}}, na.rm=T)) %>%
       summarise(suma_varianza=sum(varianza, na.rm=T)) %>%
@@ -221,7 +215,7 @@ calcular_varianza_mas <- function(base, n, variable_estudio) {
 #' @export
 #'
 #' @examples
-criterio_N <- function(base, variable_estrato, variable_estudio, num, tipo = "unidades", variable_peso) {
+criterio_N <- function(base, variable_estrato, variable_estudio, num, tipo = "unidades") {
 
   if(tipo == "unidades"){
     res <- base %>%
@@ -232,7 +226,7 @@ criterio_N <- function(base, variable_estrato, variable_estudio, num, tipo = "un
   if(tipo == "peso"){
     res <- base %>%
       filter(!is.na({{variable_estudio}})) %>%
-      count({{variable_estrato}}, wt = {{variable_peso}},name = "N") %>% mutate(n = ceiling(num*N/sum(N))) %>% select(-N)
+      count({{variable_estrato}}, wt = {{variable_estudio}},name = "N") %>% mutate(n = ceiling(num*N/sum(N))) %>% select(-N)
   }
 
   if(tipo == "uniforme"){

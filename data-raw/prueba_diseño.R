@@ -164,12 +164,15 @@ marco %>%
   arrange(desc(porc))
 
 # Información muestral ----------------------------------------------------
-
-ja <- empaquetar(marco,
-                 c("region","NOM_MUN"),
-                 c("strata","id"),
+ja <- empaquetar(bd = marco,
+                 grupo = c("region","NOM_MUN","NOM_LOC"),
+                 tipo = c("strata","id","id"),
+                 n = c(NA_integer_, 10,30),
                  peso_tamaño = POBTOT,
-                 metodo_prob = "poblacion")
+                 metodo_fpc = "probabilidad_inclusion",
+                 criterio_n = "peso")
+ja %>% count(region, NOM_MUN,fpc_2) %>% count(region,wt = fpc_2)
+ja %>% count(region, NOM_MUN,NOM_LOC,fpc_3) %>% count(region,NOM_MUN,wt = fpc_3)
 
 ja %>% distinct(region,fpc_2,fpc_3,fpc_4) %>%
   summarise(across(fpc_2:fpc_4, list(minimo = min, maximo = max),
