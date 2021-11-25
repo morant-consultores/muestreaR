@@ -9,6 +9,7 @@
 #'
 #' @return
 #' @export
+#' @import dplyr
 #' @examples
 etiquetar <- function(bd, grupo, tipo, i){
   bd %>% group_by(across(all_of(grupo)), .add = T) %>% mutate(!!glue::glue("{tipo}_{i}"):= cur_group_id())
@@ -31,8 +32,20 @@ calcular_fpc <- function(bd, n_grupo, peso_tamaño){
 
     grupos <- bd %>% group_vars
 
-    aux <- bd %>% split(.[[nivel_anterior]]) %>%
-      map2_df(.x=.,.y=n_grupo,
+    # browser()
+
+# bd %>%
+#   mutate(total = sum({{peso_tamaño}},na.rm = T)) %>%
+#   group_by(total,.add = T) %>% nest() %>%
+#   left_join(
+#     tibble(region = unique(bd$region), n = n_grupo)
+#   ) %>% mutate(!!rlang::sym(glue::glue("fpc_{parse_number(nivel)}")):=
+#            # Asumes que está muestreado con método de Tillé
+#            sampling::inclusionprobabilities(n = unique(n), a = total)) %>%
+#   count(fpc_2)
+
+    aux <- bd %>% purrr::split(.[[nivel_anterior]]) %>%
+      purrr::map2_df(.x=., .y=n_grupo,
               .f = ~{
                 .x %>%
                   mutate(total = sum({{peso_tamaño}},na.rm = T)) %>%
@@ -41,7 +54,7 @@ calcular_fpc <- function(bd, n_grupo, peso_tamaño){
                   mutate(!!rlang::sym(glue::glue("fpc_{parse_number(nivel)}")):=
                            # Asumes que está muestreado con método de Tillé
                            sampling::inclusionprobabilities(n = .y, a = total)) %>%
-                  unnest(data)
+                  tidyr::unnest(data)
 
               }) %>% group_by(across(all_of(grupos)))
   } else{
@@ -62,15 +75,15 @@ calcular_fpc <- function(bd, n_grupo, peso_tamaño){
 #'
 #' @examples
 regiones <- function(bd, id, regiones){
-  aux <- regiones %>% enframe(name = "region", value = id) %>% unnest(all_of(id))
+  aux <- regiones %>% tibble::enframe(name = "region", value = id) %>% tidyr::unnest(all_of(id))
   faltan <- bd %>% anti_join(aux) %>% distinct(!!sym(id)) %>% pull(1) %>% paste(collapse = ", ")
   if(faltan != ""){
-    warning(glue("No se ha clasificado los siguientes {id}: {faltan}. \n Favor de agregarlos a la lista regiones"))
+    warning(glue::glue("No se ha clasificado los siguientes {id}: {faltan}. \n Favor de agregarlos a la lista regiones"))
   }
 
   error <- aux %>% anti_join(bd) %>% distinct(!!sym(id)) %>% pull(1) %>% paste(collapse = ", ")
   if(error != ""){
-    warning(glue("Los siguientes {id} no existen en la base de datos: {error}. \n Favor de rectificar la lista de regiones"))
+    warning(glue::glue("Los siguientes {id} no existen en la base de datos: {error}. \n Favor de rectificar la lista de regiones"))
   }
 
   bd %>% left_join(

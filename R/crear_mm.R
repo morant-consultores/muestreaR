@@ -10,7 +10,7 @@
 #' @examples
 formato <- function(var, tamaño, bandera = 0){
 
-  parse_character(
+  readr::parse_character(
     formatC({{var}}, width = tamaño, flag = bandera)
   )
 }
@@ -26,8 +26,9 @@ formato <- function(var, tamaño, bandera = 0){
 #'
 #' @examples
 crear_mm <- function(mza, loc, ageb_shp, loc_shp){
-  print(mza)
-  poblacion <- read_csv(mza,na = "*")
+  # print(mza)
+  # poblacion <- read_csv(mza,na = "*")
+  poblacion <- mza
   poblacion <- poblacion %>% mutate(across(POBTOT:VPH_SINTIC, ~as.numeric(.x)))
   str <- poblacion %>% select(MUN,LOC) %>% select_if(is.character) %>% ncol
   if(str != 2){
@@ -41,25 +42,24 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp){
     LOC = formato(LOC, tamaño = 4)
   )
 
-  loc_shp <- readOGR(dsn=loc_shp,encoding = "CP1252") %>% spTransform(CRS("+init=epsg:4326")) %>% st_as_sf()
+  # loc_shp <- readOGR(dsn=loc_shp,encoding = "CP1252") %>% spTransform(CRS("+init=epsg:4326")) %>% st_as_sf()
   murb <- murb %>% left_join(loc_shp %>% as_tibble() %>%
                                transmute(ENTIDAD = formato(CVE_ENT, tamaño = 2),
                                          MUN =formato(CVE_MUN, tamaño = 3),
                                          LOC = formato(CVE_LOC, tamaño = 4),
                                          AMBITO))
   murb <- murb %>% mutate(tipo_localidad = "Localidad amanzanada",
-                          clave_ARLU = if_else(AMBITO == "Urbana", glue("{ENTIDAD}{MUN}{LOC}"), glue("{ENTIDAD}{MUN}{AGEB}")),
-                          clave_AULR = if_else(AMBITO == "Urbana", glue("{ENTIDAD}{MUN}{LOC}{AGEB}"), glue("{ENTIDAD}{MUN}{AGEB}{LOC}")),
+                          clave_ARLU = if_else(AMBITO == "Urbana", glue::glue("{ENTIDAD}{MUN}{LOC}"), glue::glue("{ENTIDAD}{MUN}{AGEB}")),
+                          clave_AULR = if_else(AMBITO == "Urbana", glue::glue("{ENTIDAD}{MUN}{LOC}{AGEB}"), glue::glue("{ENTIDAD}{MUN}{AGEB}{LOC}")),
                           ARLU = if_else(AMBITO == "Urbana", "LU", "AR"),
                           AULR = if_else(AMBITO == "Urbana", "AU", "LR"))
-  # loc_shp <- st_read(loc_shp)%>%
+
+
+
+  # localidad <- read_csv(loc,na = "*")
+  localidad <- loc
+  # ageb_shp <- st_read(ageb_shp)%>%
   #   st_transform(4326)
-
-
-  localidad <- read_csv(loc,na = "*")
-
-  ageb_shp <- st_read(ageb_shp)%>%
-    st_transform(4326)
 
   loc_no_murb <- localidad %>% filter(!grepl("Total de|Localidades",NOM_LOC)) %>%
     mutate(
@@ -77,11 +77,11 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp){
            ALTITUD = as.numeric(ALTITUD))
 
   loc <- loc_no_murb %>% st_as_sf(coords = c("LONGITUD","LATITUD"), crs = 4326) %>%
-    st_join(ageb_shp %>% mutate(valid = st_is_valid(geometry)) %>% filter(valid)) %>% as_tibble %>%
+    sf::st_join(ageb_shp %>% mutate(valid = sf::st_is_valid(geometry)) %>% filter(valid)) %>% as_tibble %>%
     select(MUN,LOC,AGEB = CVE_AGEB)
 
-  loc_no_murb <- loc_no_murb %>% left_join(loc) %>% mutate(clave_ARLU = glue("{ENTIDAD}{MUN}{AGEB}"),
-                                                           clave_AULR = glue("{ENTIDAD}{MUN}{AGEB}{LOC}"),
+  loc_no_murb <- loc_no_murb %>% left_join(loc) %>% mutate(clave_ARLU = glue::glue("{ENTIDAD}{MUN}{AGEB}"),
+                                                           clave_AULR = glue::glue("{ENTIDAD}{MUN}{AGEB}{LOC}"),
                                                            ARLU = "AR",
                                                            AULR = "LR")
 
@@ -96,7 +96,7 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp){
                  LOC=paste0(MUN, LOC),
                  AGEB=paste0(LOC, AGEB),
                  MZA=if_else(is.na(MZA), AGEB, paste0(AGEB, MZA))) %>%
-                 rownames_to_column("id")
+    tibble::rownames_to_column("id")
 
 
   # yo <- yo %>% summarise(sum(POBTOT)) %>% pull(1)
