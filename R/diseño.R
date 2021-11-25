@@ -49,7 +49,7 @@ calcular_fpc <- function(bd, n_grupo, metodo_fpc = "probabilidad_inclusion", pes
                     ungroup() %>%
                     mutate(!!rlang::sym(glue::glue("fpc_{parse_number(nivel)}")):=
                              # Asumes que está muestreado con método de Tillé
-                             sampling::inclusionprobabilities(n = 1, a = total)) %>%
+                             sampling::inclusionprobabilities(n = n_grupo, a = total)) %>%
                     unnest(data)
 
                 }) %>% group_by(across(all_of(grupos)))
