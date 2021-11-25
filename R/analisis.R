@@ -26,8 +26,8 @@ porcentaje_poblacion <- function(base, variable){
 
 marco <- marco %>% mutate(region22=if_else(AMBITO=="Rural","Rural", region2),
                           region22=if_else(region22=="Sierra Gorda", "Los Valles Centrales", region22))
-base_n <- criterio_N(marco, num = 130, region2, POCUPADA, tipo = "peso", POBTOT)
-calcular_varianza_estratificada(marco, region2, POCUPADA, estimador="t", base_n = base_n)/calcular_varianza_mas(marco, 130, POCUPADA)
+base_n <- criterio_N(marco, num = 130, region, POCUPADA, tipo = "peso")
+calcular_varianza_estratificada(marco, region, POCUPADA, estimador="t", base_n = base_n)/calcular_varianza_mas(marco, 130, POCUPADA)
 
 
 
