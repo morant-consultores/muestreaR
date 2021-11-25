@@ -56,16 +56,6 @@ region_anterior <- list(
 
 marco <- regiones(qro, id = "NOM_MUN", regiones = region_anterior)
 
-# Con sampling ------------------------------------------------------------
-
-muestra <- mstage(marco %>% distinct(MUN,LOC, .keep_all = T),
-       stage = c("stratified", "cluster"), varnames = c("region", "NOM_MUN"),
-       size = list(marco %>% distinct(LOC, .keep_all = T) %>% count(region) %>% pull(n),
-                   c(3,3,3)), method = list("","srswor","srswor"))
-
-marco %>% distinct(MUN,LOC, .keep_all = T) %>% count(region,NOM_MUN) %>% count(region)
-getdata(marco %>% distinct(LOC, .keep_all = T), muestra) %>% pluck(2) %>% as_tibble %>%
-  count(region, MUN)
 # Análisis ----------------------------------------------------------------
 
 # Cuántas personas mayores de 18 años hay en Querétaro?
