@@ -87,11 +87,16 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp){
 
 
 
-  yo <- murb %>%
+  final <- murb %>%
     bind_rows(
       loc_no_murb
     ) %>% mutate(ENTIDAD = as.character(ENTIDAD),
-                 MZA = formato(MZA, tamaño = 3))
+                 MZA = formato(MZA, tamaño = 3),
+                 MUN=paste0(ENTIDAD, MUN),
+                 LOC=paste0(MUN, LOC),
+                 AGEB=paste0(LOC, AGEB),
+                 MZA=paste0(AGEB, MZA),
+                 id=nrow())
 
 
   # yo <- yo %>% summarise(sum(POBTOT)) %>% pull(1)
@@ -102,5 +107,5 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp){
   #   .x
   # )
 
-  return(yo)
+  return(final)
 }
