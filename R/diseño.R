@@ -135,3 +135,114 @@ empaquetar <- function(bd, grupo, tipo, peso_tamaño, metodo_fpc){
 }
 
 
+#' Title
+#'
+#' @param base
+#' @param variable_estrato
+#' @param variable_estudio
+#' @param estimador
+#' @param n_k
+#' @param base_n
+#'
+#' @return
+#' @export
+#'
+#' @examples
+calcular_varianza_estratificada <- function(base, variable_estrato, variable_estudio,estimador=NULL, n_k=NULL, base_n=NULL) {
+  if(is.null(estimador)) {
+
+    bd <- base %>%
+      filter(!is.na({{variable_estudio}})) %>%
+      group_by({{variable_estrato}}) %>%
+      summarise(varianza=var({{variable_estudio}}, na.rm=T)) %>%
+      summarise(suma_varianza=sum(varianza, na.rm=T)) %>%
+      pull(suma_varianza)
+
+  }
+
+  else {
+
+    if(estimador=="t") {
+      bd <- base %>%
+        filter(!is.na({{variable_estudio}})) %>%
+        group_by({{variable_estrato}}) %>%
+        summarise(varianza=var({{variable_estudio}}, na.rm=T),
+                  N=n()) %>%
+        left_join(base_n) %>%
+        mutate(#n=ceiling(n*N/sum(N)),
+          varianza=((varianza*(N^2))/n)*(1-n/N)) %>%
+        summarise(suma_varianza=sum(varianza, na.rm=T)) %>%
+        pull(suma_varianza)
+
+    }
+
+  }
+  return(bd)
+
+
+}
+
+
+
+#' Title
+#'
+#' @param base
+#' @param n
+#' @param variable_estudio
+#'
+#' @return
+#' @export
+#'
+#' @examples
+calcular_varianza_mas <- function(base, n, variable_estudio) {
+  bd <- base %>%
+    filter(!is.na({{variable_estudio}})) %>%
+    summarise(N=n(),
+              varianza=var({{variable_estudio}}, na.rm=T)) %>%
+    mutate(varianza_t=((N^2)*(1-n/N)*varianza)/n) %>%
+    pull(varianza_t)
+
+  return(bd)
+
+}
+
+
+
+#' Title
+#'
+#' @param base
+#' @param variable_estrato
+#' @param variable_estudio
+#' @param num
+#' @param tipo
+#' @param variable_peso
+#'
+#' @return
+#' @export
+#'
+#' @examples
+criterio_N <- function(base, variable_estrato, variable_estudio, num, tipo = "unidades", variable_peso) {
+
+  if(tipo == "unidades"){
+    res <- base %>%
+      filter(!is.na({{variable_estudio}})) %>%
+      group_by({{variable_estrato}}) %>% tally(name = "N") %>% mutate(n = ceiling(num*N/sum(N))) %>% select(-N)
+  }
+
+  if(tipo == "peso"){
+    res <- base %>%
+      filter(!is.na({{variable_estudio}})) %>%
+      count({{variable_estrato}}, wt = {{variable_peso}},name = "N") %>% mutate(n = ceiling(num*N/sum(N))) %>% select(-N)
+  }
+
+  if(tipo == "uniforme"){
+    res <- base %>%
+      filter(!is.na({{variable_estudio}})) %>%
+      distinct({{variable_estrato}}) %>% mutate(n = round(num/n()))
+  }
+
+  return(res)
+}
+
+
+
