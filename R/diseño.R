@@ -9,7 +9,7 @@
 #'
 #' @return
 #' @export
-#' @import dplyr
+#' @import dplyr ggplot2
 #' @examples
 etiquetar <- function(bd, grupo, tipo, i){
   bd %>% group_by(across(all_of(grupo)), .add = T) %>% mutate(!!glue::glue("{tipo}_{i}"):= cur_group_id())
