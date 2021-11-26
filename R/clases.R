@@ -3,17 +3,35 @@ Diseño <- R6::R6Class("Diseño",
                         poblacion=NULL,
                         ultimo_nivel=0,
                         N=NULL,
-                        initialize = function(poblacion, N, unidad_muestreo){
+                        niveles=NULL,
+                        initialize = function(poblacion,
+                                              N,
+                                              unidad_muestreo,
+                                              id_unidad_muestreo,
+                                              llave_muestreo){
                           self$poblacion=poblacion
                           private$unidad_muestreo=unidad_muestreo
-                          # self$niveles=crear_nivel(nivel=self$ultimo_nivel,
-                          #                          id,
-                          #                          unidad_muestreo)
+                          self$niveles=agregar_nivel(variable=id_unidad_muestreo,
+                                                   tipo="cluster",
+                                                   descripcion = unidad_muestreo,
+                                                   llave = llave_muestreo,
+                                                   unidad_muestreo)
                         },
-                        agregar_nivel=function(variable, descripcion=NULL){
-                          self$ultimo_nivel <- self$ultimo_nivel+1
+                        agregar_nivel=function(variable,
+                                               tipo,
+                                               descripcion,
+                                               llave){
+                          if(!tipo %in% c("strata", "cluster")) stop("Tipo debe ser igual a cluster o strata")
+                          # Modificar el marco muestral
                           self$poblacion$marco_muestral <- self$poblacion$marco_muestral %>%
-                            rename("id_{niveles}":={{variable}})
+                            group_by({{variable}}, .add = T) %>%
+                            mutate(!!glue::glue("{tipo}_{self$ultimo_nivel}"):= cur_group_id())
+                          # Modificar sel niveles
+                          self$niveles <- self$niveles %>%
+                            add_row(nivel=self$nivel, tipo=tipo, descripcion=descripcion, llave=llave, aprobado=F)
+                          # Al último nivel le agregamos uno
+                          self$ultimo_nivel <- self$ultimo_nivel+1
+
                           return(invisible(self))
                         }
                         ),
