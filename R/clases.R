@@ -1,18 +1,25 @@
 Diseño <- R6::R6Class("Diseño",
                       public =list(
                         poblacion=NULL,
-                        niveles=0,
+                        ultimo_nivel=0,
                         N=NULL,
-                        initialize = function(poblacion, N){
+                        initialize = function(poblacion, N, unidad_muestreo){
                           self$poblacion=poblacion
+                          private$unidad_muestreo=unidad_muestreo
+                          # self$niveles=crear_nivel(nivel=self$ultimo_nivel,
+                          #                          id,
+                          #                          unidad_muestreo)
                         },
                         agregar_nivel=function(variable, descripcion=NULL){
-                          self$niveles <- self$niveles+1
+                          self$ultimo_nivel <- self$ultimo_nivel+1
                           self$poblacion$marco_muestral <- self$poblacion$marco_muestral %>%
                             rename("id_{niveles}":={{variable}})
                           return(invisible(self))
                         }
-                        )
+                        ),
+                      private = list(
+                        unidad_muestreo=NULL
+                      )
 )
 
 Poblacion <- R6::R6Class("Poblacion",
