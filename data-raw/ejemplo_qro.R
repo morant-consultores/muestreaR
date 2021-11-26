@@ -54,8 +54,13 @@ region_anterior <- list(
     "Corregidora"
   )
 )
+
 marco <- regiones(qro, id = "NOM_MUN", regiones = region_anterior)
-n1 <- marco %>% nivel(1, grupo = "region", tipo = "strata")
+marco %>% analizar_nivel()
+
+n1 <- marco %>% agregar_nivel(1, grupo = region, tipo = "strata")
+
+n1 %>% analizar_nivel()
 
 
 # Segundo nivel -----------------------------------------------------------
