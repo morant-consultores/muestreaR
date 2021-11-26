@@ -67,7 +67,7 @@ n1 %>% analizar_nivel()
 
 
 n2 <- n1 %>% nivel(2, grupo = "NOM_MUN", tipo = "id", n = 5, peso_tamaño = POBTOT, criterio_n = "peso")
-n2 %>%
+
 # Tercer nivel ------------------------------------------------------------
 
 
