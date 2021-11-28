@@ -25,16 +25,15 @@ formato <- function(var, tamaño, bandera = 0){
 #' @export
 #'
 #' @examples
-crear_mm <- function(mza, loc, ageb_shp, loc_shp){
+crear_mm <- function(mza, loc, ageb_shp, loc_shp, lpr_shp){
   # print(mza)
   # poblacion <- read_csv(mza,na = "*")
   poblacion <- mza
-  poblacion <- poblacion %>% mutate(across(POBTOT:VPH_SINTIC, ~as.numeric(.x)))
-  str <- poblacion %>% select(MUN,LOC) %>% select_if(is.character) %>% ncol
-  if(str != 2){
-    poblacion <- poblacion %>% mutate(MUN = formato(MUN, tamaño = 3),
-                                      LOC = formato(LOC, tamaño = 4))
-  }
+  parseN <- poblacion %>% select(POBTOT:last_col()) %>% select(where(is.character)) %>% names
+  poblacion <- poblacion %>% mutate(across(all_of(parseN), ~readr::parse_double(.x,na = c("","NA","*","N/A"))))
+
+  poblacion <- poblacion %>% mutate(MUN = formato(MUN, tamaño = 3),
+                                    LOC = formato(LOC, tamaño = 4))
 
   murb <- poblacion %>% filter(!grepl("Total ",NOM_LOC)) %>% mutate(
     ENTIDAD = formato(ENTIDAD, tamaño = 2),
@@ -67,23 +66,37 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp){
       MUN =formato(MUN, tamaño = 3),
       LOC = formato(LOC, tamaño = 4)) %>%
     anti_join(murb %>% distinct(MUN, LOC)) %>%
-    # select(NOM_ENT,MUN,NOM_MUN,LOC,NOM_LOC,POBTOT) %>%
     mutate(AMBITO = "Rural", tipo_localidad = "Localidad puntual")
 
+  parseN <- loc_no_murb %>% select(POBTOT:VPH_SINTIC) %>% select(where(is.character)) %>% names
   loc_no_murb <- loc_no_murb %>%
-    mutate(LONGITUD=map_dbl(LONGITUD,~as.numeric(char2dms(.x,"°","'"))),
-           LATITUD =map_dbl(LATITUD,~as.numeric(char2dms(.x,"°","'"))),
-           across(POBTOT:VPH_SINTIC, ~as.numeric(.x)),
-           ALTITUD = as.numeric(ALTITUD))
+    select(-(LONGITUD:ALTITUD)) %>%
+    mutate(
+      # LONGITUD=map_dbl(LONGITUD,~as.numeric(char2dms(.x,"°","'"))),
+      # LATITUD =map_dbl(LATITUD,~as.numeric(char2dms(.x,"°","'"))),
+      # ALTITUD = as.numeric(ALTITUD),
+      across(all_of(parseN), ~readr::parse_double(.x, na = c("","NA","*","N/A")))
+    )
 
-  loc <- loc_no_murb %>% st_as_sf(coords = c("LONGITUD","LATITUD"), crs = 4326) %>%
-    sf::st_join(ageb_shp %>% mutate(valid = sf::st_is_valid(geometry)) %>% filter(valid)) %>% as_tibble %>%
-    select(MUN,LOC,AGEB = CVE_AGEB)
+  # loc <- loc_no_murb %>% st_as_sf(coords = c("LONGITUD","LATITUD"), crs = 4326) %>%
+  #   sf::st_join(ageb_shp %>% mutate(valid = sf::st_is_valid(geometry)) %>% filter(valid)) %>% as_tibble %>%
+  #   select(MUN,LOC,AGEB = CVE_AGEB)
 
-  loc_no_murb <- loc_no_murb %>% left_join(loc) %>% mutate(clave_ARLU = glue::glue("{ENTIDAD}{MUN}{AGEB}"),
-                                                           clave_AULR = glue::glue("{ENTIDAD}{MUN}{AGEB}{LOC}"),
-                                                           ARLU = "AR",
-                                                           AULR = "LR")
+  loc_no_murb <- loc_no_murb %>% left_join(
+    lpr_shp %>%
+      tibble %>%
+      transmute(ENTIDAD = formato(CVE_ENT,2),
+                MUN = formato(CVE_MUN, 3),
+                LOC = formato(CVE_LOC,4),
+                AGEB = formato(CVE_AGEB,4),
+                MZA = formato(CVE_MZA,3)
+      )
+  )
+
+  loc_no_murb <- loc_no_murb %>% mutate(clave_ARLU = glue::glue("{ENTIDAD}{MUN}{AGEB}"),
+                                        clave_AULR = glue::glue("{ENTIDAD}{MUN}{AGEB}{LOC}"),
+                                        ARLU = "AR",
+                                        AULR = "LR")
 
 
 
@@ -95,7 +108,7 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp){
                  MUN=paste0(ENTIDAD, MUN),
                  LOC=paste0(MUN, LOC),
                  AGEB=paste0(LOC, AGEB),
-                 MZA=if_else(is.na(MZA), AGEB, paste0(AGEB, MZA))) %>%
+                 MZA=paste0(AGEB, MZA)) %>%
     tibble::rownames_to_column("id")
 
 
@@ -109,3 +122,18 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp){
 
   return(final)
 }
+crear_shp(mun_shp, loc_shp, agebR_shp, agebU_shp, lpr_shp, mza_shp)
+debug(crear_shp)
+crear_shp <- function(mun, locU, agebR, agebU, locR, mza){
+  mun <- mun %>% transmute(MUN = CVEGEO, NOM_MUN = NOMGEO)
+
+  locU <- locU %>% transmute(MUN = CVEGEO, NOM_MUN = NOMGEO, AMBITO = AMBITO)
+
+  agebR_shp
+  agebU_shp <- agebU_shp <- agebU_shp %>% transmute(AGEB = CVEGEO)
+
+  locR
+
+
+}
+

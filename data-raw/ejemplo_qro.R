@@ -12,16 +12,20 @@ wd <- "~/Dropbox (Selva)/Ciencia de datos/Consultoría Estadística/Recursos/E
 
 wd_murb <- list.files(glue::glue("{wd}/Población"), full.names = T)
 wd_loc <- list.files(paste(list.files(glue::glue("{wd}/Localidad"),full.names = T), "conjunto_de_datos",sep = "/"), full.names = T)
-wd_shp <- list.files(paste(list.files(glue::glue("{wd}/AGEB"), full.names = T)[1:32],"conjunto_de_datos", sep = "/"), full.names = T,pattern = "ar.shp")
+wd_shp_ageb_r <- list.files(paste(list.files(glue::glue("{wd}/AGEB"), full.names = T)[1:32],"conjunto_de_datos", sep = "/"), full.names = T,pattern = "ar.shp")
+wd_shp_ageb <- list.files(paste(list.files(glue::glue("{wd}/AGEB"), full.names = T)[1:32],"conjunto_de_datos", sep = "/"), full.names = T,pattern = "a.shp")
 wd_shp_loc <- list.files(paste(list.files(glue::glue("{wd}/AGEB"), full.names = T)[1:32],"conjunto_de_datos", sep = "/"), full.names = T,pattern = "[[:digit:]]l.shp")
+wd_shp_mun <- list.files(paste(list.files(glue::glue("{wd}/AGEB"), full.names = T)[1:32],"conjunto_de_datos", sep = "/"), full.names = T,pattern = "[[:digit:]]mun.shp")
 orden <- substr(wd_loc,nchar(wd_loc)-13,nchar(wd_loc)-12) %>% order
 
 mza <- readr::read_csv(wd_murb[[22]], na = "*")
 loc <- readr::read_csv(wd_loc[orden][22], na = "*")
-ageb_shp <- sf::st_read(wd_shp[22]) %>% sf::st_transform(4326)
+agebR_shp <- sf::st_read(wd_shp_ageb_r[22]) %>% sf::st_transform(4326)
+agebU_shp <- rgdal::readOGR(dsn=wd_shp_ageb[22],encoding = "CP1252") %>% sp::spTransform(sp::CRS("+init=epsg:4326")) %>% sf::st_as_sf()
 loc_shp <- rgdal::readOGR(dsn=wd_shp_loc[22],encoding = "CP1252") %>% sp::spTransform(sp::CRS("+init=epsg:4326")) %>% sf::st_as_sf()
+mun_shp <- rgdal::readOGR(dsn=wd_shp_mun[22],encoding = "CP1252") %>% sp::spTransform(sp::CRS("+init=epsg:4326")) %>% sf::st_as_sf()
 
-qro <- crear_mm(mza = mza, loc = loc, ageb_shp = ageb_shp, loc_shp = loc_shp)
+qro <- crear_mm(mza = mza, loc = loc, ageb_shp = agebR_shp, loc_shp = loc_shp)
 
 
 # Diseño de muestra -------------------------------------------------------
@@ -56,11 +60,11 @@ region_anterior <- list(
 )
 
 marco <- regiones(qro, id = "NOM_MUN", regiones = region_anterior)
-marco %>% analizar_nivel()
+marco %>% analisis_global_nivel()
 
 n1 <- marco %>% agregar_nivel(1, grupo = region, tipo = "strata")
 
-n1 %>% analizar_nivel()
+n1 %>% analisis_global_nivel()
 
 
 # Segundo nivel -----------------------------------------------------------
