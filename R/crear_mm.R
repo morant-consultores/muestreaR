@@ -71,13 +71,14 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp){
     mutate(AMBITO = "Rural", tipo_localidad = "Localidad puntual")
 
   loc_no_murb <- loc_no_murb %>%
-    mutate(LONGITUD=map_dbl(LONGITUD,~as.numeric(char2dms(.x,"°","'"))),
-           LATITUD =map_dbl(LATITUD,~as.numeric(char2dms(.x,"°","'"))),
+    mutate(LONGITUD=map_dbl(LONGITUD,~as.numeric(sp::char2dms(.x,"°","'"))),
+           LATITUD =map_dbl(LATITUD,~as.numeric(sp::char2dms(.x,"°","'"))),
            across(POBTOT:VPH_SINTIC, ~as.numeric(.x)),
            ALTITUD = as.numeric(ALTITUD))
 
-  loc <- loc_no_murb %>% st_as_sf(coords = c("LONGITUD","LATITUD"), crs = 4326) %>%
-    sf::st_join(ageb_shp %>% mutate(valid = sf::st_is_valid(geometry)) %>% filter(valid)) %>% as_tibble %>%
+  loc <- loc_no_murb %>% sf::st_as_sf(coords = c("LONGITUD","LATITUD"), crs = 4326) %>%
+    sf::st_join(ageb_shp %>% mutate(valid = sf::st_is_valid(geometry)) %>% filter(valid)) %>%
+    as_tibble %>%
     select(MUN,LOC,AGEB = CVE_AGEB)
 
   loc_no_murb <- loc_no_murb %>% left_join(loc) %>% mutate(clave_ARLU = glue::glue("{ENTIDAD}{MUN}{AGEB}"),
