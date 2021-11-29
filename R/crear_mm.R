@@ -25,7 +25,7 @@ formato <- function(var, tamaño, bandera = 0){
 #' @export
 #'
 #' @examples
-crear_mm <- function(mza, loc, ageb_shp, loc_shp, lpr_shp){
+crear_mm <- function(mza, loc, loc_shp, lpr_shp){
   # print(mza)
   # poblacion <- read_csv(mza,na = "*")
   poblacion <- mza
@@ -51,7 +51,8 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp, lpr_shp){
                           clave_ARLU = if_else(AMBITO == "Urbana", glue::glue("{ENTIDAD}{MUN}{LOC}"), glue::glue("{ENTIDAD}{MUN}{AGEB}")),
                           clave_AULR = if_else(AMBITO == "Urbana", glue::glue("{ENTIDAD}{MUN}{LOC}{AGEB}"), glue::glue("{ENTIDAD}{MUN}{AGEB}{LOC}")),
                           ARLU = if_else(AMBITO == "Urbana", "LU", "AR"),
-                          AULR = if_else(AMBITO == "Urbana", "AU", "LR"))
+                          AULR = if_else(AMBITO == "Urbana", "AU", "LR"),
+                          tipo = "Localidad amanzanada")
 
 
 
@@ -68,14 +69,14 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp, lpr_shp){
     anti_join(murb %>% distinct(MUN, LOC)) %>%
     mutate(AMBITO = "Rural", tipo_localidad = "Localidad puntual")
 
-  parseN <- loc_no_murb %>% select(POBTOT:VPH_SINTIC) %>% select(where(is.character)) %>% names
+  parseN2 <- loc_no_murb %>% select(POBTOT:VPH_SINTIC) %>% select(where(is.character)) %>% names
   loc_no_murb <- loc_no_murb %>%
     select(-(LONGITUD:ALTITUD)) %>%
     mutate(
       # LONGITUD=map_dbl(LONGITUD,~as.numeric(char2dms(.x,"°","'"))),
       # LATITUD =map_dbl(LATITUD,~as.numeric(char2dms(.x,"°","'"))),
       # ALTITUD = as.numeric(ALTITUD),
-      across(all_of(parseN), ~readr::parse_double(.x, na = c("","NA","*","N/A")))
+      across(all_of(parseN2), ~readr::parse_double(.x, na = c("","NA","*","N/A")))
     )
 
   # loc <- loc_no_murb %>% st_as_sf(coords = c("LONGITUD","LATITUD"), crs = 4326) %>%
@@ -96,19 +97,20 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp, lpr_shp){
   loc_no_murb <- loc_no_murb %>% mutate(clave_ARLU = glue::glue("{ENTIDAD}{MUN}{AGEB}"),
                                         clave_AULR = glue::glue("{ENTIDAD}{MUN}{AGEB}{LOC}"),
                                         ARLU = "AR",
-                                        AULR = "LR")
-
+                                        AULR = "LR",
+                                        tipo = "Localidad puntual rural")
 
 
   final <- murb %>%
     bind_rows(
       loc_no_murb
-    ) %>% mutate(ENTIDAD = as.character(ENTIDAD),
+    ) %>% mutate(ENTIDAD = formato(ENTIDAD, 2),
                  MZA = formato(MZA, tamaño = 3),
-                 MUN=paste0(ENTIDAD, MUN),
-                 LOC=paste0(MUN, LOC),
-                 AGEB=paste0(LOC, AGEB),
-                 MZA=paste0(AGEB, MZA)) %>%
+                 MUN = paste0(ENTIDAD, MUN),
+                 LOC = paste0(MUN, LOC),
+                 AGEBR = if_else(tipo == "Localidad puntual rural",paste0(MUN, AGEB),paste0(LOC, AGEB)),
+                 AGEB = paste0(LOC, AGEB),
+                 MZA = paste0(AGEB, MZA)) %>%
     tibble::rownames_to_column("id")
 
 
@@ -122,18 +124,29 @@ crear_mm <- function(mza, loc, ageb_shp, loc_shp, lpr_shp){
 
   return(final)
 }
-crear_shp(mun_shp, loc_shp, agebR_shp, agebU_shp, lpr_shp, mza_shp)
-debug(crear_shp)
+
+
 crear_shp <- function(mun, locU, agebR, agebU, locR, mza){
   mun <- mun %>% transmute(MUN = CVEGEO, NOM_MUN = NOMGEO)
 
-  locU <- locU %>% transmute(MUN = CVEGEO, NOM_MUN = NOMGEO, AMBITO = AMBITO)
+  locR <- locR %>% mutate(CVEGEO2 = substr(CVEGEO,1,9)) %>%
+    anti_join(locU %>% tibble, by = c("CVEGEO2" = "CVEGEO")) %>% select(-CVEGEO2)
 
-  agebR_shp
-  agebU_shp <- agebU_shp <- agebU_shp %>% transmute(AGEB = CVEGEO)
+  locU <- locU %>% transmute(LOC = CVEGEO, NOM_LOC = NOMGEO, AMBITO = AMBITO)
 
-  locR
+  agebR <- agebR %>% transmute(AGEBR = CVEGEO)
 
+  agebU <- agebU %>% transmute(AGEB = CVEGEO)
 
+  locR <-   locR %>% transmute(MZA = CVEGEO, NOM_LOC = NOMGEO, TIPOMZA = "Localidad puntual rural")
+
+  mza <- mza %>% transmute(MZA = CVEGEO, TIPOMZA)
+
+  return(list(`Municipios` = mun,
+              `Localidades urbanas` = locU,
+              `Agebs rural` = agebR,
+              `Agebs urbano` = agebU,
+              `Localidades rural` = locR,
+              `Manzanas` = mza))
 }
 
