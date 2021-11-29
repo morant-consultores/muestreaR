@@ -1,9 +1,15 @@
 Diseño <- R6::R6Class("Diseño",
                       public =list(
                         poblacion=NULL,
-                        ultimo_nivel=0,
+                        ultimo_nivel=-1,
                         N=NULL,
-                        niveles=NULL,
+                        n=NULL,
+                        tamaño_muestras=list(),
+                        niveles=tibble(nivel=NULL,
+                                       tipo=NULL,
+                                       descripcion=NULL,
+                                       llave=NULL,
+                                       aprobado=NULL),
                         initialize = function(poblacion,
                                               N,
                                               unidad_muestreo,
@@ -11,30 +17,58 @@ Diseño <- R6::R6Class("Diseño",
                                               llave_muestreo){
                           self$poblacion=poblacion
                           private$unidad_muestreo=unidad_muestreo
-                          self$niveles=agregar_nivel(variable=id_unidad_muestreo,
-                                                   tipo="cluster",
-                                                   descripcion = unidad_muestreo,
-                                                   llave = llave_muestreo,
-                                                   unidad_muestreo)
+                          self$niveles=self$agregar_nivel(variable=id_unidad_muestreo,
+                                                          tipo="cluster",
+                                                          descripcion = unidad_muestreo,
+                                                          llave = llave_muestreo)
                         },
                         agregar_nivel=function(variable,
                                                tipo,
                                                descripcion,
                                                llave){
                           if(!tipo %in% c("strata", "cluster")) stop("Tipo debe ser igual a cluster o strata")
-                          # Modificar el marco muestral
-                          self$poblacion$marco_muestral <- self$poblacion$marco_muestral %>%
-                            group_by({{variable}}, .add = T) %>%
-                            mutate(!!glue::glue("{tipo}_{self$ultimo_nivel}"):= cur_group_id())
-                          # Modificar sel niveles
-                          self$niveles <- self$niveles %>%
-                            add_row(nivel=self$nivel, tipo=tipo, descripcion=descripcion, llave=llave, aprobado=F)
                           # Al último nivel le agregamos uno
                           self$ultimo_nivel <- self$ultimo_nivel+1
+                          # Modificar el marco muestral
+                          self$poblacion$marco_muestral <- self$poblacion$marco_muestral %>%
+                            {if(self$ultimo_nivel!=0) agrupar_nivel(., nivel=self$ultimo_nivel)
+                              else .
+                              } %>%
+                            group_by(!!sym(variable), add=T) %>%
+                            mutate("{tipo}_{self$ultimo_nivel}":= cur_group_id()) %>%
+                            ungroup()
+                          # Modificar sel niveles
+                          self$niveles <- self$niveles %>%
+                            add_row(.data = tibble(nivel=self$ultimo_nivel,
+                                                   variable=variable,
+                                                   tipo=tipo,
+                                                   descripcion=descripcion,
+                                                   llave=llave,
+                                                   aprobado=F))
 
-                          return(invisible(self))
+                          return(self$niveles)
+                        },
+                        plan_muestreo =function(nivel=self$ultimo_nivel,
+                                                num,
+                                                criterio,
+                                                variable_estudio,
+                                                ultimo_nivel=F){
+                          self$n <- criterio_N(base = self$poblacion$marco_muestral,
+                                               nivel=nivel,
+                                               variable_estudio = enquo(variable_estudio),
+                                               num = num,
+                                               criterio = criterio,
+                                               ultimo_nivel = ultimo_nivel
+                          )
+                          return(self$n)
                         }
-                        ),
+                        # extraer_muestra(nivel,
+                        #                 ultimo_nivel=F,
+                        #                 plan_muestreo){
+                        #   self$poblacion$marco_muestral %>%
+                        #     select(nivel_principal, nivel_secundario)
+                        # }
+                      ),
                       private = list(
                         unidad_muestreo=NULL
                       )
