@@ -33,7 +33,7 @@ lpr_shp <- rgdal::readOGR(dsn=wd_shp_lpr[22],encoding = "CP1252") %>% sp::spTran
 mza_shp <- rgdal::readOGR(dsn=wd_shp_mza[22],encoding = "CP1252") %>% sp::spTransform(sp::CRS("+init=epsg:4326")) %>% sf::st_as_sf()
 
 qro <- crear_mm(mza = mza, loc = loc, loc_shp = loc_shp, lpr_shp = lpr_shp)
-qro_shp<- crear_shp(mun_shp, loc_shp, agebR_shp, agebU_shp, lpr_shp, mza_shp)
+qro_shp <- crear_shp(mun_shp, loc_shp, agebR_shp, agebU_shp, lpr_shp, mza_shp)
 
 # Diseño de muestra -------------------------------------------------------
 
@@ -67,10 +67,10 @@ region_anterior <- list(
 )
 
 marco <- regiones(qro, id = "NOM_MUN", regiones = region_anterior)
-marco %>% analisis_global_nivel()
+marco %>% group_by(region,NOM_MUN,NOM_LOC) %>% analisis_global_nivel()
 
 
-
+graficar_mapa_poblacion(qro, qro_shp, nivel = "MUN", variable = "POBTOT")
 
 n1 <- marco %>% agregar_nivel(1, grupo = region, tipo = "strata")
 pal <- colorFactor(topo.colors(n_distinct(n1$strata_1)),domain = unique(n1$strata_1))
@@ -78,7 +78,7 @@ pal <- colorFactor(topo.colors(n_distinct(n1$strata_1)),domain = unique(n1$strat
 uno <- qro_shp %>% pluck("Municipios") %>%
   left_join(n1 %>% distinct(MUN,strata_1)) %>%
   group_by(strata_1) %>% summarise(n()) %>% leaflet() %>%
-  addPolygons(color = ~pal(strata_1), weight = 1)
+  addPolygons(color = ~pal(strata_1), opacity = 1)
 
 
 n1 %>% analisis_global_nivel()
@@ -87,7 +87,10 @@ n1 %>% analisis_global_nivel()
 # Segundo nivel -----------------------------------------------------------
 
 
-n2 <- n1 %>% agregar_nivel(2, grupo = "NOM_MUN", tipo = "id", n = 5, peso_tamaño = POBTOT, criterio_n = "peso")
+n2 <- n1 %>% agregar_nivel(i = 2, grupo = NOM_MUN, tipo = "id")
+pal2 <- colorFactor(topo.colors(n_distinct(n2$id_2)),domain = unique(n2$id_2))
+uno %>% addPolygons(data = qro_shp %>% pluck("Municipios") %>%
+                      left_join(n2 %>% distinct(MUN,id_2)), color = ~pal2(id_2),weight = 1, fillOpacity = .5 )
 
 # Tercer nivel ------------------------------------------------------------
 

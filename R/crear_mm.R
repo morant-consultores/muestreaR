@@ -48,10 +48,10 @@ crear_mm <- function(mza, loc, loc_shp, lpr_shp){
                                          LOC = formato(CVE_LOC, tamaño = 4),
                                          AMBITO))
   murb <- murb %>% mutate(tipo_localidad = "Localidad amanzanada",
-                          clave_ARLU = if_else(AMBITO == "Urbana", glue::glue("{ENTIDAD}{MUN}{LOC}"), glue::glue("{ENTIDAD}{MUN}{AGEB}")),
-                          clave_AULR = if_else(AMBITO == "Urbana", glue::glue("{ENTIDAD}{MUN}{LOC}{AGEB}"), glue::glue("{ENTIDAD}{MUN}{AGEB}{LOC}")),
-                          ARLU = if_else(AMBITO == "Urbana", "LU", "AR"),
-                          AULR = if_else(AMBITO == "Urbana", "AU", "LR"),
+                          ARLU = if_else(AMBITO == "Urbana", glue::glue("{ENTIDAD}{MUN}{LOC}"), glue::glue("{ENTIDAD}{MUN}{AGEB}")),
+                          # clave_AULR = if_else(AMBITO == "Urbana", glue::glue("{ENTIDAD}{MUN}{LOC}{AGEB}"), glue::glue("{ENTIDAD}{MUN}{AGEB}{LOC}")),
+                          # ARLU = if_else(AMBITO == "Urbana", "LU", "AR"),
+                          # AULR = if_else(AMBITO == "Urbana", "AU", "LR"),
                           tipo = "Localidad amanzanada")
 
 
@@ -94,10 +94,10 @@ crear_mm <- function(mza, loc, loc_shp, lpr_shp){
       )
   )
 
-  loc_no_murb <- loc_no_murb %>% mutate(clave_ARLU = glue::glue("{ENTIDAD}{MUN}{AGEB}"),
-                                        clave_AULR = glue::glue("{ENTIDAD}{MUN}{AGEB}{LOC}"),
-                                        ARLU = "AR",
-                                        AULR = "LR",
+  loc_no_murb <- loc_no_murb %>% mutate(ARLU = glue::glue("{ENTIDAD}{MUN}{AGEB}"),
+                                        # clave_AULR = glue::glue("{ENTIDAD}{MUN}{AGEB}{LOC}"),
+                                        # ARLU = "AR",
+                                        # AULR = "LR",
                                         tipo = "Localidad puntual rural")
 
 
@@ -110,7 +110,8 @@ crear_mm <- function(mza, loc, loc_shp, lpr_shp){
                  LOC = paste0(MUN, LOC),
                  AGEBR = if_else(tipo == "Localidad puntual rural",paste0(MUN, AGEB),paste0(LOC, AGEB)),
                  AGEB = paste0(LOC, AGEB),
-                 MZA = paste0(AGEB, MZA)) %>%
+                 MZA = paste0(AGEB, MZA),
+                 LPRMZA = MZA) %>%
     tibble::rownames_to_column("id")
 
 
@@ -132,21 +133,21 @@ crear_shp <- function(mun, locU, agebR, agebU, locR, mza){
   locR <- locR %>% mutate(CVEGEO2 = substr(CVEGEO,1,9)) %>%
     anti_join(locU %>% tibble, by = c("CVEGEO2" = "CVEGEO")) %>% select(-CVEGEO2)
 
-  locU <- locU %>% transmute(LOC = CVEGEO, NOM_LOC = NOMGEO, AMBITO = AMBITO)
+  locU <- locU %>% transmute(ARLU = CVEGEO, NOM_LOC = NOMGEO, AMBITO = AMBITO)
 
-  agebR <- agebR %>% transmute(AGEBR = CVEGEO)
+  agebR <- agebR %>% transmute(ARLU = CVEGEO)
 
   agebU <- agebU %>% transmute(AGEB = CVEGEO)
 
-  locR <-   locR %>% transmute(MZA = CVEGEO, NOM_LOC = NOMGEO, TIPOMZA = "Localidad puntual rural")
+  locR <-   locR %>% transmute(LPRMZA = CVEGEO, NOM_LOC = NOMGEO, TIPOMZA = "Localidad puntual rural")
 
-  mza <- mza %>% transmute(MZA = CVEGEO, TIPOMZA)
+  mza <- mza %>% transmute(LPRMZA = CVEGEO, TIPOMZA)
 
-  return(list(`Municipios` = mun,
-              `Localidades urbanas` = locU,
-              `Agebs rural` = agebR,
-              `Agebs urbano` = agebU,
-              `Localidades rural` = locR,
-              `Manzanas` = mza))
+  return(list(MUN = mun,
+              ARLU = bind_rows(locU, agebR),
+              AGEB = agebU,
+              LPRMZA = bind_rows(locR, mza)
+              )
+  )
 }
 
