@@ -1,4 +1,4 @@
-analisis_global_nivel <- function(marco, variable=NULL, variable_estudio=NULL){
+analisis_global_nivel <- function(marco, variable=NULL, variable_estudio=NULL, siguiente_nivel=NULL){
   p_18ymas <- marco %>%
     group_by({{variable}}) %>%
     summarise(resultado=sum(P_18YMAS, na.rm=T)) %>%
@@ -40,12 +40,22 @@ analisis_global_nivel <- function(marco, variable=NULL, variable_estudio=NULL){
     coord_flip()
 
   # Unidad de muestreo
-  unidades <- marco %>%
-    group_by({{variable}}) %>%
-    count() %>%
-    ungroup() %>%
-    mutate(porc=n/sum(n,na.rm = T)) %>%
-    arrange(desc(n))
+  unidades <- if(deparse(enquo(siguiente_nivel)) == "~NULL"){
+    marco %>%
+      group_by({{variable}}) %>%
+      count() %>%
+      ungroup() %>%
+      mutate(porc=n/sum(n,na.rm = T)) %>%
+      arrange(desc(n))
+  } else{
+
+    marco %>%
+      count({{variable}}, {{siguiente_nivel}}) %>%
+      count({{variable}}) %>%
+      mutate(porc=n/sum(n, na.rm=T))
+
+    }
+
 
   g3 <-unidades %>%
     head(20)%>%
@@ -93,10 +103,9 @@ analisis_global_nivel <- function(marco, variable=NULL, variable_estudio=NULL){
     summarise(pobtot=sum(POBTOT, na.rm=T)) %>%
     arrange(desc(pobtot))
 
-  desigualdad <- region %>%
+  desigualdad <- poblacion_unidad %>%
     summarise(gini=ineq::Gini(pobtot)) %>%
     arrange(desc(gini))
-
   g6 <- poblacion_unidad %>%
     slice(1:20) %>%
     ggplot(aes(x = reorder(id,pobtot),
@@ -106,7 +115,7 @@ analisis_global_nivel <- function(marco, variable=NULL, variable_estudio=NULL){
     ggfittext::geom_bar_text(outside = T,contrast = T,
                              aes(label=scales::comma(pobtot,accuracy = 1))) +
     labs(y="", x="")+
-    facet_wrap(~{{variable}}, scales = "free_y")+
+    facet_wrap(vars({{variable}}), scales = "free_y") +
     theme_bw()+
     coord_flip()
 
