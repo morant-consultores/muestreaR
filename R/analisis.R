@@ -6,6 +6,8 @@ analisis_global_nivel <- function(marco, variable=NULL, variable_estudio=NULL){
     arrange(desc(resultado))
 
 
+
+
   g1 <- p_18ymas %>%
     head(20) %>%
     ggplot(aes(x = reorder({{variable}}, resultado),
@@ -18,6 +20,7 @@ analisis_global_nivel <- function(marco, variable=NULL, variable_estudio=NULL){
     scale_y_continuous(labels = scales::label_comma(accuracy = 1))+
     theme_bw()+
     coord_flip()
+
 
   # Porcentaje de población total:
 
@@ -114,6 +117,7 @@ analisis_global_nivel <- function(marco, variable=NULL, variable_estudio=NULL){
   # concentración de población
   return(
     list(`Población de 18 años y más` = p_18ymas,
+         `Gráfica - Población de 18 años y más`= g1,
          `Gráfica - Población de 18 años y más`= g1,
          `Proporción de 18 años y más` = pct_18ymas,
          `Gráfica - Proporción de 18 años y más`=g2,
