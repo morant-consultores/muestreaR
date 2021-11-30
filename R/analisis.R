@@ -4,13 +4,13 @@ analisis_global_nivel <- function(marco){
 
 
 
-  gg.p_18ymas <- p_18ymas %>% ggplot(aes(
-    x = ifelse(
-      length(group_vars(marco)) > 0,
-      !!sym(group_vars(marco)),
-      "1"
-    ),
-    y = resultado)) + geom_col()
+  # gg.p_18ymas <- p_18ymas %>% ggplot(aes(
+  #   x = ifelse(
+  #     length(group_vars(marco)) > 0,
+  #     !!sym(group_vars(marco)),
+  #     "1"
+  #   ),
+  #   y = resultado)) + geom_col()
 
   # Porcentaje de población total:
 
@@ -35,7 +35,7 @@ analisis_global_nivel <- function(marco){
 
   return(
     list(`Población de 18 años y más` = p_18ymas,
-         gg.p_18ymas,
+         # gg.p_18ymas,
          `Proporción de 18 años y más` = pct_18ymas,
          `Unidades de muestreo` = unidades,
          `Población rural y urbana` = p_rural_urbana)
