@@ -218,24 +218,45 @@ calcular_varianza_mas <- function(base, n, variable_estudio) {
 #' @export
 #'
 #' @examples
-criterio_N <- function(base, variable_estrato, variable_estudio, num, tipo = "unidades") {
+#'
+criterio_N <- function(base, nivel, variable_estudio=NULL, num, criterio = "unidades",
+                       ultimo_nivel=F) {
 
-  if(tipo == "unidades"){
+  nombres <- names(base)
+  nivel_principal <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel}"),
+                          value = T )
+  if(length(nivel_principal)!=1) stop("El nivel seleccionado no se encuestra en el marco muestral")
+  if(nivel_principal=="cluster_0") stop("Hay que arreglar esto")
+  if(ultimo_nivel) nivel_secundario <- "cluster_0"
+  else{
+    nivel_secundario <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel+1}"),
+                             value = T )
+    if(length(nivel_secundario)==0) {
+      warning("El nivel posterior no se encuentra en el marco muestral, se utiliza en cambio el último nivel")
+      nivel_secundario <- "cluster_0"
+    }
+  }
+  base <- base %>%
+    agrupar_nivel(nivel=nivel)
+  if(criterio == "unidades"){
     res <- base %>%
-      filter(!is.na({{variable_estudio}})) %>%
-      group_by({{variable_estrato}}) %>% tally(name = "N") %>% mutate(n = ceiling(num*N/sum(N))) %>% select(-N)
+      filter(!is.na(!!variable_estudio)) %>%
+      summarise(N=n_distinct(!!sym(nivel_secundario))) %>%
+      mutate(n = ceiling(num*N/sum(N))) %>% select(-N)
   }
 
-  if(tipo == "peso"){
+  if(criterio == "peso"){
+
     res <- base %>%
-      filter(!is.na({{variable_estudio}})) %>%
-      count({{variable_estrato}}, wt = {{variable_estudio}},name = "N") %>% mutate(n = round(num*N/sum(N))) %>% select(-N)
+      filter(!is.na(!!variable_estudio)) %>%
+      summarise(N=sum(!!variable_estudio)) %>%
+      mutate(n = min(c(round(num*N/sum(N))),N)) %>% select(-N)
   }
 
-  if(tipo == "uniforme"){
+  if(criterio == "uniforme"){
     res <- base %>%
-      filter(!is.na({{variable_estudio}})) %>%
-      distinct({{variable_estrato}}) %>% mutate(n = round(num/n()))
+      summarise(N=n_distinct(!!sym(nivel_secundario))) %>%
+      mutate(n = min(c(num, N)))
   }
 
   return(res)
