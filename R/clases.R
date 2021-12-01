@@ -48,6 +48,13 @@ Diseño <- R6::R6Class("Diseño",
 
                           return(self$niveles)
                         },
+                        eliminar_nivel=function(nivel){
+                          self$niveles <- self$niveles %>%
+                            filter(nivel<nivel)
+                          self$ultimo_nivel <- nivel-1
+                          browser()
+                          self$poblacion$marco_muestral <- self$poblacion$marco_muestral
+                        },
                         plan_muestreo =function(nivel=self$ultimo_nivel,
                                                 num,
                                                 criterio,
