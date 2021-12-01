@@ -24,44 +24,30 @@ agregar_nivel <- function(bd, grupo, tipo, i){
 #' @export
 #'
 #' @examples
-calcular_fpc <- function(bd, n_grupo, peso_tamaño){
-  nivel <- bd %>% ungroup %>% select(last_col()) %>% names
-
-  bd <- if(!grepl("strata",nivel)){
-    nivel_anterior <- bd %>% ungroup %>% select(last_col()-1) %>% names
-    if(grepl("fpc",nivel_anterior)) nivel_anterior <- bd %>% ungroup() %>% select(last_col()-2) %>% names
-
-    grupos <- bd %>% group_vars
-
-    # browser()
-
-# bd %>%
-#   mutate(total = sum({{peso_tamaño}},na.rm = T)) %>%
-#   group_by(total,.add = T) %>% nest() %>%
-#   left_join(
-#     tibble(region = unique(bd$region), n = n_grupo)
-#   ) %>% mutate(!!rlang::sym(glue::glue("fpc_{parse_number(nivel)}")):=
-#            # Asumes que está muestreado con método de Tillé
-#            sampling::inclusionprobabilities(n = unique(n), a = total)) %>%
-#   count(fpc_2)
-
-    aux <- bd %>% purrr::split(.[[nivel_anterior]]) %>%
-      purrr::map2_df(.x=., .y=n_grupo,
-              .f = ~{
-                .x %>%
-                  mutate(total = sum({{peso_tamaño}},na.rm = T)) %>%
-                  group_by(total,.add = T) %>% nest() %>%
-                  ungroup() %>%
-                  mutate(!!rlang::sym(glue::glue("fpc_{parse_number(nivel)}")):=
-                           # Asumes que está muestreado con método de Tillé
-                           sampling::inclusionprobabilities(n = .y, a = total)) %>%
-                  tidyr::unnest(data)
-
-              }) %>% group_by(across(all_of(grupos)))
-  } else{
-    bd
+calcular_fpc <- function(base, nivel = 1, n_grupo, ultimo_nivel = F){
+  nombres <- names(base)
+  nivel_principal <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel}"),
+                          value = T )
+  if(length(nivel_principal)!=1) stop("El nivel seleccionado no se encuestra en el marco muestral")
+  if(nivel_principal=="cluster_0") stop("Hay que arreglar esto")
+  if(ultimo_nivel) nivel_secundario <- "cluster_0"
+  else{
+    nivel_secundario <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel+1}"),
+                             value = T )
+    if(length(nivel_secundario)==0) {
+      warning("El nivel posterior no se encuentra en el marco muestral, se utiliza en cambio el último nivel")
+      nivel_secundario <- "cluster_0"
+    }
   }
-  return(bd)
+  aux <- base %>% ungroup %>% agrupar_nivel(nivel_principal) %>%
+    summarise(total = sum(POBTOT,na.rm = T)) %>%
+    left_join(n_grupo) %>%
+    mutate(
+      !!rlang::sym(glue::glue("fpc_{nivel+1}")) := sampling::inclusionprobabilities(n = unique(n), a = total)
+    ) %>% ungroup %>% select(-total,-n)
+
+  base <- base %>% left_join(aux)
+  return(base)
 }
 
 
@@ -221,7 +207,6 @@ calcular_varianza_mas <- function(base, n, variable_estudio) {
 #'
 criterio_N <- function(base, nivel, variable_estudio=NULL, num, criterio = "unidades",
                        ultimo_nivel=F) {
-
   nombres <- names(base)
   nivel_principal <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel}"),
                           value = T )
@@ -240,7 +225,7 @@ criterio_N <- function(base, nivel, variable_estudio=NULL, num, criterio = "unid
     agrupar_nivel(nivel=nivel)
   if(criterio == "unidades"){
     res <- base %>%
-      filter(!is.na(!!variable_estudio)) %>%
+      filter(!is.na(!!sym(variable_estudio))) %>%
       summarise(N=n_distinct(!!sym(nivel_secundario))) %>%
       mutate(n = ceiling(num*N/sum(N))) %>% select(-N)
   }
@@ -248,8 +233,8 @@ criterio_N <- function(base, nivel, variable_estudio=NULL, num, criterio = "unid
   if(criterio == "peso"){
 
     res <- base %>%
-      filter(!is.na(!!variable_estudio)) %>%
-      summarise(N=sum(!!variable_estudio)) %>%
+      filter(!is.na(!!sym(variable_estudio))) %>%
+      summarise(N=sum(!!sym(variable_estudio))) %>%
       mutate(n = min(c(round(num*N/sum(N))),N)) %>% select(-N)
   }
 
