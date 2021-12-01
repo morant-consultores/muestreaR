@@ -1,5 +1,5 @@
 graficar_mapa_poblacion <- function(bd, shp, nivel, variable){
-  aux <- shp %>% pluck(nivel) %>%
+  aux <- shp %>% purrr::pluck(nivel) %>%
     inner_join(
       bd %>% count(across(all_of(nivel)), wt = across(all_of(variable)))
     )
