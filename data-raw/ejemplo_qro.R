@@ -67,7 +67,7 @@ region_anterior <- list(
 )
 
 marco <- regiones(qro, id = "NOM_MUN", regiones = region_anterior)
-marco %>% group_by(region,NOM_MUN,NOM_LOC) %>% analisis_global_nivel()
+marco %>%  analisis_global_nivel(LOC, POCUPADA)
 
 
 graficar_mapa_poblacion(qro, qro_shp, nivel = "MUN", variable = "POBTOT")
