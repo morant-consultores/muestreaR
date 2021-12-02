@@ -93,9 +93,9 @@ n1 %>% analisis_global_nivel()
 n2 <- n1 %>% agregar_nivel(i = 2, grupo = NOM_MUN, tipo = "cluster")
 
 bd_n <- criterio_N(n2 %>% ungroup, nivel = 1, variable_estudio = "POBTOT", num = 10, criterio = "unidades", ultimo_nivel=F)
-n2.fpc <- n2 %>% calcular_fpc(nivel = 1, n_grupo = bd_n) %>% names
+n2.fpc <- n2 %>% calcular_fpc(nivel = 1, n_grupo = bd_n)
 
-
+muestran2 <- muestrear(n2.fpc,1,POBTOT,bd_n)
 
 
 pal2 <- colorFactor(topo.colors(n_distinct(n2$id_2)),domain = unique(n2$id_2))

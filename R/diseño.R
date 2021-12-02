@@ -262,15 +262,30 @@ criterio_N <- function(base, nivel, variable_estudio=NULL, num, criterio = "unid
 #' @examples
 muestrear <- function(base, nivel,variable_estudio, bd_n){
 
+  nombres <- names(base)
+  nivel_principal <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel}"),
+                          value = T )
+  if(length(nivel_principal)!=1) stop("El nivel seleccionado no se encuestra en el marco muestral")
+  if(nivel_principal=="cluster_0") stop("Hay que arreglar esto")
+  if(ultimo_nivel) nivel_secundario <- "cluster_0"
+  else{
+    nivel_secundario <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel+1}"),
+                             value = T )
+    if(length(nivel_secundario)==0) {
+      warning("El nivel posterior no se encuentra en el marco muestral, se utiliza en cambio el último nivel")
+      nivel_secundario <- "cluster_0"
+    }
+  }
+
   muestra_n2  <- base %>%
-    agrupar_nivel(nivel) %>%
+    agrupar_nivel(nivel_secundario) %>%
     mutate(total = sum({{variable_estudio}},na.rm = T)) %>%
     group_by(total, .add = T) %>%
     nest() %>%
     ungroup() %>%
-    split(.$strata_1) %>% map2_df(bd_n$n,~{
+    split(.[[nivel_principal]]) %>% map2_df(bd_n$n,~{
       .x %>% slice_sample(weight_by = total,n = .y)
-    }) %>% unnest(data)
+    }) %>% tidyr::unnest(data)
 
   return(muestra_n2)
 
