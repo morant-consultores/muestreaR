@@ -249,3 +249,31 @@ criterio_N <- function(base, nivel, variable_estudio=NULL, num, criterio = "unid
 
 
 
+#' Title
+#'
+#' @param base
+#' @param nivel
+#' @param variable_estudio
+#' @param bd_n
+#'
+#' @return
+#' @export
+#'
+#' @examples
+muestrear <- function(base, nivel,variable_estudio, bd_n){
+
+  muestra_n2  <- base %>%
+    agrupar_nivel(nivel) %>%
+    mutate(total = sum({{variable_estudio}},na.rm = T)) %>%
+    group_by(total, .add = T) %>%
+    nest() %>%
+    ungroup() %>%
+    split(.$strata_1) %>% map2_df(bd_n$n,~{
+      .x %>% slice_sample(weight_by = total,n = .y)
+    }) %>% unnest(data)
+
+  return(muestra_n2)
+
+}
+
+
