@@ -260,7 +260,7 @@ criterio_N <- function(base, nivel, variable_estudio=NULL, num, criterio = "unid
 #' @export
 #'
 #' @examples
-muestrear <- function(base, nivel,variable_estudio, bd_n){
+muestrear <- function(base, nivel,variable_estudio, bd_n, ultimo_nivel = F){
 
   nombres <- names(base)
   nivel_principal <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel}"),
@@ -281,9 +281,9 @@ muestrear <- function(base, nivel,variable_estudio, bd_n){
     agrupar_nivel(nivel_secundario) %>%
     mutate(total = sum({{variable_estudio}},na.rm = T)) %>%
     group_by(total, .add = T) %>%
-    nest() %>%
+    tidyr::nest() %>%
     ungroup() %>%
-    split(.[[nivel_principal]]) %>% map2_df(bd_n$n,~{
+    split(.[[nivel_principal]]) %>% purrr::map2_df(bd_n$n,~{
       .x %>% slice_sample(weight_by = total,n = .y)
     }) %>% tidyr::unnest(data)
 
