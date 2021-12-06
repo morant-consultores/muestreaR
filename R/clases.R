@@ -2,26 +2,34 @@ Diseño <- R6::R6Class("Diseño",
                       public =list(
                         poblacion=NULL,
                         ultimo_nivel=-1,
-                        N=NULL,
                         n=NULL,
-                        tamaño_muestras=list(),
+                        n_0=NULL,
+                        n_i=list(),
+                        variable_poblacional=NULL,
                         niveles=tibble(nivel=NULL,
                                        tipo=NULL,
                                        descripcion=NULL,
                                        llave=NULL,
-                                       aprobado=NULL),
+                                       aprobado=NULL,
+                                       plan_muestra=NULL),
                         initialize = function(poblacion,
-                                              N,
+                                              n,
+                                              n_0,
+                                              variable_poblacional,
                                               unidad_muestreo,
                                               id_unidad_muestreo,
                                               llave_muestreo){
                           self$poblacion=poblacion
+                          self$n=n
                           private$unidad_muestreo=unidad_muestreo
+                          self$n_0=n_0
+                          self$variable_poblacional=variable_poblacional
                           self$niveles=self$agregar_nivel(variable=id_unidad_muestreo,
                                                           tipo="cluster",
                                                           descripcion = unidad_muestreo,
                                                           llave = llave_muestreo)
-                        },
+                          self$n_i <- self$plan_muestra(nivel = self$ultimo_nivel)
+                         },
                         agregar_nivel=function(variable,
                                                tipo,
                                                descripcion,
@@ -33,7 +41,7 @@ Diseño <- R6::R6Class("Diseño",
                           self$poblacion$marco_muestral <- self$poblacion$marco_muestral %>%
                             {if(self$ultimo_nivel!=0) agrupar_nivel(., nivel=self$ultimo_nivel)
                               else .
-                              } %>%
+                            } %>%
                             group_by(!!sym(variable), add=T) %>%
                             mutate("{tipo}_{self$ultimo_nivel}":= cur_group_id()) %>%
                             ungroup()
@@ -44,30 +52,62 @@ Diseño <- R6::R6Class("Diseño",
                                                    tipo=tipo,
                                                    descripcion=descripcion,
                                                    llave=llave,
-                                                   aprobado=F))
+                                                   aprobado=F,
+                                                   plan_muestra=F))
 
                           return(self$niveles)
                         },
                         eliminar_nivel=function(nivel){
+                          aux <- nivel
                           self$niveles <- self$niveles %>%
-                            filter(nivel<nivel)
+                            filter(nivel<aux)
                           self$ultimo_nivel <- nivel-1
-                          browser()
-                          self$poblacion$marco_muestral <- self$poblacion$marco_muestral
+                          self$poblacion$marco_muestral <- self$poblacion$marco_muestral %>%
+                            select(-matches(glue::glue("(cluster|strata)_[{nivel}-9]")))
+                          self$n_i <- self$n_i[-grep(glue::glue("(cluster|strata)_[{nivel}-9]"),
+                                                     names(self$n_i))]
                         },
-                        plan_muestreo =function(nivel=self$ultimo_nivel,
-                                                num,
-                                                criterio,
-                                                variable_estudio,
-                                                ultimo_nivel=F){
-                          self$n <- criterio_N(base = self$poblacion$marco_muestral,
-                                               nivel=nivel,
-                                               variable_estudio = enquo(variable_estudio),
-                                               num = num,
+                        plan_muestra =function(nivel, criterio, unidades_nivel){
+                          nivel_l <- nivel
+                          if(nivel_l==0){
+                            # Listo
+                            res <- self$poblacion$marco_muestral %>%
+                              group_by(cluster_0) %>%
+                              summarise(n_0=self$n_0) %>%
+                              mutate(m_0=ceiling(self$n/n_0))
+                            res <- list(cluster_0=res)
+                          }
+                          else{
+                            if(nivel_l==self$ultimo_nivel){
+                              # res <- self$poblacion$marco_muestral %>%
+                              #   left_join(self$n_i[["cluster_0"]], by="cluster_0") %>%
+                              #   agrupar_nivel(nivel) %>%
+                              #   summarise(m_0=unique(m_0))
+                              res <- asignar_m(self,
+                                               criterio = "uniforme",
+                                               unidades_nivel = unique(self$n_i[["cluster_0"]]$m_0)) %>%
+                              left_join(asignar_n(self))
+                              res <- set_names(list(res), glue::glue("{self$niveles %>%
+                                                     filter(nivel==nivel_l) %>%
+                                                     pull(tipo)}_{nivel_l}"))
+                            }
+                            # Si no es nivel=0 ni es nivel=ultimo_nivel
+                            else{
+                              # Repartir m_i a través de alguno de los criterios. Se elige
+                              # smi=sum(m_i).
+                              res <- asignar_m(diseño = self,
                                                criterio = criterio,
-                                               ultimo_nivel = ultimo_nivel
-                          )
-                          return(self$n)
+                                               unidades_nivel = unidades_nivel) %>%
+                                left_join(asignar_n(self))
+                              res <- set_names(list(res), glue::glue("{self$niveles %>%
+                                                     filter(nivel==nivel_l) %>%
+                                                     pull(tipo)}_{nivel_l}"))
+                            }
+                          }
+                          self$niveles <- self$niveles %>%
+                            mutate(plan_muestra=(nivel<=nivel_l))
+                          self$n_i <- c(self$n_i, res)
+                          return(res)
                         }
                         # extraer_muestra(nivel,
                         #                 ultimo_nivel=F,
@@ -89,12 +129,12 @@ Poblacion <- R6::R6Class("Poblacion",
                            initialize=function(nombre,
                                                base_manzana,
                                                base_localidad,
-                                               shp_ageb_rural,
+                                               shp_localidad_no_amanzanada,
                                                shp_localidad_amanzanada){
                              self$nombre = nombre
                              self$marco_muestral = muestreaR::crear_mm(mza = base_manzana,
                                                                        loc = base_localidad,
-                                                                       ageb_shp = shp_ageb_rural,
+                                                                       lpr_shp = shp_localidad_no_amanzanada,
                                                                        loc_shp = shp_localidad_amanzanada)
 
                            },
@@ -109,4 +149,5 @@ Poblacion <- R6::R6Class("Poblacion",
                            }
                          )
 )
+
 
