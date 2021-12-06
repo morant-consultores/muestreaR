@@ -1,3 +1,14 @@
+#' Title
+#'
+#' @param bd
+#' @param shp
+#' @param nivel
+#' @param variable
+#'
+#' @return
+#' @export
+#' @import leaflet
+#' @examples
 graficar_mapa_poblacion <- function(bd, shp, nivel, variable){
   aux <- shp %>% purrr::pluck(nivel) %>%
     inner_join(
