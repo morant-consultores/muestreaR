@@ -85,7 +85,7 @@ qro_shp %>% purrr::pluck("MUN") %>%
 
 n2 <- n1 %>% agregar_nivel(i = 2, grupo = NOM_MUN, tipo = "cluster")
 
-bd_n <- criterio_N(n2 , nivel = 1, variable_estudio = "POBTOT", num = 10, criterio = "unidades", ultimo_nivel=F)
+bd_n <- criterio_N(n2 , nivel = 1, variable_estudio = "POBTOT", num = 10, criterio = "peso", ultimo_nivel=F)
 n2.fpc <- n2 %>% calcular_fpc(nivel = 1, n_grupo = bd_n)
 muestra2 <- muestrear(n2.fpc,1,POBTOT,bd_n)
 
@@ -98,8 +98,8 @@ qro_shp %>% purrr::pluck("MUN") %>% inner_join(muestra2 %>% distinct(MUN, .keep_
 
 n3 <- muestra2 %>% agregar_nivel(i = 3, grupo = ARLU, tipo = "cluster")
 
-bd_n <- criterio_N(n3 , nivel = 2, variable_estudio = "POBTOT", num = 20,
-                   criterio = "unidades", ultimo_nivel=F)
+bd_n <- criterio_N(n3 , nivel = 2, variable_estudio = "POBTOT", num = 10,
+                   criterio = "peso", ultimo_nivel=F)
 n3.fpc <- n3 %>% calcular_fpc(nivel = 2, n_grupo = bd_n)
 muestra3 <- muestrear(n3.fpc,2,POBTOT,bd_n)
 
@@ -118,8 +118,8 @@ qro_shp %>% purrr::pluck("MUN") %>% inner_join(muestra2 %>% distinct(MUN, .keep_
 
 n4 <- muestra3 %>% agregar_nivel(i = 4, grupo = AULR, tipo = "cluster")
 
-bd_n <- criterio_N(n4 , nivel = 3, variable_estudio = "POBTOT", num = 10,
-                   criterio = "unidades", ultimo_nivel=F)
+bd_n <- criterio_N(n4 , nivel = 3, variable_estudio = "POBTOT", num = 30,
+                   criterio = "peso", ultimo_nivel=F)
 n4.fpc <- n4 %>% calcular_fpc(nivel = 3, n_grupo = bd_n)
 muestra4 <- muestrear(n4.fpc,3,POBTOT,bd_n)
 
