@@ -51,8 +51,8 @@ crear_mm <- function(mza,
                                          LOC = formato(CVE_LOC, tamaño = 4),
                                          AMBITO))
   murb <- murb %>% mutate(tipo_localidad = "Localidad amanzanada",
-                          ARLU = if_else(AMBITO == "Urbana", glue::glue("{ENTIDAD}{MUN}{LOC}"), glue::glue("{ENTIDAD}{MUN}{AGEB}")),
-                          # clave_AULR = if_else(AMBITO == "Urbana", glue::glue("{ENTIDAD}{MUN}{LOC}{AGEB}"), glue::glue("{ENTIDAD}{MUN}{AGEB}{LOC}")),
+                          ARLU = if_else(AMBITO == "Urbana", glue::glue("{ENTIDAD}{MUN}{LOC}-LOC-{AMBITO}"), glue::glue("{ENTIDAD}{MUN}{AGEB}-AGEB-{AMBITO}")),
+                          AULR = if_else(AMBITO == "Urbana", glue::glue("{ENTIDAD}{MUN}{LOC}{AGEB}-AGEB-{AMBITO}"), glue::glue("{ENTIDAD}{MUN}{LOC}{AGEB}800-LOC-{AMBITO}")),
                           # ARLU = if_else(AMBITO == "Urbana", "LU", "AR"),
                           # AULR = if_else(AMBITO == "Urbana", "AU", "LR"),
                           tipo = "Localidad amanzanada")
@@ -97,8 +97,8 @@ crear_mm <- function(mza,
       )
   )
 
-  loc_no_murb <- loc_no_murb %>% mutate(ARLU = glue::glue("{ENTIDAD}{MUN}{AGEB}"),
-                                        # clave_AULR = glue::glue("{ENTIDAD}{MUN}{AGEB}{LOC}"),
+  loc_no_murb <- loc_no_murb %>% mutate(ARLU = glue::glue("{ENTIDAD}{MUN}{AGEB}-AGEB-Rural"),
+                                        AULR = glue::glue("{ENTIDAD}{MUN}{LOC}{AGEB}800-LOC-Rural"),
                                         # ARLU = "AR",
                                         # AULR = "LR",
                                         tipo = "Localidad puntual rural")
@@ -113,8 +113,7 @@ crear_mm <- function(mza,
                  LOC = paste0(MUN, LOC),
                  AGEBR = if_else(tipo == "Localidad puntual rural",paste0(MUN, AGEB),paste0(LOC, AGEB)),
                  AGEB = paste0(LOC, AGEB),
-                 MZA = paste0(AGEB, MZA),
-                 LPRMZA = MZA) %>%
+                 MZA = paste0(AGEB, MZA)) %>%
     tibble::rownames_to_column("id")
 
 
@@ -133,23 +132,22 @@ crear_mm <- function(mza,
 crear_shp <- function(mun, locU, agebR, agebU, locR, mza){
   mun <- mun %>% transmute(MUN = CVEGEO, NOM_MUN = NOMGEO)
 
-  locR <- locR %>% mutate(CVEGEO2 = substr(CVEGEO,1,9)) %>%
-    anti_join(locU %>% tibble, by = c("CVEGEO2" = "CVEGEO")) %>% select(-CVEGEO2)
+  locU <- locU %>% transmute(ARLU = glue::glue("{CVEGEO}-LOC-{AMBITO}"), NOM_LOC = NOMGEO, AMBITO = AMBITO)
 
-  locU <- locU %>% transmute(ARLU = CVEGEO, NOM_LOC = NOMGEO, AMBITO = AMBITO)
+  agebR <- agebR %>% transmute(ARLU = glue::glue("{CVEGEO}-AGEB-Rural"))
 
-  agebR <- agebR %>% transmute(ARLU = CVEGEO)
+  agebU <- agebU %>% transmute(AULR = glue::glue("{CVEGEO}-AGEB-Urbana"))
 
-  agebU <- agebU %>% transmute(AGEB = CVEGEO)
+  locR <-   locR %>% transmute(AULR = glue::glue("{CVEGEO}-LOC-Rural"), Nombre = NOMGEO)
 
-  locR <-   locR %>% transmute(LPRMZA = CVEGEO, NOM_LOC = NOMGEO, TIPOMZA = "Localidad puntual rural")
-
-  mza <- mza %>% transmute(LPRMZA = CVEGEO, TIPOMZA)
+  mza <- mza %>% transmute(MZA = CVEGEO, TIPOMZA)
 
   return(list(MUN = mun,
-              ARLU = bind_rows(locU, agebR),
+              ARLU = bind_rows(locU %>%
+                                 filter(AMBITO == "Urbana"), agebR),
+              AULR = bind_rows(agebU,locR),
               AGEB = agebU,
-              LPRMZA = bind_rows(locR, mza)
+              MZA = mza
               )
   )
 }

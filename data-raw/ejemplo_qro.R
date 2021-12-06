@@ -35,10 +35,7 @@ mza_shp <- rgdal::readOGR(dsn=wd_shp_mza[22],encoding = "CP1252") %>% sp::spTran
 qro <- crear_mm(mza = mza, loc = loc, loc_shp = loc_shp, lpr_shp = lpr_shp)
 qro_shp <- crear_shp(mun_shp, loc_shp, agebR_shp, agebU_shp, lpr_shp, mza_shp)
 
-# Diseño de muestra -------------------------------------------------------
-
-
-# Primer nivel ------------------------------------------------------------
+# Primer nivel - region ------------------------------------------------------------
 
 
 region_anterior <- list(
@@ -67,32 +64,55 @@ region_anterior <- list(
 )
 
 marco <- regiones(qro, id = "NOM_MUN", regiones = region_anterior)
-marco %>% group_by(region,NOM_MUN,NOM_LOC) %>% analisis_global_nivel()
 
+marco %>%  analisis_global_nivel(region, POCUPADA)
 
 graficar_mapa_poblacion(qro, qro_shp, nivel = "MUN", variable = "POBTOT")
 
 n1 <- marco %>% agregar_nivel(1, grupo = region, tipo = "strata")
-pal <- colorFactor(topo.colors(n_distinct(n1$strata_1)),domain = unique(n1$strata_1))
 
-uno <- qro_shp %>% pluck("Municipios") %>%
-  left_join(n1 %>% distinct(MUN,strata_1)) %>%
-  group_by(strata_1) %>% summarise(n()) %>% leaflet() %>%
-  addPolygons(color = ~pal(strata_1), opacity = 1)
+uno <- graficar_mapa_muestra(muestra = n1, shp = qro_shp, nivel = "MUN")
 
 
-n1 %>% analisis_global_nivel()
+# Segundo nivel - MUN -----------------------------------------------------------
 
 
-# Segundo nivel -----------------------------------------------------------
+n2 <- n1 %>% agregar_nivel(i = 2, grupo = NOM_MUN, tipo = "cluster")
+
+bd_n <- criterio_N(n2 , nivel = 1, variable_estudio = "POBTOT", num = 10, criterio = "peso", ultimo_nivel=F)
+n2.fpc <- n2 %>% calcular_fpc(nivel = 1, n_grupo = bd_n)
+muestra2 <- muestrear(n2.fpc,1,POBTOT,bd_n)
 
 
-n2 <- n1 %>% agregar_nivel(i = 2, grupo = NOM_MUN, tipo = "id")
-pal2 <- colorFactor(topo.colors(n_distinct(n2$id_2)),domain = unique(n2$id_2))
-uno %>% addPolygons(data = qro_shp %>% pluck("Municipios") %>%
-                      left_join(n2 %>% distinct(MUN,id_2)), color = ~pal2(id_2),weight = 1, fillOpacity = .5 )
+uno %>% graficar_mapa_muestra(muestra = muestra2,
+                              shp = qro_shp, nivel = "MUN")
 
-# Tercer nivel ------------------------------------------------------------
+# Tercer nivel - ARLU ------------------------------------------------------------
 
 
-n3 <- n2 %>% nivel(3, grupo = "NOM_LOC", tipo = "id", n = 50, peso_tamaño = POBTOT, criterio_n = "peso")
+n3 <- muestra2 %>% agregar_nivel(i = 3, grupo = ARLU, tipo = "cluster")
+
+bd_n <- criterio_N(n3 , nivel = 2, variable_estudio = "POBTOT", num = 10,
+                   criterio = "peso", ultimo_nivel=F)
+n3.fpc <- n3 %>% calcular_fpc(nivel = 2, n_grupo = bd_n)
+muestra3 <- muestrear(n3.fpc,2,POBTOT,bd_n)
+
+uno %>%
+  graficar_mapa_muestra(muestra = muestra3,
+                        shp = qro_shp, nivel = "ARLU")
+
+# Cuarto nivel - AULR ----------------------------------------------------
+
+n4 <- muestra3 %>% agregar_nivel(i = 4, grupo = AULR, tipo = "cluster")
+
+bd_n <- criterio_N(n4 , nivel = 3, variable_estudio = "POBTOT", num = 40,
+                   criterio = "peso", ultimo_nivel=F)
+n4.fpc <- n4 %>% calcular_fpc(nivel = 3, n_grupo = bd_n)
+muestra4 <- muestrear(n4.fpc,3,POBTOT,bd_n)
+
+muestra4 %>% distinct(AULR) %>% tidyr::separate(AULR,c("CVEGEO","nivel","tipo")) %>% count(nivel,tipo)
+
+
+uno %>%
+  graficar_mapa_muestra(muestra = muestra4,
+                        shp = qro_shp, nivel = "AULR")

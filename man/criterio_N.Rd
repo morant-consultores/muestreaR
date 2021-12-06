@@ -4,7 +4,14 @@
 \alias{criterio_N}
 \title{Title}
 \usage{
-criterio_N(base, variable_estrato, variable_estudio, num, tipo = "unidades")
+criterio_N(
+  base,
+  nivel,
+  variable_estudio = NULL,
+  num,
+  criterio = "unidades",
+  ultimo_nivel = F
+)
 }
 \arguments{
 \item{variable_peso}{}
@@ -14,4 +21,7 @@ criterio_N(base, variable_estrato, variable_estudio, num, tipo = "unidades")
 }
 \description{
 Title
+}
+\examples{
+
 }
