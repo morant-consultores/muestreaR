@@ -4,7 +4,7 @@
 \alias{crear_mm}
 \title{Title}
 \usage{
-crear_mm(mza, loc, ageb_shp, loc_shp)
+crear_mm(mza, loc, loc_shp, lpr_shp)
 }
 \arguments{
 \item{cd}{}
