@@ -13,7 +13,7 @@
 #' @examples
 agregar_nivel <- function(bd, grupo, tipo, i){
   bd %>% group_by({{grupo}}, .add = T) %>%
-    mutate(!!glue::glue("{tipo}_{i}"):= cur_group_id())
+    mutate(!!glue::glue("{tipo}_{i}"):= cur_group_id()) %>% ungroup
 }
 
 #' Title
