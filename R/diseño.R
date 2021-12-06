@@ -276,15 +276,15 @@ muestrear <- function(base, nivel,variable_estudio, bd_n, ultimo_nivel = F){
       nivel_secundario <- "cluster_0"
     }
   }
-
   muestra_n2  <- base %>%
     agrupar_nivel(nivel_secundario) %>%
     mutate(total = sum({{variable_estudio}},na.rm = T)) %>%
     group_by(total, .add = T) %>%
     tidyr::nest() %>%
     ungroup() %>%
-    split(.[[nivel_principal]]) %>% purrr::map2_df(bd_n$n,~{
-      .x %>% slice_sample(weight_by = total,n = .y)
+    split(.[[nivel_principal]]) %>% purrr::map_df(~{
+      n_nivel <- bd_n %>% filter(!!sym(nivel_principal) == unique(.x[[nivel_principal]])) %>% pull(n)
+      .x %>% slice_sample(weight_by = total,n = n_nivel)
     }) %>% tidyr::unnest(data)
 
   return(muestra_n2)
