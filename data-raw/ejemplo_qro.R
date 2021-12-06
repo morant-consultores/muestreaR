@@ -70,14 +70,8 @@ marco %>%  analisis_global_nivel(region, POCUPADA)
 graficar_mapa_poblacion(qro, qro_shp, nivel = "MUN", variable = "POBTOT")
 
 n1 <- marco %>% agregar_nivel(1, grupo = region, tipo = "strata")
-pal <- colorFactor(topo.colors(n_distinct(n1$strata_1)),domain = unique(n1$strata_1))
 
-qro_shp %>% purrr::pluck("MUN") %>%
-  left_join(n1 %>% distinct(MUN,strata_1)) %>%
-  group_by(strata_1) %>% summarise(n()) %>%
-    sf::st_buffer(dist = 0) %>%
-    leaflet() %>%
-  addPolygons(color = ~pal(strata_1), opacity = 1)
+uno <- graficar_mapa_muestra(muestra = n1, shp = qro_shp, nivel = "MUN")
 
 
 # Segundo nivel - MUN -----------------------------------------------------------
@@ -90,8 +84,8 @@ n2.fpc <- n2 %>% calcular_fpc(nivel = 1, n_grupo = bd_n)
 muestra2 <- muestrear(n2.fpc,1,POBTOT,bd_n)
 
 
-qro_shp %>% purrr::pluck("MUN") %>% inner_join(muestra2 %>% distinct(MUN, .keep_all = T)) %>%
-  leaflet() %>% addProviderTiles("CartoDB.Positron") %>% addPolygons(color = ~pal(strata_1))
+uno %>% graficar_mapa_muestra(muestra = muestra2,
+                              shp = qro_shp, nivel = "MUN")
 
 # Tercer nivel - ARLU ------------------------------------------------------------
 
@@ -103,35 +97,22 @@ bd_n <- criterio_N(n3 , nivel = 2, variable_estudio = "POBTOT", num = 10,
 n3.fpc <- n3 %>% calcular_fpc(nivel = 2, n_grupo = bd_n)
 muestra3 <- muestrear(n3.fpc,2,POBTOT,bd_n)
 
-muestra3 %>% distinct(ARLU) %>% tidyr::separate(ARLU,c("CVEGEO","nivel","tipo")) %>% count(nivel,tipo)
-
-pal2 <- colorFactor(c("orange","red"),c("LOC","AGEB"))
-qro_shp %>% purrr::pluck("MUN") %>% inner_join(muestra2 %>% distinct(MUN, .keep_all = T)) %>%
-  leaflet() %>% addProviderTiles("CartoDB.Positron") %>% addPolygons(color = ~pal(strata_1), fill = F) %>%
-  addPolygons(data = qro_shp %>% purrr::pluck("ARLU") %>% inner_join(muestra3 %>% distinct(ARLU,strata_1)) %>%
-                tidyr::separate(ARLU,c("CVEGEO","nivel","tipo")),
-              color = ~pal2(nivel), weight = 1) %>%
-  addLegend(data = qro_shp %>% purrr::pluck("ARLU") %>% inner_join(muestra3 %>% distinct(ARLU,strata_1)) %>%
-              tidyr::separate(ARLU,c("CVEGEO","nivel","tipo")),pal = pal2, values = ~nivel)
+uno %>%
+  graficar_mapa_muestra(muestra = muestra3,
+                        shp = qro_shp, nivel = "ARLU")
 
 # Cuarto nivel - AULR ----------------------------------------------------
 
 n4 <- muestra3 %>% agregar_nivel(i = 4, grupo = AULR, tipo = "cluster")
 
-bd_n <- criterio_N(n4 , nivel = 3, variable_estudio = "POBTOT", num = 30,
+bd_n <- criterio_N(n4 , nivel = 3, variable_estudio = "POBTOT", num = 40,
                    criterio = "peso", ultimo_nivel=F)
 n4.fpc <- n4 %>% calcular_fpc(nivel = 3, n_grupo = bd_n)
 muestra4 <- muestrear(n4.fpc,3,POBTOT,bd_n)
 
 muestra4 %>% distinct(AULR) %>% tidyr::separate(AULR,c("CVEGEO","nivel","tipo")) %>% count(nivel,tipo)
 
-pal2 <- colorFactor(c("orange","red"),c("LOC","AGEB"))
-m4 <- qro_shp %>% purrr::pluck("AULR") %>% inner_join(muestra4 %>% distinct(AULR,strata_1)) %>%
-  tidyr::separate(AULR,c("CVEGEO","nivel","tipo"))
 
-qro_shp %>% purrr::pluck("MUN") %>% inner_join(muestra2 %>% distinct(MUN, .keep_all = T)) %>%
-  leaflet() %>% addProviderTiles("CartoDB.Positron") %>% addPolygons(color = ~pal(strata_1), fill = F) %>%
-  addPolygons(data = m4 %>% filter(sf::st_geometry_type(.) != "POINT"),
-              color = "green", weight = 1) %>%
-  addCircleMarkers(data = m4 %>% filter(sf::st_geometry_type(.) == "POINT"),
-                   color = "red", weight = 1, radius = 1)
+uno %>%
+  graficar_mapa_muestra(muestra = muestra4,
+                        shp = qro_shp, nivel = "AULR")
