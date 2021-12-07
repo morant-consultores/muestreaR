@@ -29,7 +29,7 @@ queretaro <- Poblacion$new(nombre="Querétaro",
                            shp_localidad_amanzanada =  loc_shp)
 
 diseño_qro <- Diseño$new(poblacion=queretaro,
-                         n=1200,
+                         n=1620,
                          n_0=8,
                          variable_poblacional="POBTOT",
                          unidad_muestreo="Localidades rurales no amanzanadas y manzanas",
