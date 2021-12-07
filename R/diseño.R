@@ -25,30 +25,44 @@ agregar_nivel <- function(bd, grupo, tipo, i){
 #'
 #' @examples
 
-calcular_fpc <- function(base, nivel = 1, n_grupo, ultimo_nivel = F){
-  nombres <- names(base)
+calcular_fpc <- function(diseño, nivel = 1){
+  nombres <- names(diseño$poblacion$marco_muestral)
+  nivel_anterior <- diseño$niveles %>% filter(nivel == (!!nivel - 1))
   nivel_principal <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel}"),
                           value = T )
   if(length(nivel_principal)!=1) stop("El nivel seleccionado no se encuestra en el marco muestral")
-  if(nivel_principal=="cluster_0") stop("Hay que arreglar esto")
-  if(ultimo_nivel) nivel_secundario <- "cluster_0"
-  else{
-    nivel_secundario <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel+1}"),
-                             value = T )
-    if(length(nivel_secundario)==0) {
-      warning("El nivel posterior no se encuentra en el marco muestral, se utiliza en cambio el último nivel")
-      nivel_secundario <- "cluster_0"
-    }
-  }
-  aux <- base %>% ungroup %>% agrupar_nivel(nivel_principal) %>%
-    summarise(total = sum(POBTOT,na.rm = T)) %>%
-    left_join(n_grupo) %>%
-    mutate(
-      !!rlang::sym(glue::glue("fpc_{nivel+1}")) := sampling::inclusionprobabilities(n = unique(n), a = total)
-    ) %>% ungroup %>% select(-total,-n)
+  # if(nivel_principal=="cluster_0") stop("Hay que arreglar esto")
+  # if(nivel == diseño$ultimo_nivel) nivel_secundario <- "cluster_0"
+  # else{
+  #   nivel_secundario <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel+1}"),
+  #                            value = T )
+  #   if(length(nivel_secundario)==0) {
+  #     warning("El nivel posterior no se encuentra en el marco muestral, se utiliza en cambio el último nivel")
+  #     nivel_secundario <- "cluster_0"
+  #   }
+  # }
 
-  base <- base %>% left_join(aux)
-  return(base)
+  aux <- if(nivel == 0){
+    diseño$poblacion$marco_muestral %>% agrupar_nivel(nivel_principal) %>% ungroup(cluster_0) %>%
+      mutate(manzanas = n()) %>%
+      left_join(diseño$n_i %>% .[["cluster_0"]]) %>%
+      mutate(
+        fpc_0= sampling::inclusionprobabilities(n = unique(n_0), a = manzanas)
+      ) %>% distinct(fpc_0) %>% ungroup
+  } else{
+    diseño$poblacion$marco_muestral %>% agrupar_nivel(nivel_principal) %>%
+      summarise(total = sum(!!sym(diseño$variable_poblacional),na.rm = T)) %>%
+      left_join(diseño$n_i %>% .[[glue::glue("{nivel_anterior$tipo}_{nivel_anterior$nivel}")]]) %>%
+      mutate(
+        !!rlang::sym(glue::glue("fpc_{nivel}")) := sampling::inclusionprobabilities(n = unique(!!sym(glue::glue("m_{nivel-1}"))), a = total)
+      ) %>% ungroup %>% select(-total,-all_of(c(glue::glue("{c('m','n')}_{nivel-1}"))))
+  }
+
+
+
+
+  res <- diseño$poblacion$marco_muestral %>% left_join(aux)
+  return(res)
 }
 
 
@@ -466,10 +480,10 @@ asignar_n <- function(diseño){
       agrupar_nivel(un_muestreo$nivel) %>%
       summarise()
     res <- res %>% left_join(diseño$n_i[[glue::glue("{anterior$tipo}_{anterior$nivel}")]] %>%
-      mutate("n_{un_muestreo$nivel}":=!!sym(glue::glue("n_{anterior$nivel}"))/!!sym(glue::glue("m_{anterior$nivel}"))) %>%
-      select(starts_with("cluster"),
-             starts_with("strata"),
-             glue::glue("n_{un_muestreo$nivel}")))
+                               mutate("n_{un_muestreo$nivel}":=!!sym(glue::glue("n_{anterior$nivel}"))/!!sym(glue::glue("m_{anterior$nivel}"))) %>%
+                               select(starts_with("cluster"),
+                                      starts_with("strata"),
+                                      glue::glue("n_{un_muestreo$nivel}")))
   }
   return(res)
 }
@@ -487,14 +501,14 @@ asignar_n <- function(diseño){
 #' @export
 #'
 #' @examples
-muestrear <- function(base, nivel,variable_estudio, bd_n, ultimo_nivel = F){
+muestrear <- function(diseño, nivel){
 
-  nombres <- names(base)
+  nombres <- names(diseño$poblacion$marco_muestral)
   nivel_principal <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel}"),
                           value = T )
   if(length(nivel_principal)!=1) stop("El nivel seleccionado no se encuestra en el marco muestral")
   if(nivel_principal=="cluster_0") stop("Hay que arreglar esto")
-  if(ultimo_nivel) nivel_secundario <- "cluster_0"
+  if(nivel == diseño$ultimo_nivel) nivel_secundario <- "cluster_0"
   else{
     nivel_secundario <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel+1}"),
                              value = T )
@@ -503,18 +517,25 @@ muestrear <- function(base, nivel,variable_estudio, bd_n, ultimo_nivel = F){
       nivel_secundario <- "cluster_0"
     }
   }
-  muestra_n2  <- base %>%
+
+  bd <- if(is.null(diseño$muestra)) diseño$poblacion$marco_muestral else diseño$muestra %>% pluck(length(diseño$muestra)) %>% unnest(data)
+  muestra  <- bd %>%
     agrupar_nivel(nivel_secundario) %>%
-    mutate(total = sum({{variable_estudio}},na.rm = T)) %>%
+    mutate(total = sum(!!sym(diseño$variable_poblacional),na.rm = T)) %>%
     group_by(total, .add = T) %>%
     tidyr::nest() %>%
     ungroup() %>%
     split(.[[nivel_principal]]) %>% purrr::map_df(~{
-      n_nivel <- bd_n %>% filter(!!sym(nivel_principal) == unique(.x[[nivel_principal]])) %>% pull(n)
-      .x %>% slice_sample(weight_by = total,n = n_nivel)
-    }) %>% tidyr::unnest(data)
+      n_nivel <- diseño$n_i %>% .[[nivel_principal]] %>%
+        filter(!!sym(nivel_principal) == unique(.x[[nivel_principal]])) %>% pull(glue::glue("m_{nivel}"))
+      sorteado <- if(nivel_secundario == "cluster_0") .x %>% slice_sample(n = n_nivel) else{
+        .x %>% slice_sample(weight_by = total,n = n_nivel)
+      }
+      return(sorteado)
+    })
 
-  return(muestra_n2)
+  res <- diseño$muestra %>% append(list(muestra))
+  return(res)
 
 }
 

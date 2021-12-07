@@ -12,6 +12,7 @@ Diseño <- R6::R6Class("Diseño",
                                        llave=NULL,
                                        aprobado=NULL,
                                        plan_muestra=NULL),
+                        muestra = NULL,
                         initialize = function(poblacion,
                                               n,
                                               n_0,
@@ -29,7 +30,17 @@ Diseño <- R6::R6Class("Diseño",
                                                           descripcion = unidad_muestreo,
                                                           llave = llave_muestreo)
                           self$n_i <- self$plan_muestra(nivel = self$ultimo_nivel)
-                         },
+                        },
+                        print = function(){
+                          mensaje <- cat(
+                            glue::glue(
+                              "Diseño que representa a la población de {self$poblacion$nombre} con una muestra de tamaño {scales::comma(self$n)} cuya unidad de muestreo es {private$unidad_muestreo}.
+
+                               Se realizarán {self$n_0} entrevistas por unidad mínima.
+
+                               Para efectos del diseño muestral se utilizará {self$variable_poblacional} del censo 2020 del INEGI para cuantificar el tamaño de la población."))
+                          return(mensaje)
+                        },
                         agregar_nivel=function(variable,
                                                tipo,
                                                descripcion,
@@ -86,7 +97,7 @@ Diseño <- R6::R6Class("Diseño",
                               res <- asignar_m(self,
                                                criterio = "uniforme",
                                                unidades_nivel = unique(self$n_i[["cluster_0"]]$m_0)) %>%
-                              left_join(asignar_n(self))
+                                left_join(asignar_n(self))
                               res <- set_names(list(res), glue::glue("{self$niveles %>%
                                                      filter(nivel==nivel_l) %>%
                                                      pull(tipo)}_{nivel_l}"))
@@ -108,13 +119,13 @@ Diseño <- R6::R6Class("Diseño",
                             mutate(plan_muestra=(nivel<=nivel_l))
                           self$n_i <- c(self$n_i, res)
                           return(res)
+                        },
+                        fpc = function(nivel){
+                          self$poblacion$marco_muestral <- calcular_fpc(self, nivel = nivel)
+                        },
+                        extraer_muestra = function(nivel){
+                          self$muestra <- muestrear(self, nivel = nivel)
                         }
-                        # extraer_muestra(nivel,
-                        #                 ultimo_nivel=F,
-                        #                 plan_muestreo){
-                        #   self$poblacion$marco_muestral %>%
-                        #     select(nivel_principal, nivel_secundario)
-                        # }
                       ),
                       private = list(
                         unidad_muestreo=NULL
