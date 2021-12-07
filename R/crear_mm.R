@@ -25,7 +25,10 @@ formato <- function(var, tamaño, bandera = 0){
 #' @export
 #'
 #' @examples
-crear_mm <- function(mza, loc, loc_shp, lpr_shp){
+crear_mm <- function(mza,
+                     loc,
+                     loc_shp,
+                     lpr_shp){
   # print(mza)
   # poblacion <- read_csv(mza,na = "*")
   poblacion <- mza
