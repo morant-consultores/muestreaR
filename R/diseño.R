@@ -427,8 +427,10 @@ asignar_m <- function(diseño, criterio, unidades_nivel){
     res <- diseño$poblacion$marco_muestral %>%
       agrupar_nivel(un_muestreo$nivel) %>%
       summarise() %>%
-      left_join(anterior_ni) %>%
-      mutate("m_{un_muestreo$nivel}":=unidades_nivel/!!sym(glue::glue("m_{anterior$nivel}"))) %>%
+      left_join(anterior_ni %>%
+                  mutate(n=sum(!!sym(glue::glue("m_{anterior$nivel}"))))
+                )%>%
+      mutate("m_{un_muestreo$nivel}":=unidades_nivel/n) %>%
       select(starts_with("strata_"),
              starts_with("cluster_"),
              glue::glue("m_{un_muestreo$nivel}"))

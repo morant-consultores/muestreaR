@@ -3,7 +3,6 @@
 # library(sf)
 # library(rgdal)
 # library(sp)
-# library(rgdal)
 devtools::load_all()
 
 # Crear marco muestral ----------------------------------------------------
