@@ -76,15 +76,6 @@ diseño_qro$agregar_nivel("region",
 
 # Se evalúa el nivel
 
-diseño_qro$n_i
-diseño_qro$niveles
-diseño_qro$plan_muestra(nivel=1,criterio = "peso", unidades_nivel = 10)
-diseño_qro$plan_muestra(nivel=2,criterio = "peso", unidades_nivel = 5)
-
-asignar_m(diseño = diseño_qro, criterio = "peso", unidades_nivel = 10)
-asignar_n(diseño = diseño_qro)
-
-debug(asignar_n)
 # Municipios --------------------------------------------------------------
 # Se propone un nivel
 # diseño_qro$agregar_nivel("NOM_MUN",
@@ -107,11 +98,14 @@ diseño_qro$agregar_nivel("ARLU",
                          tipo="cluster",
                          descripcion= "AGEB Rural y localidad urbana",
                          llave="Loc")
-diseño_qro$plan_muestreo(nivel=2,
-                         m_i=5,
-                         num=10,
-                         criterio="unidades",
-                         variable_estudio=POBTOT)
+
 diseño_qro$n_i
 diseño_qro$niveles
+diseño_qro$plan_muestra(nivel=1,criterio = "peso", unidades_nivel = 10)
+diseño_qro$plan_muestra(nivel=2,criterio = "uniforme", unidades_nivel = 5)
+
+asignar_m(diseño = diseño_qro, criterio = "peso", unidades_nivel = 10)
+asignar_n(diseño = diseño_qro)
+
+debug(asignar_n)
 
