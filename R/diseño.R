@@ -547,7 +547,9 @@ muestrear <- function(diseño, nivel){
       return(sorteado)
     })
 
-  res <- diseño$muestra %>% append(list(muestra))
+  nombre <- diseño$niveles %>% filter(nivel == !!nivel+1) %>% pull(variable)
+  if(length(nombre) == 0) nombre <- "MZA"
+  res <- diseño$muestra %>% append(list(muestra) %>% purrr::set_names(nombre))
   return(res)
 
 }

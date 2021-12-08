@@ -165,4 +165,28 @@ Poblacion <- R6::R6Class("Poblacion",
                          )
 )
 
+Cartografia <- R6::R6Class("Cartografia",
+                           public = list(
+                             shp = NULL,
+                             initialize = function(
+                               mun_shp = NULL,
+                               loc_shp = NULL,
+                               agebR_shp = NULL,
+                               agebU_shp = NULL,
+                               lpr_shp = NULL,
+                               mza_shp = NULL
+                             ){
+                               self$shp <- crear_shp(mun_shp, loc_shp, agebR_shp,
+                                                     agebU_shp, lpr_shp, mza_shp)
+                             },
+                             graficar_mapa = function(lflt = NULL, bd, nivel){
+                               graficar_mapa_muestra(lflt = lflt,
+                                                     muestra = if(!is.data.frame(bd)) bd %>% purrr::pluck(nivel) %>% unnest(data) else bd,
+                                                     shp = self$shp,
+                                                     nivel = nivel)
+                             },
+                             crear_mapas = function(diseño, zoom){
+                               google_maps(diseño_qro, shp = self$shp, zoom = zoom)
+                             }
+                           ))
 
