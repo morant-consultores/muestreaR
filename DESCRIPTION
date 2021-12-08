@@ -22,4 +22,6 @@ Imports:
     glue,
     purrr,
     sp,
-    leaflet
+    leaflet,
+    beepr,
+    ggmap

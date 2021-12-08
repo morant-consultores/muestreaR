@@ -78,3 +78,52 @@ graficar_mapa_muestra <- function(lflt = NULL, muestra, shp, nivel){
 
   return(mapa)
 }
+
+#' Title
+#'
+#' @param dise
+#' @param shp
+#' @param zoom
+#'
+#' @return
+#' @export
+#'
+#' @examples
+google_maps <- function(diseño, shp, zoom){
+  if(!"Mapas" %in% list.files()) dir.create("Mapas")
+
+  u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
+  u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
+  bd <- diseño$muestra %>% pluck(length(diseño$muestra)) %>% unnest(data)
+
+  cluster <- bd %>% distinct(!!rlang::sym(u_cluster)) %>% pull(1)
+  ya <- list.files(path="Mapas") %>% gsub('^.*_\\s*|\\s*.png.*$', '', .)
+  cluster <- cluster[!cluster %in% ya]
+  # agebs <- agebs %>% mutate(CVE_AGEB = paste0(22,CVE_MUN,CVE_LOC,CVE_AGEB))
+  shp_mapa <- shp %>% purrr::pluck(u_nivel %>% pull(variable)) %>% inner_join(bd)
+  man_shp <- shp %>% purrr::pluck("MZA") %>% inner_join(bd)
+  for(i in cluster){
+    man <- man_shp %>% filter(!!rlang::sym(u_cluster) == i)
+    aux_mapeo <- shp_mapa %>% filter(!!rlang::sym(u_cluster) == i)
+    caja <- aux_mapeo %>% sf::st_union() %>% sf::st_centroid() %>% sf::st_coordinates() %>% as.numeric()
+    nc_map <- ggmap::get_map(location = caja, maptype = "roadmap",
+                             source = "google",force = T, zoom = zoom)
+    Google <- ggmap::ggmap(nc_map)
+    # Google
+    g <- Google +
+      geom_sf(data = aux_mapeo,
+              inherit.aes = F, alpha = 0, color = "blue") +
+      geom_sf(data = man,
+              inherit.aes = F, alpha = 0, color = "red") +
+      # scale_x_continuous(limits = c(caja[1], caja[3])) + scale_y_continuous(limits = c(caja[2],caja[4])) +
+      guides(fill = "none") +
+      theme_minimal() +
+      ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOM_MUN)} \n Localidad: {unique(aux_mapeo$NOM_LOC)} \n {u_cluster}: {i}")) +
+      theme(plot.title = element_text(hjust = 1))
+
+    ggsave(g, filename= sprintf("%s.png", i),
+           path="Mapas",width = 11,height = 8.5,units = "in",dpi = "print")
+  }
+  beepr::beep()
+
+}

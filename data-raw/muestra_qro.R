@@ -107,6 +107,8 @@ diseño_qro$extraer_muestra(nivel = 2)
 diseño_qro$extraer_muestra(nivel = 3)
 
 
+# Pruebas de la muestra ---------------------------------------------------
+
 bd <- diseño_qro$muestra %>% pluck(3) %>% unnest(data)
 bd <- bd %>% mutate(prop = POCUPADA/POBTOT)
 bd <- bd %>% sample_n(203) %>% mutate(fpc_0 = fpc_0*203/nrow(.))
@@ -123,10 +125,19 @@ diseño_qro$n_i$cluster_3 %>% semi_join(
   diseño_qro$muestra %>% pluck(3)
 ) %>% ungroup %>% summarise(sum(m_3))
 
+# Mapas de la muestra -----------------------------------------------------
+
 graficar_mapa_muestra(muestra = diseño_qro$poblacion$marco_muestral,
                       shp = qro_shp,
                       nivel = "MUN") %>%
   graficar_mapa_muestra(muestra = diseño_qro$muestra %>% pluck(3)  %>% unnest(data),
                         shp = qro_shp, nivel = "AULR")
 
-bd %>% count(MUN,AGEB, sort = T) %>%
+# bd %>% count(MUN,AGEB, sort = T) %>%
+
+# Google maps -------------------------------------------------------------
+
+google_maps(diseño_qro, shp = qro_shp, zoom = 15)
+cuotas(diseño_qro)
+
+

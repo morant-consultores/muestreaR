@@ -552,4 +552,49 @@ muestrear <- function(diseño, nivel){
 
 }
 
+#' Title
+#'
+#' @param dise
+#'
+#' @return
+#' @export
+#'
+#' @examples
+#'
+cuotas <- function(diseño){
+  u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
+  u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
+  muestra <- diseño$muestra %>% pluck(length(diseño$muestra))
+  bd <- diseño$poblacion$marco_muestral %>%
+    semi_join(muestra %>% select(-cluster_0))
 
+  ent <- muestra %>% count(!!rlang::sym(u_cluster)) %>% mutate(entrevistas = n*diseño$n_0) %>% select(-n)
+  cuotas <- bd %>% transmute(!!rlang::sym(u_cluster),
+                             P_18A24_F,
+                             P_18A24_M,
+                             P_25A59_F = P_18YMAS_F - P_18A24_F - P_60YMAS_F,
+                             P_25A59_M = P_18YMAS_M - P_18A24_M - P_60YMAS_M,
+                             P_60YMAS_F,P_60YMAS_M) %>%
+    group_by(!!rlang::sym(u_cluster)) %>% summarise(across(everything(),.fns = sum, na.rm = T)) %>%
+    pivot_longer(-!!sym(u_cluster), names_to = "edad", values_to = "cantidad") %>%
+    separate(edad, c("basura","rango","sexo")) %>% select(-basura) %>%
+    group_by(!!rlang::sym(u_cluster)) %>% mutate(pct = cantidad/sum(cantidad)) %>% ungroup %>%
+    left_join(
+      ent
+    ) %>% mutate(n =  round(pct*entrevistas))
+
+  revision <- cuotas %>% count(!!rlang::sym(u_cluster), wt = n)
+
+  c <- revision %>% left_join(ent) %>% mutate(diff = entrevistas - n) %>%
+    select(a = 1,b = 4) %>%
+    purrr::pmap_df(function(a, b){
+      aux <- cuotas %>% filter(!!rlang::sym(u_cluster) == !! a)
+      aleatorio <- sample(x = seq_len(nrow(aux)), size = abs(b))
+      aux[aleatorio, "n"] <- aux[aleatorio, "n"] + sign(b)
+      return (aux)
+    })
+
+  cool <- c %>% count(!!rlang::sym(u_cluster), wt = n) %>% left_join(ent) %>% filter(n != entrevistas)
+  if(nrow(cool) == 0 & nrow(c) == nrow(cuotas)) print("Exacto")
+  return(c %>% select(-cantidad,-pct,-entrevistas))
+}
