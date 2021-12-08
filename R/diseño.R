@@ -422,9 +422,12 @@ criterio_n <- function(plan_muestreo,
   return(c(plan_muestreo,res))
 }
 
-asignar_m <- function(diseño, criterio, unidades_nivel){
-  un_muestreo <- diseño$niveles %>% filter(!plan_muestra) %>% slice_min(n=1, order_by = nivel)
 
+asignar_m <- function(diseño, criterio, unidades_nivel){
+  # Se elige la unidad de muestreo
+  un_muestreo <- diseño$niveles %>% filter(!plan_muestra) %>% slice_min(n=1, order_by = nivel)
+  # Se cuentan las unidades secundarias de muestreo
+    # Sirve para saber si hay suficientes unidades secundarias
   aux <- diseño$poblacion$marco_muestral %>%
     agrupar_nivel(un_muestreo$nivel) %>% {
       if(un_muestreo$nivel==diseño$ultimo_nivel){
@@ -435,38 +438,71 @@ asignar_m <- function(diseño, criterio, unidades_nivel){
                            ~n_distinct(.x),
                            .names = "n"))
     }
-  if(criterio=="uniforme"){
-    anterior <- diseño$niveles %>% filter(nivel==un_muestreo$nivel-1)
-    anterior_ni <- diseño$n_i[[glue::glue("{anterior$tipo}_{anterior$nivel}")]]
+  if(un_muestreo$nivel==diseño$ultimo_nivel){
+    warning("Por ser el último nivel el criterio de repartición está determinado")
     res <- diseño$poblacion$marco_muestral %>%
       agrupar_nivel(un_muestreo$nivel) %>%
       summarise() %>%
-      left_join(., anterior_ni %>%
-                  mutate(n=sum(!!sym(glue::glue("m_{anterior$nivel}"))))
-      ) %>%
-      # mutate("m_{un_muestreo$nivel}":= repartir_cociente(unidades_nivel,unidades_nivel/n)) %>%
-      mutate("m_{un_muestreo$nivel}":= round(unidades_nivel/n)) %>%
-      select(starts_with("strata_"),
-             starts_with("cluster_"),
-             glue::glue("m_{un_muestreo$nivel}"))
+      left_join(diseño$n_i %>% last()) %>%
+      # Aquí se fuerza al número de manzanas determinada
+      mutate("m_{un_muestreo$nivel}":=round((!!sym(glue::glue("n_{un_muestreo$nivel-1}"))/
+                                              !!sym(glue::glue("m_{un_muestreo$nivel-1}")) )/
+                                              diseño$n_0)) %>%
+    select(-all_of(c(glue::glue("n_{un_muestreo$nivel-1}"),
+                   glue::glue("m_{un_muestreo$nivel-1}"))))
   }
-  if(criterio=="unidades"){
-    res <- aux %>%
-      mutate("m_{un_muestreo$nivel}":= repartir_cociente(unidades_nivel,unidades_nivel*n/sum(n)))
-  }
-  if(criterio=="peso"){
-    res <- diseño$poblacion$marco_muestral %>%
-      agrupar_nivel(un_muestreo$nivel) %>%
-      summarise(n=sum(!!sym(diseño$variable_poblacional))) %>%
-      mutate("m_{un_muestreo$nivel}":= repartir_cociente(unidades_nivel,unidades_nivel*n/sum(n))) %>%
-      select(-n)
+  else{
+    if(criterio=="uniforme"){
+      res <- diseño$poblacion$marco_muestral %>%
+        agrupar_nivel(un_muestreo$nivel) %>%
+        summarise() %>%
+        mutate("m_{un_muestreo$nivel}":= round(unidades_nivel/un_muestreo$unidades)) %>%
+        select(starts_with("strata_"),
+               starts_with("cluster_"),
+               glue::glue("m_{un_muestreo$nivel}"))
+    }
+    if(criterio=="unidades"){
+      res <- aux %>%
+        mutate("m_{un_muestreo$nivel}":= repartir_cociente(unidades_nivel,unidades_nivel*n/sum(n)))
+    }
+    if(criterio=="peso"){
+      # Se utiliza la variable poblacional de tamaño para repartir las unidades de nivel
+      # según el peso. Hasta aquí no es relativo al grupo anterior, es una repartición global.
+      res <- diseño$poblacion$marco_muestral %>%
+        agrupar_nivel(un_muestreo$nivel) %>%
+        summarise(n=sum(!!sym(diseño$variable_poblacional))) %>%
+        mutate("m_{un_muestreo$nivel}":= repartir_cociente(unidades_nivel,unidades_nivel*n/sum(n))) %>%
+        select(-n)
+
+    }
 
   }
-
+  # Se elije el mínimo entre las unidades previstas en el plan de muestreo y las posibles
   res <- res %>% left_join(aux) %>%
     mutate("m_{un_muestreo$nivel}":= if_else(!!sym(glue::glue("m_{un_muestreo$nivel}")) < n,
                                              !!sym(glue::glue("m_{un_muestreo$nivel}")), as.numeric(n))) %>%
     select(-n)
+  # Se asigna el número total de unidades de muestreo
+  # Cuando es strata se asigna así mismo y al siguiente
+  if(un_muestreo$tipo=="strata"){
+   diseño$niveles <-  diseño$niveles %>%
+      # El número de estratos. Sirve para el nivel 1, hay que checar para otros niveles
+      mutate(unidades=if_else(nivel==un_muestreo$nivel,
+                              as.numeric(nrow(res)), unidades))
+  }
+  # Siempre se asigna al siguiente
+
+  diseño$niveles <- diseño$niveles %>%
+    mutate(unidades=if_else(nivel==un_muestreo$nivel+1,
+                            if_else(un_muestreo$nivel==1,res %>%
+                                      ungroup() %>%
+                                      summarise(n=sum(!!sym(glue::glue("m_{un_muestreo$nivel}")))) %>%
+                              pull(n),
+                              res %>%
+                                ungroup() %>%
+                                summarise(n=mean(!!sym(glue::glue("m_{un_muestreo$nivel}")))) %>%
+                                pull(n) * un_muestreo$unidades),
+                            unidades))
   return(res)
 }
 
