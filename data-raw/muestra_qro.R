@@ -107,6 +107,11 @@ diseño_qro$extraer_muestra(nivel = 2)
 diseño_qro$extraer_muestra(nivel = 3)
 
 
+# Cuotas ------------------------------------------------------------------
+diseño_qro$calcular_cuotas()
+diseño_qro$cuotas %>% summarise(sum(n))
+nrow((diseño_qro$muestra %>% pluck(3))) * diseño_qro$n_0
+
 # Pruebas de la muestra ---------------------------------------------------
 
 bd <- diseño_qro$muestra %>% pluck(3) %>% unnest(data)

@@ -13,6 +13,7 @@ Diseño <- R6::R6Class("Diseño",
                                        aprobado=NULL,
                                        plan_muestra=NULL),
                         muestra = NULL,
+                        cuotas = NULL,
                         initialize = function(poblacion,
                                               n,
                                               n_0,
@@ -125,6 +126,9 @@ Diseño <- R6::R6Class("Diseño",
                         },
                         extraer_muestra = function(nivel){
                           self$muestra <- muestrear(self, nivel = nivel)
+                        },
+                        calcular_cuotas = function(){
+                          self$cuotas <- cuotas(self)
                         }
                       ),
                       private = list(
