@@ -95,7 +95,7 @@ Diseño <- R6::R6Class("Diseño",
                               #   agrupar_nivel(nivel) %>%
                               #   summarise(m_0=unique(m_0))
                               res <- asignar_m(self,
-                                               criterio = "uniforme",
+                                               criterio = if(self$niveles %>% filter(nivel == self$ultimo_nivel) %>% pull(tipo) == "strata") "peso" else "uniforme",
                                                unidades_nivel = unique(self$n_i[["cluster_0"]]$m_0)) %>%
                                 left_join(asignar_n(self))
                               res <- set_names(list(res), glue::glue("{self$niveles %>%
