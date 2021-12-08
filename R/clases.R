@@ -11,6 +11,7 @@ Diseño <- R6::R6Class("Diseño",
                                        descripcion=NULL,
                                        llave=NULL,
                                        aprobado=NULL,
+                                       unidades=NULL,
                                        plan_muestra=NULL),
                         muestra = NULL,
                         cuotas = NULL,
@@ -64,6 +65,7 @@ Diseño <- R6::R6Class("Diseño",
                                                    tipo=tipo,
                                                    descripcion=descripcion,
                                                    llave=llave,
+                                                   unidades=NA_integer_,
                                                    aprobado=F,
                                                    plan_muestra=F))
 
@@ -82,22 +84,24 @@ Diseño <- R6::R6Class("Diseño",
                         plan_muestra =function(nivel, criterio, unidades_nivel){
                           nivel_l <- nivel
                           if(nivel_l==0){
-                            # Listo
+                            # Se asigna el nivel 0
                             res <- self$poblacion$marco_muestral %>%
                               group_by(cluster_0) %>%
-                              summarise(n_0=self$n_0) %>%
-                              mutate(m_0=ceiling(self$n/n_0))
+                              summarise(m_0=self$n_0,
+                                        n_0=self$n_0)
+                            # Se le agrega el total de unidades al nivel
+                            self$niveles <- self$niveles %>%
+                              mutate(unidades=if_else(nivel==0,
+                                                      ceiling(self$n/self$n_0),
+                                                      as.numeric(unidades)))
+                            # Se etiqueta en la lista
                             res <- list(cluster_0=res)
                           }
                           else{
+                            # Cuando es el último nivel
                             if(nivel_l==self$ultimo_nivel){
-                              # res <- self$poblacion$marco_muestral %>%
-                              #   left_join(self$n_i[["cluster_0"]], by="cluster_0") %>%
-                              #   agrupar_nivel(nivel) %>%
-                              #   summarise(m_0=unique(m_0))
                               res <- asignar_m(self,
-                                               criterio = if(self$niveles %>% filter(nivel == self$ultimo_nivel) %>% pull(tipo) == "strata") "peso" else "uniforme",
-                                               unidades_nivel = unique(self$n_i[["cluster_0"]]$m_0)) %>%
+                                               unidades_nivel = ) %>%
                                 left_join(asignar_n(self))
                               res <- set_names(list(res), glue::glue("{self$niveles %>%
                                                      filter(nivel==nivel_l) %>%
@@ -105,12 +109,14 @@ Diseño <- R6::R6Class("Diseño",
                             }
                             # Si no es nivel=0 ni es nivel=ultimo_nivel
                             else{
-                              # Repartir m_i a través de alguno de los criterios. Se elige
-                              # smi=sum(m_i).
+                            # Si no es el último nivel
+                                # Primero se asigna m
+                                # Después se asigna n
                               res <- asignar_m(diseño = self,
                                                criterio = criterio,
                                                unidades_nivel = unidades_nivel) %>%
                                 left_join(asignar_n(self))
+                              # Se etiqueta
                               res <- set_names(list(res), glue::glue("{self$niveles %>%
                                                      filter(nivel==nivel_l) %>%
                                                      pull(tipo)}_{nivel_l}"))

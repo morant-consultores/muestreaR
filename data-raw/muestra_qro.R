@@ -6,6 +6,7 @@ wd <- "~/Dropbox (Selva)/Ciencia de datos/Consultoría Estadística/Recursos/E
 
 
 # Idealmente esto se descarga del inego
+<<<<<<< HEAD
 
 wd <- "~/Dropbox (Selva)/Ciencia de datos/Consultoría Estadística/Recursos/Externos/INEGI/Censo 2020"
 
@@ -30,6 +31,21 @@ agebR_shp <- sf::st_read(wd_shp_ageb_r[22]) %>% sf::st_transform(4326)
 agebU_shp <- rgdal::readOGR(dsn=wd_shp_ageb[22],encoding = "CP1252") %>% sp::spTransform(sp::CRS("+init=epsg:4326")) %>% sf::st_as_sf()
 lpr_shp <- rgdal::readOGR(dsn=wd_shp_lpr[22],encoding = "CP1252") %>% sp::spTransform(sp::CRS("+init=epsg:4326")) %>% sf::st_as_sf()
 mza_shp <- rgdal::readOGR(dsn=wd_shp_mza[22],encoding = "CP1252") %>% sp::spTransform(sp::CRS("+init=epsg:4326")) %>% sf::st_as_sf()
+=======
+# wd_murb <- list.files(glue::glue("{wd}/Población"), full.names = T)
+# wd_loc <- list.files(paste(list.files(glue::glue("{wd}/Localidad"),full.names = T), "conjunto_de_datos",sep = "/"), full.names = T)
+# wd_shp <- list.files(paste(list.files(glue::glue("{wd}/AGEB"), full.names = T)[1:32],"conjunto_de_datos", sep = "/"), full.names = T,pattern = "ar.shp")
+# wd_shp_loc <- list.files(paste(list.files(glue::glue("{wd}/AGEB"), full.names = T)[1:32],"conjunto_de_datos", sep = "/"), full.names = T,pattern = "[[:digit:]]l.shp")
+# wd_shp_lpr <- list.files(paste(list.files(glue::glue("{wd}/AGEB"), full.names = T)[1:32],"conjunto_de_datos", sep = "/"), full.names = T,pattern = "[[:digit:]]lpr.shp")
+#
+# orden <- substr(wd_loc,nchar(wd_loc)-13,nchar(wd_loc)-12) %>% order
+#
+# mza <- readr::read_csv(wd_murb[[22]], na = "*")
+# loc <- readr::read_csv(wd_loc[orden][22], na = "*")
+# ageb_shp <- sf::st_read(wd_shp[22]) %>% sf::st_transform(4326)
+# loc_shp <- rgdal::readOGR(dsn=wd_shp_loc[22],encoding = "CP1252") %>% sp::spTransform(sp::CRS("+init=epsg:4326")) %>% sf::st_as_sf()
+# lpr_shp <- rgdal::readOGR(dsn=wd_shp_lpr[22],encoding = "CP1252") %>% sp::spTransform(sp::CRS("+init=epsg:4326")) %>% sf::st_as_sf()
+>>>>>>> 09b69d7f2c0a61e962cb9a961c60bcc5ba4d664e
 
 
 # Declarar clases ---------------------------------------------------------
@@ -41,7 +57,7 @@ queretaro <- Poblacion$new(nombre="Querétaro",
 
 diseño_qro <- Diseño$new(poblacion=queretaro,
                          n=1620,
-                         n_0=12,
+                         n_0=8,
                          variable_poblacional="POBTOT",
                          unidad_muestreo="Localidades rurales no amanzanadas y manzanas",
                          id_unidad_muestreo="id",
@@ -102,9 +118,10 @@ diseño_qro$agregar_nivel("AULR",
 
 # Plan de muestra ---------------------------------------------------------
 diseño_qro$plan_muestra(nivel=1,criterio = "peso", unidades_nivel = 10)
-diseño_qro$plan_muestra(nivel=2,criterio = "peso", unidades_nivel = 20)
+diseño_qro$plan_muestra(nivel=2,criterio = "uniforme", unidades_nivel = 42)
 diseño_qro$plan_muestra(nivel=3)
-
+debug(asignar_m)
+asignar_m(diseño = diseño_qro)
 
 # Fpc ---------------------------------------------------------------------
 # debug(calcular_fpc)
@@ -130,8 +147,12 @@ nrow((diseño_qro$muestra %>% pluck(3))) * diseño_qro$n_0
 
 bd <- diseño_qro$muestra %>% pluck(length(diseño_qro$muestra)) %>% unnest(data)
 bd <- bd %>% mutate(prop = POCUPADA/POBTOT)
+<<<<<<< HEAD
 # bd <- bd %>% sample_n(203) %>% mutate(fpc_0 = fpc_0*203/nrow(.))
 # bd %>% distinct(cluster_3,fpc_0)
+=======
+bd %>% distinct(cluster_3,fpc_0)
+>>>>>>> 09b69d7f2c0a61e962cb9a961c60bcc5ba4d664e
 library(survey)
 diseño <- svydesign(data = bd, ids = ~cluster_2 + cluster_3 + cluster_0, strata = ~strata_1, fpc = ~fpc_2 + fpc_3+fpc_0, pps = "brewer")
 options(survey.lonely.psu="remove")
