@@ -43,14 +43,17 @@ calcular_fpc <- function(diseño, nivel = 1){
   # }
 
   aux <- if(nivel == 0){
-    diseño$poblacion$marco_muestral %>% agrupar_nivel(nivel_principal) %>% ungroup(cluster_0) %>%
+    nivel_principal <- diseño$niveles %>% filter(nivel == max(nivel)) %>% pull(nivel)
+    diseño$poblacion$marco_muestral %>% agrupar_nivel(nivel_principal) %>%
       mutate(manzanas = n()) %>%
-      left_join(diseño$n_i %>% .[["cluster_0"]]) %>%
+      left_join(diseño$n_i %>% .[[grep(nombres,pattern = glue::glue("(strata|cluster)_{diseño$ultimo_nivel}"),
+                                       value = T )]]) %>%
       mutate(
-        fpc_0= sampling::inclusionprobabilities(n = unique(n_0), a = manzanas)
+        fpc_0= sampling::inclusionprobabilities(n = unique(!!sym(glue::glue("m_{diseño$ultimo_nivel}"))), a = manzanas)
       ) %>% distinct(fpc_0) %>% ungroup
   } else{
-    diseño$poblacion$marco_muestral %>% agrupar_nivel(nivel_principal) %>%
+
+    diseño$poblacion$marco_muestral %>% agrupar_nivel(readr::parse_number(nivel_principal)) %>%
       summarise(total = sum(!!sym(diseño$variable_poblacional),na.rm = T)) %>%
       left_join(diseño$n_i %>% .[[glue::glue("{nivel_anterior$tipo}_{nivel_anterior$nivel}")]]) %>%
       mutate(
@@ -421,41 +424,49 @@ criterio_n <- function(plan_muestreo,
 
 asignar_m <- function(diseño, criterio, unidades_nivel){
   un_muestreo <- diseño$niveles %>% filter(!plan_muestra) %>% slice_min(n=1, order_by = nivel)
+
+  aux <- diseño$poblacion$marco_muestral %>%
+    agrupar_nivel(un_muestreo$nivel) %>% {
+      if(un_muestreo$nivel==diseño$ultimo_nivel){
+        summarise(.,n=n_distinct(cluster_0))
+      }
+      else
+        summarise(.,across(matches(glue::glue("(strata|cluster)_{un_muestreo$nivel+1}")),
+                           ~n_distinct(.x),
+                           .names = "n"))
+    }
   if(criterio=="uniforme"){
     anterior <- diseño$niveles %>% filter(nivel==un_muestreo$nivel-1)
     anterior_ni <- diseño$n_i[[glue::glue("{anterior$tipo}_{anterior$nivel}")]]
     res <- diseño$poblacion$marco_muestral %>%
       agrupar_nivel(un_muestreo$nivel) %>%
       summarise() %>%
-      left_join(anterior_ni %>%
+      left_join(., anterior_ni %>%
                   mutate(n=sum(!!sym(glue::glue("m_{anterior$nivel}"))))
-                )%>%
-      mutate("m_{un_muestreo$nivel}":=unidades_nivel/n) %>%
+      ) %>%
+      # mutate("m_{un_muestreo$nivel}":= repartir_cociente(unidades_nivel,unidades_nivel/n)) %>%
+      mutate("m_{un_muestreo$nivel}":= round(unidades_nivel/n)) %>%
       select(starts_with("strata_"),
              starts_with("cluster_"),
              glue::glue("m_{un_muestreo$nivel}"))
   }
   if(criterio=="unidades"){
-    res <- diseño$poblacion$marco_muestral %>%
-      agrupar_nivel(un_muestreo$nivel) %>% {
-        if(un_muestreo$nivel==diseño$ultimo_nivel){
-          summarise(.,n=n_distinct(cluster_0))
-        }
-        else
-          summarise(.,across(matches(glue::glue("(strata|cluster)_{un_muestreo$nivel+1}")),
-                             ~n_distinct(.x),
-                             .names = "n"))
-      } %>%
-      mutate("m_{un_muestreo$nivel}":=unidades_nivel*n/sum(n))
+    res <- aux %>%
+      mutate("m_{un_muestreo$nivel}":= repartir_cociente(unidades_nivel,unidades_nivel*n/sum(n)))
   }
   if(criterio=="peso"){
     res <- diseño$poblacion$marco_muestral %>%
       agrupar_nivel(un_muestreo$nivel) %>%
       summarise(n=sum(!!sym(diseño$variable_poblacional))) %>%
-      mutate("m_{un_muestreo$nivel}":=unidades_nivel*n/sum(n)) %>%
+      mutate("m_{un_muestreo$nivel}":= repartir_cociente(unidades_nivel,unidades_nivel*n/sum(n))) %>%
       select(-n)
 
   }
+
+  res <- res %>% left_join(aux) %>%
+    mutate("m_{un_muestreo$nivel}":= if_else(!!sym(glue::glue("m_{un_muestreo$nivel}")) < n,
+                                             !!sym(glue::glue("m_{un_muestreo$nivel}")), as.numeric(n))) %>%
+    select(-n)
   return(res)
 }
 
@@ -513,7 +524,7 @@ muestrear <- function(diseño, nivel){
   if(nivel == diseño$ultimo_nivel) nivel_secundario <- "cluster_0"
   else{
     nivel_secundario <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel+1}"),
-                             value = T )
+                             value = T ) %>% readr::parse_number()
     if(length(nivel_secundario)==0) {
       warning("El nivel posterior no se encuentra en el marco muestral, se utiliza en cambio el último nivel")
       nivel_secundario <- "cluster_0"
