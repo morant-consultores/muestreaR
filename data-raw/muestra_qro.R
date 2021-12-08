@@ -30,7 +30,7 @@ queretaro <- Poblacion$new(nombre="Querétaro",
 
 diseño_qro <- Diseño$new(poblacion=queretaro,
                          n=1620,
-                         n_0=8,
+                         n_0=12,
                          variable_poblacional="POBTOT",
                          unidad_muestreo="Localidades rurales no amanzanadas y manzanas",
                          id_unidad_muestreo="id",
@@ -72,40 +72,61 @@ diseño_qro$agregar_nivel("region",
                          tipo="strata",
                          descripcion= "Sierra Gorda, Los Valles Centrales, El Bajío Queretano",
                          llave="region")
-#diseño_qro$eliminar_nivel(nivel=1)
-
-# Se evalúa el nivel
-
-# Municipios --------------------------------------------------------------
-# Se propone un nivel
-# diseño_qro$agregar_nivel("NOM_MUN",
-#                          tipo="cluster",
-#                          descripcion= "Municipios",
-#                          llave="Mun")
-#
-# diseño_qro$plan_muestreo(nivel=2,
-#                          m_i=10,
-#                          num=10,
-#                          criterio="unidades",
-#                          variable_estudio=POBTOT)
-# diseño_qro$n_i
-# diseño_qro$niveles
 
 
 # Localidades -----------------------------------------------------------
 # Se propone un nivel
-diseño_qro$agregar_nivel("ARLU",
+diseño_qro$agregar_nivel("MUN",
                          tipo="cluster",
                          descripcion= "AGEB Rural y localidad urbana",
                          llave="Loc")
 
-diseño_qro$n_i
-diseño_qro$niveles
+diseño_qro$agregar_nivel("AULR",
+                         tipo="cluster",
+                         descripcion= "AGEB Rural y localidad urbana",
+                         llave="Loc")
+
+
+# Plan de muestra ---------------------------------------------------------
 diseño_qro$plan_muestra(nivel=1,criterio = "peso", unidades_nivel = 10)
-diseño_qro$plan_muestra(nivel=2,criterio = "uniforme", unidades_nivel = 5)
+diseño_qro$plan_muestra(nivel=2,criterio = "peso", unidades_nivel = 20)
+diseño_qro$plan_muestra(nivel=3)
 
-asignar_m(diseño = diseño_qro, criterio = "peso", unidades_nivel = 10)
-asignar_n(diseño = diseño_qro)
 
-debug(asignar_n)
+# Fpc ---------------------------------------------------------------------
+# debug(calcular_fpc)
+# calcular_fpc(diseño_qro, nivel = 0) %>% count(cluster_3,fpc_3)
+diseño_qro$fpc(nivel = 2)
+diseño_qro$fpc(nivel = 3)
+diseño_qro$fpc(nivel = 0)
 
+
+# Muestra -----------------------------------------------------------------
+diseño_qro$extraer_muestra(nivel = 1)
+diseño_qro$extraer_muestra(nivel = 2)
+diseño_qro$extraer_muestra(nivel = 3)
+
+
+bd <- diseño_qro$muestra %>% pluck(3) %>% unnest(data)
+bd <- bd %>% mutate(prop = POCUPADA/POBTOT)
+bd <- bd %>% sample_n(203) %>% mutate(fpc_0 = fpc_0*203/nrow(.))
+bd %>% distinct(cluster_3,fpc_0)
+library(survey)
+diseño <- svydesign(data = bd, ids = ~cluster_2 + cluster_3 + cluster_0, strata = ~strata_1, fpc = ~fpc_2 + fpc_3+fpc_0, pps = "brewer")
+options(survey.lonely.psu="remove")
+confint(svytotal(~POBTOT, design = diseño, na.rm = T))
+confint(svytotal(~POCUPADA, design = diseño, na.rm = T))
+diseño_qro$poblacion$marco_muestral %>% summarise(sum(POCUPADA,na.rm = T))
+confint(svymean(~prop, design = diseño, na.rm = T))
+
+diseño_qro$n_i$cluster_3 %>% semi_join(
+  diseño_qro$muestra %>% pluck(3)
+) %>% ungroup %>% summarise(sum(m_3))
+
+graficar_mapa_muestra(muestra = diseño_qro$poblacion$marco_muestral,
+                      shp = qro_shp,
+                      nivel = "MUN") %>%
+  graficar_mapa_muestra(muestra = diseño_qro$muestra %>% pluck(3)  %>% unnest(data),
+                        shp = qro_shp, nivel = "AULR")
+
+bd %>% count(MUN,AGEB, sort = T) %>%
