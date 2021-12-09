@@ -109,9 +109,9 @@ Diseño <- R6::R6Class("Diseño",
                             }
                             # Si no es nivel=0 ni es nivel=ultimo_nivel
                             else{
-                            # Si no es el último nivel
-                                # Primero se asigna m
-                                # Después se asigna n
+                              # Si no es el último nivel
+                              # Primero se asigna m
+                              # Después se asigna n
                               res <- asignar_m(diseño = self,
                                                criterio = criterio,
                                                unidades_nivel = unidades_nivel) %>%
@@ -131,7 +131,22 @@ Diseño <- R6::R6Class("Diseño",
                           self$poblacion$marco_muestral <- calcular_fpc(self, nivel = nivel)
                         },
                         extraer_muestra = function(nivel){
-                          self$muestra <- muestrear(self, nivel = nivel)
+                          m <- muestrear(self, nivel = nivel)
+                          aux <- m %>% purrr::pluck(length(m))
+                          if(nivel == self$ultimo_nivel){
+                            #actualizar fpc_0
+                            if(self$niveles %>% filter(nivel == 0) %>% pull(unidades) != nrow(aux)){
+                              ajuste <- ((self$niveles %>% filter(nivel == 0) %>% pull(unidades)) - nrow(aux))*self$n_0
+
+                              nuevo <- self$n_i$cluster_0 %>% semi_join(aux) %>% sample_n(size = ajuste, replace = T) %>%
+                                mutate(sumar = 1) %>% group_by(cluster_0) %>%
+                                summarise(m_0 = unique(m_0), n_0 = unique(n_0),
+                                          sumar = sum(sumar)) %>% mutate(n_0 = n_0 + sumar) %>% select(-sumar)
+                              self$n_i$cluster_0 <- self$n_i$cluster_0 %>% anti_join(nuevo, by = "cluster_0") %>% bind_rows(nuevo) %>%
+                                arrange(cluster_0)
+                            }
+                          }
+                          self$muestra <- m
                         },
                         calcular_cuotas = function(){
                           self$cuotas <- cuotas(self)

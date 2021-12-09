@@ -604,9 +604,9 @@ cuotas <- function(diseño){
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
   muestra <- diseño$muestra %>% pluck(length(diseño$muestra))
   bd <- diseño$poblacion$marco_muestral %>%
-    semi_join(muestra %>% select(-cluster_0))
+    semi_join(muestra %>% distinct(!!rlang::sym(u_cluster)))
 
-  ent <- muestra %>% count(!!rlang::sym(u_cluster)) %>% mutate(entrevistas = n*diseño$n_0) %>% select(-n)
+  ent <- muestra %>% left_join(diseño$n_i$cluster_0) %>% count(!!rlang::sym(u_cluster), wt = n_0, name = "entrevistas")
   cuotas <- bd %>% transmute(!!rlang::sym(u_cluster),
                              P_18A24_F,
                              P_18A24_M,
