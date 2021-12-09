@@ -102,7 +102,15 @@ google_maps <- function(diseño, shp, zoom){
   # agebs <- agebs %>% mutate(CVE_AGEB = paste0(22,CVE_MUN,CVE_LOC,CVE_AGEB))
   shp_mapa <- shp %>% purrr::pluck(u_nivel %>% pull(variable)) %>% inner_join(bd)
   man_shp <- shp %>% purrr::pluck("MZA") %>% inner_join(bd)
+
+
   for(i in cluster){
+    aux_s <- diseño$cuotas %>% filter(!!rlang::sym(u_cluster) == i)
+    s <- aux_s %>%
+      mutate(n = glue::glue("{n} entrevistas")) %>%
+      pivot_wider(names_from = c("rango", "sexo"),values_from = "n") %>% select(-1) %>%
+      mutate(Total = glue::glue("{sum(aux_s$n)} entrevistas")) %>% relocate(Total,.before = 1)
+    cuotas <- paste(s %>% names(), s, sep = ": ") %>% paste(collapse = "\n")
     man <- man_shp %>% filter(!!rlang::sym(u_cluster) == i)
     aux_mapeo <- shp_mapa %>% filter(!!rlang::sym(u_cluster) == i)
     caja <- aux_mapeo %>% sf::st_union() %>% sf::st_centroid() %>% sf::st_coordinates() %>% as.numeric()
@@ -118,8 +126,9 @@ google_maps <- function(diseño, shp, zoom){
       # scale_x_continuous(limits = c(caja[1], caja[3])) + scale_y_continuous(limits = c(caja[2],caja[4])) +
       guides(fill = "none") +
       theme_minimal() +
-      ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOM_MUN)} \n Localidad: {unique(aux_mapeo$NOM_LOC)} \n {u_cluster}: {i}")) +
-      theme(plot.title = element_text(hjust = 1))
+      ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOM_MUN)} \n Localidad: {unique(aux_mapeo$NOM_LOC)}  \n {u_cluster}: {i}")) +
+      labs(subtitle =  cuotas) +
+      theme(plot.title = element_text(hjust = 1), plot.subtitle = element_text(size = 10, hjust = 0))
 
     ggsave(g, filename= sprintf("%s.png", i),
            path="Mapas",width = 11,height = 8.5,units = "in",dpi = "print")
