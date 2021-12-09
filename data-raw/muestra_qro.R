@@ -7,7 +7,6 @@ wd <- "~/Dropbox (Selva)/Ciencia de datos/Consultoría Estadística/Recursos/E
 
 # Idealmente esto se descarga del inego
 
-wd <- "~/Dropbox (Selva)/Ciencia de datos/Consultoría Estadística/Recursos/Externos/INEGI/Censo 2020"
 
 wd_murb <- list.files(glue::glue("{wd}/Población"), full.names = T)
 wd_loc <- list.files(paste(list.files(glue::glue("{wd}/Localidad"),full.names = T), "conjunto_de_datos",sep = "/"), full.names = T)
@@ -105,8 +104,8 @@ diseño_qro$agregar_nivel("AULR",
 diseño_qro$plan_muestra(nivel=1,criterio = "peso", unidades_nivel = 10)
 diseño_qro$plan_muestra(nivel=2,criterio = "uniforme", unidades_nivel = 42)
 diseño_qro$plan_muestra(nivel=3)
-debug(asignar_m)
-asignar_m(diseño = diseño_qro)
+# debug(asignar_m)
+# asignar_m(diseño = diseño_qro)
 
 # Fpc ---------------------------------------------------------------------
 # debug(calcular_fpc)
@@ -123,10 +122,12 @@ uno %>% shp_qro$graficar_mapa(bd = diseño_qro$muestra, nivel = "MUN")
 diseño_qro$extraer_muestra(nivel = 3)
 uno %>% shp_qro$graficar_mapa(bd = diseño_qro$muestra, nivel = "AULR")
 
+diseño_qro$n_i$cluster_0 %>% semi_join(diseño_qro$muestra[[3]]) %>% summarise(sum(n_0))
+diseño_qro$niveles
 # Cuotas ------------------------------------------------------------------
 diseño_qro$calcular_cuotas()
 diseño_qro$cuotas %>% summarise(sum(n))
-nrow((diseño_qro$muestra %>% pluck(3))) * diseño_qro$n_0
+
 
 # Pruebas de la muestra ---------------------------------------------------
 
@@ -152,8 +153,13 @@ diseño_qro$n_i$cluster_3 %>% semi_join(
 
 nrow(bd)
 # Google maps -------------------------------------------------------------
+# library(ggmap)
+# ggmap(get_map())
+shp_qro$crear_mapas(diseño = diseño_qro, zoom = 16)
+diseño_qro$cuotas %>% inner_join(diseño_qro$muestra[[2]] %>% unnest(data) %>%
+                                   distinct(cluster_3, Municipio = NOM_MUN, Localidad = NOM_LOC)) %>%
+  select(Municipio, Localidad, everything()) %>% write_excel_csv("Mapas/cuotas.csv")
 
-shp_qro$crear_mapas(diseño = diseño_qro, zoom = 15)
-
-
+readr::write_rds(diseño_qro, "Mapas/diseño_qro.rda")
+diseño_qro$muestra[[2]] %>% unnest(data) %>% group_by(cluster_3) %>% filter(n()== 1) %>% select(NOM_LOC)
 
