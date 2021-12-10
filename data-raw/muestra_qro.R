@@ -163,3 +163,9 @@ diseño_qro$cuotas %>% inner_join(diseño_qro$muestra[[2]] %>% unnest(data) %>%
 readr::write_rds(diseño_qro, "Mapas/diseño_qro.rda")
 diseño_qro$muestra[[2]] %>% unnest(data) %>% group_by(cluster_3) %>% filter(n()== 1) %>% select(NOM_LOC)
 
+
+diseño_qro <- readr::read_rds("diseño_qro.rda")
+
+shp_qro %>% readr::write_rds("shp_qro.rda")
+library(tidyverse)
+diseño_qro$muestra %>% pluck(3) %>% unnest(data) %>% write_excel_csv("muestra_qro.csv")
