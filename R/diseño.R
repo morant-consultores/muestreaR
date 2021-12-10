@@ -336,7 +336,6 @@ criterio_n <- function(plan_muestreo,
       clase <- "strata"
       print("Clase fija, cuidado")
       if(clase=="strata"){
-        browser()
         ve <- "POBTOT"
         print("Un monton de cosas fijas! CUIDADO")
         res_2 <- criterio_N(base = marco_muestral,
@@ -370,7 +369,6 @@ criterio_n <- function(plan_muestreo,
       nivel_secundario <- plan_muestreo[grep(pattern = glue::glue("(cluster|strata)_{nivel+1}"),
                                              names(plan_muestreo))]
       if(length(nivel_secundario)==0) nivel_secundario="cluster_0"
-      browser()
       marco_agrupado <- agrupar_nivel(marco_muestral, nivel = nivel)
       marco_agrupado <- marco_agrupado %>% nest()%>%
         left_join(pp[[1]])
