@@ -34,7 +34,7 @@ shp <- read_rds("data/shp_qro.rda")
 bd <- read_excel("data/bd.xlsx")
 eliminadas <- read_excel("data/Eliminadas.xlsx") %>% rename(SbjNum = ID)
 
-
+bbox_qro <- st_bbox(shp$shp$MUN)
 # bd a shp ----------------------------------------------------------------
 
 enc <- bd %>%
@@ -57,21 +57,25 @@ aulr <- shp$shp$AULR %>%
 
 # dentro y fuera ----------------------------------------------------------
 
-todas <- enc_shp %>%
-  st_join(aulr %>%
-            filter(stringr::str_detect(AULR,"Urbana")))
-fuera <-  todas %>%
-          filter(is.na(AULR)) %>%
-          mutate(color="black")
-
-dentro <-  todas %>%
-  filter(!is.na(AULR)) %>%
-  mutate(distinto=if_else(cluster_3!=cluster, 1, 0),
-         cluster_3=as.character(cluster_3),
-         cluster_3=if_else(distinto==1, cluster_3, cluster),
-         color="green")
-
-
+# todas <- enc_shp %>%
+#   st_join(aulr %>%
+#             filter(stringr::str_detect(AULR,"Urbana")))
+# fuera <-  todas %>%
+#           filter(is.na(AULR)) %>%
+#           mutate(color="black")
+#
+# dentro <-  todas %>%
+#   filter(!is.na(AULR)) %>%
+#   mutate(distinto=if_else(cluster_3!=cluster, 1, 0),
+#          cluster_3=as.character(cluster_3),
+#          cluster_3=if_else(distinto==1, cluster_3, cluster),
+#          color="green")
+#
+# dentro %>% readr::write_rds("data/dentro.rda")
+# fuera %>% readr::write_rds("data/fuera.rda")
+dentro <- readr::read_rds("data/dentro.rda")
+fuera <- readr::read_rds("data/fuera.rda")
+enc_shp <- bind_rows(dentro %>% mutate(cluster_3 = as.numeric(cluster_3)), fuera)
 # reordenar clusters ------------------------------------------------------
 
 nuevos <- dentro %>%
@@ -153,7 +157,7 @@ ui <-dashboardPage(
                             actionButton("filtrar","Filtrar"),
                             gt_output("faltantes"),
                             hr(),
-                            actionButton("des", "Deseleccionar")
+                            actionButton("regresar", "Regresar")
               )
       ),
       tabItem("entrevistas",
@@ -202,9 +206,9 @@ server <- function(input, output) {
     # leaflet() %>% addProviderTiles("CartoDB.Positron") %>%
     shp$graficar_mapa(bd = diseño$poblacion$marco_muestral, nivel = "MUN") %>%
       shp$graficar_mapa(bd = diseño$muestra, nivel = "AULR") %>%
-      addCircleMarkers(data = enc_shp, color = "green", stroke = F, label = ~cluster) %>%
+      addCircleMarkers(data = enc_shp, color = ~color, stroke = F, label = ~cluster) %>%
       # addCircleMarkers(data = fuera, color = "black", stroke = F) %>%
-      addLegend(position = "bottomright", colors = c("green"), labels = c(""),
+      addLegend(position = "bottomright", colors = c("green", "black"), labels = c("dentro", "fuera"),
                 title = "Entrevistas")
   })
 
@@ -214,6 +218,10 @@ server <- function(input, output) {
     bbox <-  aulr %>% filter(cluster_3 == !!input$cluster) %>% sf::st_bbox()
 
     proxy %>% flyToBounds(bbox[[1]],bbox[[2]],bbox[[3]],bbox[[4]])
+  })
+
+  observeEvent(input$regresar,{
+    proxy %>% flyToBounds(bbox_qro[[1]],bbox_qro[[2]],bbox_qro[[3]],bbox_qro[[4]])
   })
 
   output$faltantes <- render_gt({
