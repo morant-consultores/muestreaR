@@ -207,7 +207,7 @@ Cartografia <- R6::R6Class("Cartografia",
                                                      nivel = nivel)
                              },
                              crear_mapas = function(diseño, zoom){
-                               google_maps(diseño_qro, shp = self$shp, zoom = zoom)
+                               google_maps(diseño, shp = self$shp, zoom = zoom)
                              }
                            ))
 
