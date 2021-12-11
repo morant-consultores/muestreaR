@@ -28,7 +28,7 @@ library(shinycssloaders)
 
 # Lectura -----------------------------------------------------------------
 
-diseño <- read_rds("data/diseño_qro.rda")
+diseño <- read_rds("data/diseño_qro2.rda")
 shp <- read_rds("data/shp_qro.rda")
 # list.files("R",full.names = T) %>% walk(~source(.x))
 bd <- read_excel("data/bd.xlsx")
@@ -52,10 +52,11 @@ hecho <- enc %>%
                                  c("18A24","25A59","60YMAS"))),
          cluster = as.numeric(cluster)) %>%
   count(cluster, edad, sexo, name = "hecho") %>%
-  inner_join(
+  full_join(
     diseño$cuotas %>% mutate(sexo = if_else(sexo == "F", "Mujer", "Hombre")) %>%
       rename(cuota = n, cluster = cluster_3, edad = rango)
-  ) %>% mutate(faltan = cuota - hecho)
+  ) %>% replace_na(list(hecho = 0)) %>%
+  mutate(faltan = cuota - hecho)
 
 por_hacer <- diseño$cuotas %>% mutate(sexo = if_else(sexo == "F", "Mujer", "Hombre")) %>%
   rename(cuota = n, cluster = cluster_3, edad = rango) %>%
