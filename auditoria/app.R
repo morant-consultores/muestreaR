@@ -166,7 +166,7 @@ server <- function(input, output) {
     # leaflet() %>% addProviderTiles("CartoDB.Positron") %>%
     shp$graficar_mapa(bd = diseño$poblacion$marco_muestral, nivel = "MUN") %>%
       shp$graficar_mapa(bd = diseño$muestra, nivel = "AULR") %>%
-      addCircleMarkers(data = enc_shp, color = "green", stroke = F) %>%
+      addCircleMarkers(data = enc_shp, color = "green", stroke = F, label = ~cluster) %>%
       # addCircleMarkers(data = fuera, color = "black", stroke = F) %>%
       addLegend(position = "bottomright", colors = c("green"), labels = c(""),
                 title = "Entrevistas")
