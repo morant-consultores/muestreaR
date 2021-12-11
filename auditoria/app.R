@@ -79,17 +79,17 @@ enc_shp <- bind_rows(dentro %>% mutate(cluster_3 = as.numeric(cluster_3)), fuera
 # reordenar clusters ------------------------------------------------------
 
 nuevos <- dentro %>%
-          as_tibble() %>%
-          filter(distinto==1) %>%
-          select(id, cluster_3, distinto)
+  as_tibble() %>%
+  filter(distinto==1) %>%
+  select(id, cluster_3, distinto)
 
 enc <- left_join(enc, nuevos, by="id")
 
 enc$distinto[is.na(enc$distinto)] <- 0
 
 enc<- enc %>%
-        mutate(cluster=if_else(distinto==1, cluster_3, cluster)) %>%
-       select(-cluster_3, -distinto)
+  mutate(cluster=if_else(distinto==1, cluster_3, cluster)) %>%
+  select(-cluster_3, -distinto)
 
 
 
@@ -150,14 +150,12 @@ ui <-dashboardPage(
                             HTML('<button data-toggle="collapse" data-target="#demo">Min/max</button>'),
                             tags$div(id = 'demo',  class="collapse",
                                      selectInput("cluster", "Cluster", c("Seleccione..."= "",sort(unique(diseño$muestra[[3]]$cluster_3)))
-                                     )),
-                            # conditionalPanel("input.cluster != ''",
-                            #                  selectInput("ageb","AGEB",c("Cargando..."=""))
-                            # ),
-                            actionButton("filtrar","Filtrar"),
-                            gt_output("faltantes"),
-                            hr(),
-                            actionButton("regresar", "Regresar")
+                                     ),
+                                     actionButton("filtrar","Filtrar"),
+                                     gt_output("faltantes"),
+                                     hr(),
+                                     actionButton("regresar", "Regresar")
+                            )
               )
       ),
       tabItem("entrevistas",
@@ -256,7 +254,7 @@ server <- function(input, output) {
         bd %>% filter(is.na(Longitude)) %>% select(SbjNum, Fecha = Date, Encuestador = Srvyr) %>%
           mutate(Razón = "GPS apagado")
       ) %>% arrange(desc(Fecha))
-  }, options = list(dom = "ltp",
+  }, options = list(dom = "ltpi",
                     language = list(url = '//cdn.datatables.net/plug-ins/1.10.11/i18n/Spanish.json')))
 }
 
