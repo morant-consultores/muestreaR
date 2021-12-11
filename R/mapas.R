@@ -57,8 +57,8 @@ graficar_mapa_muestra <- function(lflt = NULL, muestra, shp, nivel){
         mapear <- mapear %>% mutate(Nombre = "")
       }
       lflt %>% addPolygons(data = mapear %>%
-                             filter(sf::st_geometry_type(.) != "POINT"),
-                           color = ~pal(nivel), fillOpacity = 1,weight = 1,
+                             filter(sf::st_geometry_type(.) != "POINT"), stroke = T, color = "black",
+                           fillColor = ~pal(nivel), fillOpacity = 1,weight = 1,
                            popup = ~glue::glue("Tipo: {nivel} <br>
                                                 Ámbito: {tipo} <br>
                                                 CVEGEO: {CVEGEO}
