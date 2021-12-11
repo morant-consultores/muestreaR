@@ -13,7 +13,6 @@ agrupar_nivel <- function(bd, nivel){
 #'
 #' @return
 #' @export
-#'
 #' @examples
 repartir_cociente <- function(n, x){
   if(sum(x)+length(x)-1<=n) stop("No es válido el vector propuesto")

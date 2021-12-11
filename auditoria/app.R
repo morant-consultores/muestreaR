@@ -43,7 +43,51 @@ enc <- bd %>%
   select(cluster = CLUSTER, edad = PB, sexo = P21,
          Encuestador = Srvyr, id = SbjNum, Latitude,Longitude) %>%
   mutate(Latitude = as.double(Latitude))
-enc_shp <- enc %>% st_as_sf(coords = c("Longitude","Latitude"), crs = "+init=epsg:4326")
+enc_shp <- enc %>%
+  st_as_sf(coords = c("Longitude","Latitude"), crs = "+init=epsg:4326")
+
+# aulr en muestra ---------------------------------------------------------
+
+aulr <- shp$shp$AULR %>%
+  inner_join(diseño$muestra[[3]] %>%
+               unnest(data) %>% distinct(AULR,cluster_3))
+
+
+
+
+# dentro y fuera ----------------------------------------------------------
+
+todas <- enc_shp %>%
+  st_join(aulr %>%
+            filter(stringr::str_detect(AULR,"Urbana")))
+fuera <-  todas %>%
+          filter(is.na(AULR)) %>%
+          mutate(color="black")
+
+dentro <-  todas %>%
+  filter(!is.na(AULR)) %>%
+  mutate(distinto=if_else(cluster_3!=cluster, 1, 0),
+         cluster_3=as.character(cluster_3),
+         cluster_3=if_else(distinto==1, cluster_3, cluster),
+         color="green")
+
+
+# reordenar clusters ------------------------------------------------------
+
+nuevos <- dentro %>%
+          as_tibble() %>%
+          filter(distinto==1) %>%
+          select(id, cluster_3, distinto)
+
+enc <- left_join(enc, nuevos, by="id")
+
+enc$distinto[is.na(enc$distinto)] <- 0
+
+enc<- enc %>%
+        mutate(cluster=if_else(distinto==1, cluster_3, cluster)) %>%
+       select(-cluster_3, -distinto)
+
+
 
 # cuotas ------------------------------------------------------------------
 
@@ -72,15 +116,7 @@ por_hacer <- diseño$cuotas %>% mutate(sexo = if_else(sexo == "F", "Mujer", "Hom
 
 
 
-# aulr en muestra ---------------------------------------------------------
 
-aulr <- shp$shp$AULR %>% inner_join(diseño$muestra[[3]] %>% unnest(data) %>% distinct(AULR,cluster_3))
-
-
-# dentro y fuera ----------------------------------------------------------
-
-# dentro <- enc_shp %>% st_join(aulr)
-# fuera <- enc_shp %>% anti_join(dentro %>% as_tibble, by = "id")
 
 
 ui <-dashboardPage(
