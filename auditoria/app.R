@@ -28,7 +28,7 @@ library(shinycssloaders)
 
 # Lectura -----------------------------------------------------------------
 
-diseño <- read_rds("data/diseño_qro2.rda")
+diseño <- read_rds("data/diseño_qro2_1.rda")
 shp <- read_rds("data/shp_qro.rda")
 # list.files("R",full.names = T) %>% walk(~source(.x))
 bd <- read_excel("data/bd.xlsx")
@@ -56,7 +56,7 @@ aulr <- shp$shp$AULR %>%
 
 
 # dentro y fuera ----------------------------------------------------------
-
+#
 # todas <- enc_shp %>%
 #   st_join(aulr %>%
 #             filter(stringr::str_detect(AULR,"Urbana")))
