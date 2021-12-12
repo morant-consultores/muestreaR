@@ -28,7 +28,7 @@ library(shinycssloaders)
 
 # Lectura -----------------------------------------------------------------
 
-diseño <- read_rds("data/diseño_qro2_1.rda")
+diseño <- read_rds("data/diseño_qro4.rda")
 shp <- read_rds("data/shp_qro.rda")
 # list.files("R",full.names = T) %>% walk(~source(.x))
 bd <- read_excel("data/bd.xlsx")
