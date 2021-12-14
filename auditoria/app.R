@@ -33,7 +33,8 @@ shp <- read_rds("data/shp_qro.rda")
 # list.files("R",full.names = T) %>% walk(~source(.x))
 bd <- read_excel("data/bd.xlsx")
 eliminadas <- read_excel("data/Eliminadas.xlsx") %>% rename(SbjNum = ID)
-
+sin_z <- read_excel("data/Sin zona .xlsx") %>% mutate(Razón = "Zona equivocada")
+eliminadas <- bind_rows(eliminadas, sin_z)
 bbox_qro <- st_bbox(shp$shp$MUN)
 # bd a shp ----------------------------------------------------------------
 
