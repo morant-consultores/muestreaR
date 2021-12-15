@@ -24,6 +24,7 @@ library(shinyWidgets)
 library(shinydashboard)
 library(DT)
 library(shinycssloaders)
+library(colorRamps)
 # Define UI for application that draws a histogram
 
 # Lectura -----------------------------------------------------------------
@@ -104,8 +105,8 @@ hecho <- enc %>%
   full_join(
     diseño$cuotas %>% mutate(sexo = if_else(sexo == "F", "Mujer", "Hombre")) %>%
       rename(cuota = n, cluster = cluster_3, edad = rango)
-  ) %>% replace_na(list(hecho = 0)) %>%
-  mutate(faltan = cuota - hecho)
+  ) %>% replace_na(list(hecho = 0, faltan = 0)) %>%
+  mutate(faltan = cuota - hecho) %>% filter(cluster %in% diseño$cuotas$cluster_3)
 
 por_hacer <- diseño$cuotas %>% mutate(sexo = if_else(sexo == "F", "Mujer", "Hombre")) %>%
   rename(cuota = n, cluster = cluster_3, edad = rango) %>%
@@ -121,8 +122,10 @@ por_hacer <- diseño$cuotas %>% mutate(sexo = if_else(sexo == "F", "Mujer", "Hom
 
 
 
-
-
+pal_p <- leaflet::colorNumeric("Blues", domain = hecho %>% filter(faltan>0) %>% pull(faltan) %>% unique %>% sort)
+pal_n <- leaflet::colorNumeric("Reds", domain = hecho %>% filter(faltan<0) %>% pull(faltan) %>% unique %>% sort)
+uno <- pal_p(hecho %>% filter(faltan>0) %>% pull(faltan) %>% unique %>% sort)
+dos <- pal_n(hecho %>% filter(faltan<0) %>% pull(faltan) %>% unique %>% sort %>% rev)
 
 ui <-dashboardPage(
   dashboardHeader(title = diseño$poblacion$nombre),
@@ -184,7 +187,14 @@ ui <-dashboardPage(
                 )
               ),
               h2("Entrevitas por hacer"),
-              withSpinner(plotOutput("por_hacer",height = 600)),
+              fluidRow(
+                column(6,
+                       withSpinner(plotOutput("por_hacer",height = 600)),
+                       ),
+                column(6,
+                       withSpinner(plotOutput("por_hacer_cuotas",height = 600))
+                       )
+              ),
               h2("Eliminadas"),
               DTOutput("eliminadas")
       ),
@@ -234,7 +244,7 @@ server <- function(input, output) {
   })
 
   output$por_hacer <- renderPlot({
-    aux <- por_hacer %>% count(cluster, wt = por_hacer, name = "encuestas") %>% filter(encuestas != 0) %>%
+    aux <- por_hacer %>% count(cluster, wt = por_hacer, name = "encuestas") %>%# filter(encuestas != 0) %>%
       mutate(color = if_else(encuestas > 0, "#5BC0EB", "#C3423F"))
     aux %>%
       ggplot(aes(y = forcats::fct_reorder(factor(cluster), encuestas), x = encuestas)) +
@@ -247,6 +257,16 @@ server <- function(input, output) {
                label = glue::glue("{scales::comma(sum(aux$encuestas))} entrevistas por hacer"),
                hjust = "inward", vjust = "inward") +
       theme_minimal() + ylab("cluster") + xlab("entrevistas por hacer")
+  })
+
+  output$por_hacer_cuotas <- renderPlot({
+    hecho %>% mutate(grupo = glue::glue("{edad} {sexo}")) %>%
+      group_by(cluster) %>% mutate(total = sum(faltan)) %>%
+      ungroup %>% mutate(cluster = reorder(cluster, total)) %>%
+      ggplot(aes(y = cluster, x = grupo,
+                 fill = factor(faltan))) +
+      geom_tile() + scale_fill_manual(values = c(dos, "white", uno)) +
+      labs(fill = "Entrevistas \n por hacer", y = "Cluster", x = NULL) + theme_minimal()
   })
 
   output$eliminadas <- renderDT({
