@@ -122,10 +122,7 @@ por_hacer <- diseño$cuotas %>% mutate(sexo = if_else(sexo == "F", "Mujer", "Hom
 
 
 
-pal_p <- leaflet::colorNumeric("Blues", domain = hecho %>% filter(faltan>0) %>% pull(faltan) %>% unique %>% sort)
-pal_n <- leaflet::colorNumeric("Reds", domain = hecho %>% filter(faltan<0) %>% pull(faltan) %>% unique %>% sort)
-uno <- pal_p(hecho %>% filter(faltan>0) %>% pull(faltan) %>% unique %>% sort)
-dos <- pal_n(hecho %>% filter(faltan<0) %>% pull(faltan) %>% unique %>% sort %>% rev)
+
 
 ui <-dashboardPage(
   dashboardHeader(title = diseño$poblacion$nombre),
@@ -260,13 +257,21 @@ server <- function(input, output) {
   })
 
   output$por_hacer_cuotas <- renderPlot({
+
+    pal_p <- leaflet::colorNumeric("Blues", domain = hecho %>% filter(faltan>0) %>% pull(faltan) %>% unique %>% sort)
+    pal_n <- leaflet::colorNumeric("Reds", domain = hecho %>% filter(faltan<0) %>% pull(faltan) %>% unique %>% sort)
+    uno <- pal_p(hecho %>% filter(faltan>0) %>% pull(faltan) %>% unique %>% sort)
+    dos <- pal_n(hecho %>% filter(faltan<0) %>% pull(faltan) %>% unique %>% sort %>% rev)
+
     hecho %>% mutate(grupo = glue::glue("{edad} {sexo}")) %>%
       group_by(cluster) %>% mutate(total = sum(faltan)) %>%
       ungroup %>% mutate(cluster = reorder(cluster, total)) %>%
       ggplot(aes(y = cluster, x = grupo,
                  fill = factor(faltan))) +
-      geom_tile() + scale_fill_manual(values = c(dos, "white", uno)) +
-      labs(fill = "Entrevistas \n por hacer", y = "Cluster", x = NULL) + theme_minimal()
+      geom_tile() +
+      geom_text(aes(label = faltan ), alpha = .5) +
+      scale_fill_manual(values = c(dos, "white", uno)) +
+      labs(fill = "Entrevistas \n por hacer", y = NULL, x = NULL) + theme_minimal()
   })
 
   output$eliminadas <- renderDT({
