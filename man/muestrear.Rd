@@ -4,7 +4,7 @@
 \alias{muestrear}
 \title{Title}
 \usage{
-muestrear(base, nivel, variable_estudio, bd_n, ultimo_nivel = F)
+muestrear(diseño, nivel)
 }
 \arguments{
 \item{bd_n}{}

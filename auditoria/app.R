@@ -77,7 +77,7 @@ aulr <- shp$shp$AULR %>%
 # fuera %>% readr::write_rds("data/fuera.rda")
 dentro <- readr::read_rds("data/dentro.rda")
 fuera <- readr::read_rds("data/fuera.rda")
-enc_shp <- bind_rows(dentro %>% mutate(cluster_3 = as.numeric(cluster_3)), fuera)
+enc_shp <- bind_rows(dentro %>% mutate(cluster_3 = as.numeric(cluster_3)), fuera %>% mutate(cluster_3 = as.numeric(cluster)))
 # reordenar clusters ------------------------------------------------------
 
 nuevos <- dentro %>%
@@ -93,7 +93,11 @@ enc<- enc %>%
   mutate(cluster=if_else(distinto==1, cluster_3, cluster)) %>%
   select(-cluster_3, -distinto)
 
+enc <- enc %>% semi_join(diseño$muestra$AULR %>% mutate(cluster_3 = as.character(cluster_3)),
+          by = c("cluster" = "cluster_3"))
 
+enc_shp <- enc_shp %>% semi_join(diseño$muestra$AULR,
+                         by = c("cluster_3"))
 
 # cuotas ------------------------------------------------------------------
 
@@ -212,7 +216,7 @@ server <- function(input, output) {
     # leaflet() %>% addProviderTiles("CartoDB.Positron") %>%
     shp$graficar_mapa(bd = diseño$poblacion$marco_muestral, nivel = "MUN") %>%
       shp$graficar_mapa(bd = diseño$muestra, nivel = "AULR") %>%
-      addCircleMarkers(data = enc_shp, color = ~color, stroke = F, label = ~glue::glue("{cluster}-{Encuestador}-{id}")) %>%
+      addCircleMarkers(data = enc_shp, color = ~color, stroke = F, label = ~glue::glue("{cluster_3}-{Encuestador}-{id}")) %>%
       # addCircleMarkers(data = fuera, color = "black", stroke = F) %>%
       addLegend(position = "bottomright", colors = c("green", "black"), labels = c("dentro", "fuera"),
                 title = "Entrevistas")

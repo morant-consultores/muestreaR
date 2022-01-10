@@ -4,7 +4,7 @@
 \alias{calcular_fpc}
 \title{Title}
 \usage{
-calcular_fpc(base, nivel = 1, n_grupo, ultimo_nivel = F)
+calcular_fpc(diseño, nivel = 1)
 }
 \arguments{
 \item{bd}{}
