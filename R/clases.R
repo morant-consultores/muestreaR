@@ -15,6 +15,7 @@ Diseño <- R6::R6Class("Diseño",
                                        plan_muestra=NULL),
                         muestra = NULL,
                         cuotas = NULL,
+                        n_sustitucion = 0,
                         initialize = function(poblacion,
                                               n,
                                               n_0,
@@ -150,6 +151,10 @@ Diseño <- R6::R6Class("Diseño",
                         },
                         calcular_cuotas = function(){
                           self$cuotas <- cuotas(self)
+                        },
+                        sustituir_muestra = function(shp, id, zoom = 15){
+                          self <- sustituir_muestra(self, shp, id, zoom)
+                          self$n_sustitucion <- self$n_sustitucion + 1
                         }
                       ),
                       private = list(
@@ -182,6 +187,11 @@ Poblacion <- R6::R6Class("Poblacion",
                            calcular_poblacion=function(na.rm=T){
                              res= sum(self$marco_muestral[,self$variable_poblacion],na.rm = na.rm)
                              return(res)
+                           },
+                           regiones = function(id, regiones){
+                             self$marco_muestral<- regiones(self$marco_muestral,
+                                                                 id = id,
+                                                                 regiones = regiones)
                            }
                          )
 )

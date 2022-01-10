@@ -76,9 +76,8 @@ region_anterior <- list(
 )
 
 # Este paso no debería ir
-queretaro$marco_muestral<- regiones(queretaro$marco_muestral,
-                                    id = "NOM_MUN",
-                                    regiones = region_anterior)
+queretaro$regiones(id = "NOM_MUN",
+                   regiones = region_anterior)
 
 # Se propone un nivel
 diseño_qro$agregar_nivel("region",
