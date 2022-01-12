@@ -9,7 +9,7 @@
 #' @export
 #'
 #' @examples
-sustituir_muestra <- function(diseño, shp, id, zoom){
+sustituir_muestra <- function(diseño, shp, id, zoom, dir){
 
 # sólo se puede sustituir el último nivel
 t_nivel <- diseño$niveles %>% filter(nivel == !!diseño$ultimo_nivel) %>% pull(variable)
@@ -64,7 +64,7 @@ diseño$cuotas <- diseño$cuotas %>% anti_join(cuotas_viejo, by = nivel) %>%
 
 # library(ggmap)
 # ggmap::ggmap(ggmap::get_map())
-muestreaR:::google_maps(diseño, shp = shp$shp, zoom = zoom)
+muestreaR:::google_maps(diseño, shp = shp$shp, zoom = zoom, dir = dir)
 
 return(diseño)
 # diseño %>% readr::write_rds(glue::glue("auditoria/data/diseño_qro{i}.rda"))

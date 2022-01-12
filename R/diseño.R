@@ -605,14 +605,17 @@ cuotas <- function(diseño){
     semi_join(muestra %>% distinct(!!rlang::sym(u_cluster)))
 
   ent <- muestra %>% left_join(diseño$n_i$cluster_0) %>% count(!!rlang::sym(u_cluster), wt = n_0, name = "entrevistas")
-  cuotas <- bd %>% transmute(!!rlang::sym(u_cluster),
+  cuotas <- bd %>% transmute(Municipio = NOM_MUN,
+                             Localidad = NOM_LOC,
+                             !!rlang::sym(u_cluster),
                              P_18A24_F,
                              P_18A24_M,
                              P_25A59_F = P_18YMAS_F - P_18A24_F - P_60YMAS_F,
                              P_25A59_M = P_18YMAS_M - P_18A24_M - P_60YMAS_M,
                              P_60YMAS_F,P_60YMAS_M) %>%
-    group_by(!!rlang::sym(u_cluster)) %>% summarise(across(everything(),.fns = sum, na.rm = T)) %>%
-    pivot_longer(-!!sym(u_cluster), names_to = "edad", values_to = "cantidad") %>%
+    group_by(Municipio, Localidad,!!rlang::sym(u_cluster)) %>%
+    summarise(across(everything(),.fns = sum, na.rm = T),.groups =  "drop") %>%
+    pivot_longer(c(-Municipio,-Localidad,-!!sym(u_cluster)), names_to = "edad", values_to = "cantidad") %>%
     separate(edad, c("basura","rango","sexo")) %>% select(-basura) %>%
     group_by(!!rlang::sym(u_cluster)) %>% mutate(pct = cantidad/sum(cantidad)) %>% ungroup %>%
     left_join(
@@ -625,8 +628,14 @@ cuotas <- function(diseño){
     select(a = 1,b = 4) %>%
     purrr::pmap_df(function(a, b){
       aux <- cuotas %>% filter(!!rlang::sym(u_cluster) == !! a)
-      aleatorio <- sample(x = seq_len(nrow(aux)), size = abs(b))
-      aux[aleatorio, "n"] <- aux[aleatorio, "n"] + sign(b)
+      ya <- abs(b)
+      while(ya != 0){
+        alea <- min(nrow(aux), ya)
+        aleatorio <- sample(x = seq_len(nrow(aux)), size = alea)
+        aux[aleatorio, "n"] <- aux[aleatorio, "n"] + sign(b)
+        ya <- ya - alea
+      }
+
       return (aux)
     })
 

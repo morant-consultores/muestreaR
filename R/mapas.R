@@ -89,8 +89,7 @@ graficar_mapa_muestra <- function(lflt = NULL, muestra, shp, nivel){
 #' @export
 #'
 #' @examples
-google_maps <- function(diseño, shp, zoom){
-  if(!"Mapas" %in% list.files()) dir.create("Mapas")
+google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
 
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
@@ -104,7 +103,7 @@ google_maps <- function(diseño, shp, zoom){
   man_shp <- shp %>% purrr::pluck("MZA") %>% inner_join(bd)
 
 
-  for(i in cluster){
+  for(i in cluster[1]){
     aux_s <- diseño$cuotas %>% filter(!!rlang::sym(u_cluster) == i)
     s <- aux_s %>%
       mutate(n = glue::glue("{n} entrevistas")) %>%
@@ -131,7 +130,7 @@ google_maps <- function(diseño, shp, zoom){
       theme(plot.title = element_text(hjust = 1), plot.subtitle = element_text(size = 10, hjust = 0))
 
     ggsave(g, filename= sprintf("%s.png", i),
-           path="Mapas",width = 11,height = 8.5,units = "in",dpi = "print")
+           path=dir,width = 11,height = 8.5,units = "in",dpi = "print")
   }
   beepr::beep()
 

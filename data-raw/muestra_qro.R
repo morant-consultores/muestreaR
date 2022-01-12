@@ -90,13 +90,13 @@ uno <- shp_qro$graficar_mapa(bd = diseño_qro$poblacion$marco_muestral, nivel = 
 # Se propone un nivel
 diseño_qro$agregar_nivel("MUN",
                          tipo="cluster",
-                         descripcion= "AGEB Rural y localidad urbana",
-                         llave="Loc")
+                         descripcion= "Municipios",
+                         llave="Mun")
 
 diseño_qro$agregar_nivel("AULR",
                          tipo="cluster",
-                         descripcion= "AGEB Rural y localidad urbana",
-                         llave="Loc")
+                         descripcion= "AGEB urbana y localidad rural",
+                         llave="AULR")
 
 
 # Plan de muestra ---------------------------------------------------------
@@ -125,46 +125,13 @@ diseño_qro$n_i$cluster_0 %>% semi_join(diseño_qro$muestra[[3]]) %>% summarise(
 diseño_qro$niveles
 # Cuotas ------------------------------------------------------------------
 diseño_qro$calcular_cuotas()
-diseño_qro$cuotas %>% summarise(sum(n))
-
 
 # Pruebas de la muestra ---------------------------------------------------
+diseño_qro$revisar_muestra(prop_vars = c("POCUPADA"), var_extra = c("TVIVPARHAB"))
 
-bd <- diseño_qro$muestra %>% pluck(length(diseño_qro$muestra)) %>% unnest(data)
-bd <- bd %>% mutate(prop = POCUPADA/POBTOT)
-# bd <- bd %>% sample_n(203) %>% mutate(fpc_0 = fpc_0*203/nrow(.))
-# bd %>% distinct(cluster_3,fpc_0)
-library(survey)
-diseño <- svydesign(data = bd, ids = ~cluster_2 + cluster_3 + cluster_0, strata = ~strata_1, fpc = ~fpc_2 + fpc_3+fpc_0, pps = "brewer")
-options(survey.lonely.psu="remove")
 
-diseño_qro$poblacion$marco_muestral %>% summarise(sum(POBTOT))
-confint(svytotal(~POBTOT, design = diseño, na.rm = T))
-diseño_qro$poblacion$marco_muestral %>% summarise(sum(POCUPADA, na.rm = T))
-confint(svytotal(~POCUPADA, design = diseño, na.rm = T))
-# diseño_qro$poblacion$marco_muestral %>% summarise(sum(POCUPADA,na.rm = T))
-diseño_qro$poblacion$marco_muestral %>% summarise(mean(POCUPADA/POBTOT, na.rm = T))
-confint(svymean(~prop, design = diseño, na.rm = T))
-
-diseño_qro$n_i$cluster_3 %>% semi_join(
-  diseño_qro$muestra %>% pluck(3)
-) %>% ungroup %>% summarise(sum(m_3))
-
-nrow(bd)
 # Google maps -------------------------------------------------------------
-# library(ggmap)
+library(ggmap)
 # ggmap(get_map())
-shp_qro$crear_mapas(diseño = diseño_qro, zoom = 16)
-diseño_qro$cuotas %>% inner_join(diseño_qro$muestra[[2]] %>% unnest(data) %>%
-                                   distinct(cluster_3, Municipio = NOM_MUN, Localidad = NOM_LOC)) %>%
-  select(Municipio, Localidad, everything()) %>% write_excel_csv("Mapas/cuotas.csv")
-
-readr::write_rds(diseño_qro, "Mapas/diseño_qro.rda")
-diseño_qro$muestra[[2]] %>% unnest(data) %>% group_by(cluster_3) %>% filter(n()== 1) %>% select(NOM_LOC)
-
-
-diseño_qro <- readr::read_rds("diseño_qro.rda")
-
-shp_qro %>% readr::write_rds("shp_qro.rda")
-library(tidyverse)
-diseño_qro$muestra %>% pluck(3) %>% unnest(data) %>% write_excel_csv("muestra_qro.csv")
+diseño_qro$exportar(shp_qro)
+# diseño_qro$sustituir_muestra(shp_qro, id = 4)

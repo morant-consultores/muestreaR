@@ -16,6 +16,7 @@ Diseño <- R6::R6Class("Diseño",
                         muestra = NULL,
                         cuotas = NULL,
                         n_sustitucion = 0,
+                        dir.exportar = NULL,
                         initialize = function(poblacion,
                                               n,
                                               n_0,
@@ -152,9 +153,32 @@ Diseño <- R6::R6Class("Diseño",
                         calcular_cuotas = function(){
                           self$cuotas <- cuotas(self)
                         },
+                        revisar_muestra = function(prop_vars, var_extra){
+                          a <- llaves(self)
+
+                          b <- plan(self)
+
+                          c <- revision(self = self,prop_vars = prop_vars, var_extra = var_extra)
+
+                          return(list(a,b,c))
+
+                        },
+                        exportar = function(shp, zoom = 16, carpeta = "Insumos"){
+                          self$dir.exportar <- carpeta
+                          if(!file.exists(carpeta)) dir.create(carpeta)
+                          if(!file.exists(glue::glue("{carpeta}/Mapas"))) dir.create(glue::glue("{carpeta}/Mapas"))
+
+                          shp$crear_mapas(diseño = self, zoom = zoom, dir = glue::glue("{carpeta}/Mapas"))
+                          diseño_qro$cuotas %>% write_excel_csv(glue::glue("{carpeta}/cuotas.csv"))
+                          readr::write_rds(self, glue::glue("{carpeta}/diseño.rda"))
+                          shp %>% readr::write_rds(glue::glue("{carpeta}/shp.rda"))
+                        },
                         sustituir_muestra = function(shp, id, zoom = 15){
-                          self <- sustituir_muestra(self, shp, id, zoom)
+                          self <- sustituir_muestra(self, shp, id, zoom, dir = glue::glue("{self$dir.exportar}/Mapas"))
+                          file.rename(glue::glue("{self$dir.exportar}/Mapas/{id}.png"),
+                                      glue::glue("{self$dir.exportar}/Mapas/{id} eliminada.png"))
                           self$n_sustitucion <- self$n_sustitucion + 1
+                          readr::write_rds(self, glue::glue("{self$dir.exportar}/diseño{self$n_sustitucion}.rda"))
                         }
                       ),
                       private = list(
@@ -166,7 +190,6 @@ Poblacion <- R6::R6Class("Poblacion",
                          public = list(
                            nombre = NULL,
                            marco_muestral=NULL,
-                           variable_poblacion=NULL,
                            initialize=function(nombre,
                                                base_manzana,
                                                base_localidad,
@@ -177,11 +200,6 @@ Poblacion <- R6::R6Class("Poblacion",
                                                                        loc = base_localidad,
                                                                        lpr_shp = shp_localidad_no_amanzanada,
                                                                        loc_shp = shp_localidad_amanzanada)
-
-                           },
-                           determinar_variable_poblacional =function(variable){
-                             self$variable_poblacion = variable
-                             return(self$variable_poblacion)
 
                            },
                            calcular_poblacion=function(na.rm=T){
@@ -216,8 +234,8 @@ Cartografia <- R6::R6Class("Cartografia",
                                                      shp = self$shp,
                                                      nivel = nivel)
                              },
-                             crear_mapas = function(diseño, zoom){
-                               google_maps(diseño, shp = self$shp, zoom = zoom)
+                             crear_mapas = function(diseño, zoom, dir){
+                               google_maps(diseño, shp = self$shp, zoom = zoom, dir = dir)
                              }
                            ))
 
