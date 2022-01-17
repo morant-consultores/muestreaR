@@ -57,13 +57,13 @@ revision <- function(self, prop_vars = c("POCUPADA"), var_extra = NULL){
   fpc <- bd %>% select(contains("fpc")) %>% names()
 
   diseño <- survey::svydesign(data = bd,
-                              ids = make.formula(clusters),
-                              strata = make.formula(strata),
-                              fpc = make.formula(fpc), pps = "brewer")
+                              ids = survey::make.formula(clusters),
+                              strata = survey::make.formula(strata),
+                              fpc = survey::make.formula(fpc), pps = "brewer")
   options(survey.lonely.psu="remove")
 
   tb <- c(self$variable_poblacional,var_extra) %>% map_df(~{
-    puntual <- svytotal(make.formula(.x), design = diseño, na.rm = T)
+    puntual <- svytotal(survey::make.formula(.x), design = diseño, na.rm = T)
     original <- mm %>% summarise(original = sum(!!rlang::sym(.x),na.rm = T))
     intervalo <- confint(puntual) %>% as_tibble
     tb <- tibble(original,
@@ -89,7 +89,7 @@ revision <- function(self, prop_vars = c("POCUPADA"), var_extra = NULL){
     theme(rect = element_blank())
 
   tb_prop <- prop_vars %>% paste0("_prop") %>% map_df(~{
-    puntual <- svymean(make.formula(.x), design = diseño, na.rm = T)
+    puntual <- svymean(survey::make.formula(.x), design = diseño, na.rm = T)
     original <- mm %>% summarise(original = mean(!!rlang::sym(.x),na.rm = T))
     intervalo <- confint(puntual) %>% as_tibble
     tb <- tibble(original,
