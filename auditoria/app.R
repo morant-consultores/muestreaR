@@ -50,12 +50,9 @@ enc_shp <- enc %>%
 
 # aulr en muestra ---------------------------------------------------------
 
-aulr <- shp$shp$AULR %>%
-  inner_join(diseño$muestra[[3]] %>%
-               unnest(data) %>% distinct(AULR,cluster_3))
-
-
-
+u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
+u_nivel_tipo <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
+aulr <- unidades(diseño)
 
 # dentro y fuera ----------------------------------------------------------
 #
@@ -100,33 +97,9 @@ enc_shp <- enc_shp %>% semi_join(diseño$muestra$AULR,
                          by = c("cluster_3"))
 
 # cuotas ------------------------------------------------------------------
-
-hecho <- enc %>%
-  mutate(edad = as.character(cut(as.integer(edad),c(17,24,59,200),
-                                 c("18A24","25A59","60YMAS"))),
-         cluster = as.numeric(cluster)) %>%
-  count(cluster, edad, sexo, name = "hecho") %>%
-  full_join(
-    diseño$cuotas %>% mutate(sexo = if_else(sexo == "F", "Mujer", "Hombre")) %>%
-      rename(cuota = n, cluster = cluster_3, edad = rango)
-  ) %>% replace_na(list(hecho = 0, faltan = 0)) %>%
-  mutate(faltan = cuota - hecho) %>% filter(cluster %in% diseño$cuotas$cluster_3)
-
-por_hacer <- diseño$cuotas %>% mutate(sexo = if_else(sexo == "F", "Mujer", "Hombre")) %>%
-  rename(cuota = n, cluster = cluster_3, edad = rango) %>%
-  left_join(
-    enc %>%
-      mutate(edad = as.character(cut(as.integer(edad),c(17,24,59,200),
-                                     c("18A24","25A59","60YMAS"))),
-             cluster = as.numeric(cluster)) %>%
-      count(cluster, edad, sexo, name = "hecho")
-  ) %>% replace_na(list(hecho = 0)) %>% mutate(por_hacer = cuota-hecho,
-                                               por_hacer2 = if_else(por_hacer < 0, 0, por_hacer)
-  )
-
-
-
-
+n_entrevista <- entrevistas(diseño, enc)
+hecho <- n_entrevista$hecho
+por_hacer <- n_entrevista$por_hacer
 
 ui <-dashboardPage(
   dashboardHeader(title = diseño$poblacion$nombre),
@@ -154,7 +127,7 @@ ui <-dashboardPage(
                             width = 330, height = "auto",
                             HTML('<button data-toggle="collapse" data-target="#demo">Min/max</button>'),
                             tags$div(id = 'demo',  class="collapse",
-                                     selectInput("cluster", "Cluster", c("Seleccione..."= "",sort(unique(diseño$muestra[[3]]$cluster_3)))
+                                     selectInput("cluster", "Cluster", c("Seleccione..."= "",sort(unique(diseño$muestra[[diseño$ultimo_nivel]][[u_nivel_tipo]])))
                                      ),
                                      actionButton("filtrar","Filtrar"),
                                      gt_output("faltantes"),
@@ -213,11 +186,11 @@ server <- function(input, output) {
 
   output$map <- renderLeaflet({
 
-    # leaflet() %>% addProviderTiles("CartoDB.Positron") %>%
     shp$graficar_mapa(bd = diseño$poblacion$marco_muestral, nivel = "MUN") %>%
-      shp$graficar_mapa(bd = diseño$muestra, nivel = "AULR") %>%
-      addCircleMarkers(data = enc_shp, color = ~color, stroke = F, label = ~glue::glue("{cluster_3}-{Encuestador}-{id}")) %>%
-      # addCircleMarkers(data = fuera, color = "black", stroke = F) %>%
+      shp$graficar_mapa(bd = diseño$muestra, nivel = u_nivel %>% pull(variable)) %>%
+      addCircleMarkers(data = enc_shp %>% mutate(label = paste(!!rlang::sym(u_nivel_tipo), Encuestador, id, sep= "-")),
+                       color = ~color, stroke = F,
+                       label = ~label)  %>%
       addLegend(position = "bottomright", colors = c("green", "black"), labels = c("dentro", "fuera"),
                 title = "Entrevistas")
   })
@@ -225,7 +198,7 @@ server <- function(input, output) {
   proxy <- leafletProxy("map")
 
   observeEvent(input$filtrar,{
-    bbox <-  aulr %>% filter(cluster_3 == !!input$cluster) %>% sf::st_bbox()
+    bbox <-  aulr %>% filter(!!rlang::sym(u_nivel_tipo) == !!input$cluster) %>% sf::st_bbox()
 
     proxy %>% flyToBounds(bbox[[1]],bbox[[2]],bbox[[3]],bbox[[4]])
   })
@@ -247,6 +220,7 @@ server <- function(input, output) {
   output$por_hacer <- renderPlot({
     aux <- por_hacer %>% count(cluster, wt = por_hacer, name = "encuestas") %>%# filter(encuestas != 0) %>%
       mutate(color = if_else(encuestas > 0, "#5BC0EB", "#C3423F"))
+
     aux %>%
       ggplot(aes(y = forcats::fct_reorder(factor(cluster), encuestas), x = encuestas)) +
       geom_col(aes(fill = color)) +

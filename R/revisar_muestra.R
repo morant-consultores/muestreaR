@@ -24,13 +24,17 @@ plan <- function(diseño){
     mutate(Entrevistas = diseño$n,
            llave = "Planeado") %>%
     rename(Manzanas = unidades) %>%
+    add_row(llave = "Recálculo",
+            Manzanas = NA,
+            Entrevistas = diseño$niveles %>% filter(nivel == 0) %>% pull(unidades) * diseño$n_0) %>%
     add_row(llave = "Resultado",
             Manzanas = diseño$muestra %>% pluck(diseño$ultimo_nivel) %>% nrow,
             Entrevistas = sum(diseño$cuotas$n)) %>%
     pivot_longer(-llave, names_to = "total") %>%
+    na.omit() %>%
     ggplot() + geom_line(aes(x = llave, y = factor(value), group = total)) +
     labs(x = NULL, y = NULL) +
-    facet_wrap(~total, scales = "free_y") +
+    facet_wrap(~total, scales = "free") +
     theme(rect = element_blank())
 }
 #' Title

@@ -127,7 +127,7 @@ diseño_qro$niveles
 diseño_qro$calcular_cuotas()
 
 # Pruebas de la muestra ---------------------------------------------------
-diseño_qro$revisar_muestra(prop_vars = c("POCUPADA"), var_extra = c("TVIVPARHAB"))
+diseño_qro$revisar_muestra(prop_vars = c("POCUPADA","TVIVPARHAB"), var_extra = c("TVIVPARHAB"))
 
 
 # Google maps -------------------------------------------------------------
