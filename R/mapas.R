@@ -103,7 +103,7 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
   man_shp <- shp %>% purrr::pluck("MZA") %>% inner_join(bd)
 
 
-  for(i in cluster[1]){
+  for(i in cluster){
     aux_s <- diseño$cuotas %>% filter(!!rlang::sym(u_cluster) == i)
     s <- aux_s %>%
       mutate(n = glue::glue("{n} entrevistas")) %>%
