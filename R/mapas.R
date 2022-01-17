@@ -93,10 +93,10 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
 
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
-  bd <- diseño$muestra %>% pluck(length(diseño$muestra)) %>% unnest(data)
+  bd <- diseño$muestra %>% purrr::pluck(length(diseño$muestra)) %>% tidyr::unnest(data)
 
   cluster <- bd %>% distinct(!!rlang::sym(u_cluster)) %>% pull(1)
-  ya <- list.files(path="Mapas") %>% gsub('^.*_\\s*|\\s*.png.*$', '', .)
+  ya <- list.files(path=dir) %>% gsub('^.*_\\s*|\\s*.png.*$', '', .)
   cluster <- cluster[!cluster %in% ya]
   # agebs <- agebs %>% mutate(CVE_AGEB = paste0(22,CVE_MUN,CVE_LOC,CVE_AGEB))
   shp_mapa <- shp %>% purrr::pluck(u_nivel %>% pull(variable)) %>% inner_join(bd)
@@ -107,7 +107,7 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
     aux_s <- diseño$cuotas %>% filter(!!rlang::sym(u_cluster) == i)
     s <- aux_s %>%
       mutate(n = glue::glue("{n} entrevistas")) %>%
-      pivot_wider(names_from = c("rango", "sexo"),values_from = "n") %>% select(-1) %>%
+      tidyr::pivot_wider(names_from = c("rango", "sexo"),values_from = "n") %>% select(-1) %>%
       mutate(Total = glue::glue("{sum(aux_s$n)} entrevistas")) %>% relocate(Total,.before = 1)
     cuotas <- paste(s %>% names(), s, sep = ": ") %>% paste(collapse = "\n")
     man <- man_shp %>% filter(!!rlang::sym(u_cluster) == i)

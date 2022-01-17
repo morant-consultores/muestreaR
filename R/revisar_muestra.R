@@ -28,9 +28,9 @@ plan <- function(diseño){
             Manzanas = NA,
             Entrevistas = diseño$niveles %>% filter(nivel == 0) %>% pull(unidades) * diseño$n_0) %>%
     add_row(llave = "Resultado",
-            Manzanas = diseño$muestra %>% pluck(diseño$ultimo_nivel) %>% nrow,
+            Manzanas = diseño$muestra %>% purrr::pluck(diseño$ultimo_nivel) %>% nrow,
             Entrevistas = sum(diseño$cuotas$n)) %>%
-    pivot_longer(-llave, names_to = "total") %>%
+    tidyr::pivot_longer(-llave, names_to = "total") %>%
     na.omit() %>%
     ggplot() + geom_line(aes(x = llave, y = factor(value), group = total)) +
     labs(x = NULL, y = NULL) +
@@ -47,7 +47,7 @@ plan <- function(diseño){
 #'
 #' @examples
 revision <- function(self, prop_vars = c("POCUPADA"), var_extra = NULL){
-  bd <- self$muestra %>% pluck(self$ultimo_nivel) %>% unnest(data)
+  bd <- self$muestra %>% purrr::pluck(self$ultimo_nivel) %>% tidyr::unnest(data)
   bd <- bd %>% mutate(across(prop_vars,~.x/!!rlang::sym(self$variable_poblacional),.names = "{.col}_prop"))
   mm <- self$poblacion$marco_muestral %>%
     mutate(across(prop_vars,~.x/!!rlang::sym(self$variable_poblacional),.names = "{.col}_prop"))
@@ -62,8 +62,8 @@ revision <- function(self, prop_vars = c("POCUPADA"), var_extra = NULL){
                               fpc = survey::make.formula(fpc), pps = "brewer")
   options(survey.lonely.psu="remove")
 
-  tb <- c(self$variable_poblacional,var_extra) %>% map_df(~{
-    puntual <- svytotal(survey::make.formula(.x), design = diseño, na.rm = T)
+  tb <- c(self$variable_poblacional,var_extra) %>% purrr::map_df(~{
+    puntual <- survey::svytotal(survey::make.formula(.x), design = diseño, na.rm = T)
     original <- mm %>% summarise(original = sum(!!rlang::sym(.x),na.rm = T))
     intervalo <- confint(puntual) %>% as_tibble
     tb <- tibble(original,
@@ -88,8 +88,8 @@ revision <- function(self, prop_vars = c("POCUPADA"), var_extra = NULL){
     labs(x = NULL, y = NULL, title = "Totales") +
     theme(rect = element_blank())
 
-  tb_prop <- prop_vars %>% paste0("_prop") %>% map_df(~{
-    puntual <- svymean(survey::make.formula(.x), design = diseño, na.rm = T)
+  tb_prop <- prop_vars %>% paste0("_prop") %>% purrr::map_df(~{
+    puntual <- survey::svymean(survey::make.formula(.x), design = diseño, na.rm = T)
     original <- mm %>% summarise(original = mean(!!rlang::sym(.x),na.rm = T))
     intervalo <- confint(puntual) %>% as_tibble
     tb <- tibble(original,

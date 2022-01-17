@@ -565,7 +565,7 @@ muestrear <- function(diseño, nivel){
     }
   }
 
-  bd <- if(is.null(diseño$muestra)) diseño$poblacion$marco_muestral else diseño$muestra %>% pluck(length(diseño$muestra)) %>% unnest(data)
+  bd <- if(is.null(diseño$muestra)) diseño$poblacion$marco_muestral else diseño$muestra %>% purrr::pluck(length(diseño$muestra)) %>% tidyr::unnest(data)
   muestra  <- bd %>%
     agrupar_nivel(nivel_secundario) %>%
     mutate(total = sum(!!sym(diseño$variable_poblacional),na.rm = T)) %>%
@@ -600,7 +600,7 @@ muestrear <- function(diseño, nivel){
 cuotas <- function(diseño){
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
-  muestra <- diseño$muestra %>% pluck(length(diseño$muestra))
+  muestra <- diseño$muestra %>% purrr::pluck(length(diseño$muestra))
   bd <- diseño$poblacion$marco_muestral %>%
     semi_join(muestra %>% distinct(!!rlang::sym(u_cluster)))
 
@@ -615,8 +615,8 @@ cuotas <- function(diseño){
                              P_60YMAS_F,P_60YMAS_M) %>%
     group_by(Municipio, Localidad,!!rlang::sym(u_cluster)) %>%
     summarise(across(everything(),.fns = sum, na.rm = T),.groups =  "drop") %>%
-    pivot_longer(c(-Municipio,-Localidad,-!!sym(u_cluster)), names_to = "edad", values_to = "cantidad") %>%
-    separate(edad, c("basura","rango","sexo")) %>% select(-basura) %>%
+    tidyr::pivot_longer(c(-Municipio,-Localidad,-!!sym(u_cluster)), names_to = "edad", values_to = "cantidad") %>%
+    tidyr::separate(edad, c("basura","rango","sexo")) %>% select(-basura) %>%
     group_by(!!rlang::sym(u_cluster)) %>% mutate(pct = cantidad/sum(cantidad)) %>% ungroup %>%
     left_join(
       ent

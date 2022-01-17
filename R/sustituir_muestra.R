@@ -28,15 +28,15 @@ nuevo <- diseño$poblacion$marco_muestral %>%
   muestreaR:::agrupar_nivel(readr::parse_number(nivel)) %>%
   mutate(total = sum(!!rlang::sym(diseño$variable_poblacional))) %>%
   group_by(total, .add = T) %>%
-  nest %>%
+  tidyr::nest() %>%
   ungroup %>%
   slice_sample(n = 1, weight_by = total)
 
 # nuevo$data %>% pluck(1,"NOM_MUN")
 ####podría haber un error aquí#######
 manzanas <- diseño$muestra$MZA %>% filter(!!rlang::sym(nivel) == id) %>% nrow
-nuevas_manzanas <- nuevo %>% unnest(data) %>% slice_sample(n = manzanas) %>%
-  group_by(across(strata_1:total),cluster_0) %>% nest()
+nuevas_manzanas <- nuevo %>% tidyr::unnest(data) %>% slice_sample(n = manzanas) %>%
+  group_by(across(strata_1:total),cluster_0) %>% tidyr::nest()
 #####################################
 #recalcular n_i$cluster_0
 cl0_quitar <- diseño$muestra$MZA %>% filter(!!rlang::sym(nivel) == id) %>% pull(cluster_0)

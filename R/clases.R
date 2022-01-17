@@ -105,7 +105,7 @@ Diseño <- R6::R6Class("Diseño",
                               res <- asignar_m(self,
                                                unidades_nivel = ) %>%
                                 left_join(asignar_n(self))
-                              res <- set_names(list(res), glue::glue("{self$niveles %>%
+                              res <- purrr::set_names(list(res), glue::glue("{self$niveles %>%
                                                      filter(nivel==nivel_l) %>%
                                                      pull(tipo)}_{nivel_l}"))
                             }
@@ -119,7 +119,7 @@ Diseño <- R6::R6Class("Diseño",
                                                unidades_nivel = unidades_nivel) %>%
                                 left_join(asignar_n(self))
                               # Se etiqueta
-                              res <- set_names(list(res), glue::glue("{self$niveles %>%
+                              res <- purrr::set_names(list(res), glue::glue("{self$niveles %>%
                                                      filter(nivel==nivel_l) %>%
                                                      pull(tipo)}_{nivel_l}"))
                             }
@@ -169,11 +169,11 @@ Diseño <- R6::R6Class("Diseño",
                           if(!file.exists(glue::glue("{carpeta}/Mapas"))) dir.create(glue::glue("{carpeta}/Mapas"))
 
                           shp$crear_mapas(diseño = self, zoom = zoom, dir = glue::glue("{carpeta}/Mapas"))
-                          diseño_qro$cuotas %>% write_excel_csv(glue::glue("{carpeta}/cuotas.csv"))
+                          diseño_qro$cuotas %>% readr::write_excel_csv(glue::glue("{carpeta}/cuotas.csv"))
                           readr::write_rds(self, glue::glue("{carpeta}/diseño.rda"))
                           shp %>% readr::write_rds(glue::glue("{carpeta}/shp.rda"))
                         },
-                        sustituir_muestra = function(shp, id, zoom = 15){
+                        sustituir_muestra = function(shp, id, zoom = 16){
                           self <- sustituir_muestra(self, shp, id, zoom, dir = glue::glue("{self$dir.exportar}/Mapas"))
                           file.rename(glue::glue("{self$dir.exportar}/Mapas/{id}.png"),
                                       glue::glue("{self$dir.exportar}/Mapas/{id} eliminada.png"))
@@ -230,7 +230,7 @@ Cartografia <- R6::R6Class("Cartografia",
                              },
                              graficar_mapa = function(lflt = NULL, bd, nivel){
                                graficar_mapa_muestra(lflt = lflt,
-                                                     muestra = if(!is.data.frame(bd)) bd %>% purrr::pluck(nivel) %>% unnest(data) else bd,
+                                                     muestra = if(!is.data.frame(bd)) bd %>% purrr::pluck(nivel) %>% tidyr::unnest(data) else bd,
                                                      shp = self$shp,
                                                      nivel = nivel)
                              },
