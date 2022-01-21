@@ -1,3 +1,4 @@
+#' @export
 Diseño <- R6::R6Class("Diseño",
                       public =list(
                         poblacion=NULL,
@@ -186,6 +187,8 @@ Diseño <- R6::R6Class("Diseño",
                       )
 )
 
+#' @export
+
 Poblacion <- R6::R6Class("Poblacion",
                          public = list(
                            nombre = NULL,
@@ -213,6 +216,8 @@ Poblacion <- R6::R6Class("Poblacion",
                            }
                          )
 )
+
+#' @export
 
 Cartografia <- R6::R6Class("Cartografia",
                            public = list(
