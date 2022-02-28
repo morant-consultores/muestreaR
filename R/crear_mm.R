@@ -129,6 +129,19 @@ crear_mm <- function(mza,
 }
 
 
+#' Title
+#'
+#' @param mun
+#' @param locU
+#' @param agebR
+#' @param agebU
+#' @param locR
+#' @param mza
+#'
+#' @return
+#' @export
+#'
+#' @examples
 crear_shp <- function(mun, locU, agebR, agebU, locR, mza){
   mun <- mun %>% transmute(MUN = CVEGEO, NOM_MUN = NOMGEO)
 
@@ -148,7 +161,102 @@ crear_shp <- function(mun, locU, agebR, agebU, locR, mza){
               AULR = bind_rows(agebU,locR),
               AGEB = agebU,
               MZA = mza
-              )
+  )
   )
 }
 
+
+#' Title
+#'
+#' @param ln
+#' @param shp_mza
+#' @param shp_loc
+#' @param shp_mun
+#'
+#' @return
+#' @export
+#'
+#' @examples
+crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
+  shp_loc <- shp_loc %>% as_tibble %>% rename(NOMBRE_LOC = NOMBRE) %>%
+    mutate(across(ENTIDAD:LOCALIDAD, ~as.character(.x))) %>%
+    select(ENTIDAD:NOMBRE_LOC)
+
+  shp_mun <- shp_mun %>% as_tibble %>% rename(NOMBRE_MUN = NOMBRE) %>%
+    mutate(across(ENTIDAD:MUNICIPIO, ~as.character(.x))) %>% select(ENTIDAD:NOMBRE_MUN)
+
+  shp_mza <- shp_mza %>% as_tibble %>% select(ENTIDAD:MANZANA) %>%
+    mutate(across(ENTIDAD:MANZANA, ~as.character(.x)))
+
+  ln <- ln %>% select(SECCION, contains("LISTA_")) %>% pivot_longer(-SECCION, names_to = "sector",
+                                                                    values_to = "n") %>%
+    mutate(sector = gsub(pattern = "_18_",replacement =  "_18_18_",x =  sector),
+           sector = gsub(pattern = "_19_",replacement =  "_19_19_",x =  sector),
+           sector = gsub(pattern = "_Y_",replacement =  "_",x =  sector),
+    ) %>%
+    separate(sector, into = c("lista","ini","fin","sexo")) %>%
+    # mutate(across(ini:fin, parse_number)) %>%
+    mutate(rango = case_when(fin < 35 ~ "P_18A34",
+                             between(fin, 35, 59) ~ "P_35A59",
+                             T ~ "P_60YMAS",
+    )) %>%
+    count(SECCION,rango,sexo, wt = n) %>% mutate(sexo = if_else(sexo == "HOMBRES","M","F")) %>%
+    unite(rango_sexo, rango:sexo) %>%
+    pivot_wider(SECCION,names_from = rango_sexo,values_from = n) %>%
+    left_join(ln %>% select(SECCION, `LISTA NOMINAL`)) %>%
+    mutate(SECCION = as.character(SECCION)) %>% rename(lista_nominal = `LISTA NOMINAL`)
+
+  mza <- shp_mza %>% left_join(shp_mun) %>%
+    # left_join(shp_loc) %>%
+    # mutate(NOMBRE_LOC = if_else(is.na(NOMBRE_LOC), "Sin nombre", NOMBRE_LOC)) %>%
+    left_join(ln, by = "SECCION") %>%
+    mutate(across(P_18A34_M:lista_nominal, ~if_else(is.na(.x), 0, .x))) %>%
+    rownames_to_column(var = "id")
+
+  return(mza)
+}
+
+
+
+#' Title
+#'
+#' @param df
+#' @param dl
+#' @param mun
+#' @param loc
+#' @param secc
+#' @param mza
+#'
+#' @return
+#' @export
+#'
+#' @examples
+crear_shp_ine <- function(df, dl, mun, loc, secc, mza){
+  df <- df %>% transmute(across(c(ENTIDAD,DISTRITO_F), ~as.character(.x)))
+
+  dl <- dl %>% transmute(across(c(ENTIDAD,DISTRITO_L), ~as.character(.x)))
+
+  mun <- mun %>% rename(NOMBRE_MUN = NOMBRE) %>%
+    mutate(across(ENTIDAD:MUNICIPIO, ~as.character(.x))) %>% select(ENTIDAD:NOMBRE_MUN)
+
+  loc <- loc %>% rename(NOMBRE_LOC = NOMBRE) %>%
+    mutate(across(ENTIDAD:LOCALIDAD, ~as.character(.x))) %>%
+    select(ENTIDAD:NOMBRE_LOC)
+
+  secc <- secc %>% rename(DISTRITO_F = DISTRITO) %>%
+    mutate(across(ENTIDAD:SECCION, ~as.character(.x))) %>%
+    select(ENTIDAD:SECCION)
+
+  mza <- mza %>% select(ENTIDAD:MANZANA) %>%
+    mutate(across(ENTIDAD:MANZANA, ~as.character(.x)))
+
+  return(list(
+    DISTRITO_F = df,
+    DISTRITO_L = dl,
+    MUNICIPIO = mun,
+    LOCACLIDAD = loc,
+    SECCION = secc,
+    MANZANA = mza
+  )
+  )
+}

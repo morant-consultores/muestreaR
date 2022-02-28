@@ -354,32 +354,32 @@ nivel <- function(aux, nivel, grupo, tipo, n, peso_tamaño, criterio_n){
 #
 #       }
 #
-      # Para m
+# Para m
 
-    #   nombre <- grep(pattern = glue::glue("(cluster|strata)_{nivel}"),
-    #                  x = names(res),value = T)
-    #   # Falta la m=peso, uniforme, unidades
-    #
-    #   res <- set_names(list(res), nombre)
-    # }
-    # if(nivel>1){
-    #
-    #   pp <- plan_muestreo[grep(pattern = glue::glue("(cluster|strata)_{nivel-1}"),
-    #                            names(plan_muestreo))]
-    #   nivel_secundario <- plan_muestreo[grep(pattern = glue::glue("(cluster|strata)_{nivel+1}"),
-    #                                          names(plan_muestreo))]
-    #   if(length(nivel_secundario)==0) nivel_secundario="cluster_0"
-    #   marco_agrupado <- agrupar_nivel(marco_muestral, nivel = nivel)
-    #   marco_agrupado <- marco_agrupado %>% nest()%>%
-    #     left_join(pp[[1]])
-      # res2 <- map(marco_agrupado$data,
-      #             ~criterio_N(base = .x,
-      #                         nivel = nivel,
-      #                         variable_estudio = sym(ve),
-      #                         num = 5,
-      #                         criterio = "unidades",
-      #                         ultimo_nivel = F) %>%
-      #               rename("m_{nivel}":=n))
+#   nombre <- grep(pattern = glue::glue("(cluster|strata)_{nivel}"),
+#                  x = names(res),value = T)
+#   # Falta la m=peso, uniforme, unidades
+#
+#   res <- set_names(list(res), nombre)
+# }
+# if(nivel>1){
+#
+#   pp <- plan_muestreo[grep(pattern = glue::glue("(cluster|strata)_{nivel-1}"),
+#                            names(plan_muestreo))]
+#   nivel_secundario <- plan_muestreo[grep(pattern = glue::glue("(cluster|strata)_{nivel+1}"),
+#                                          names(plan_muestreo))]
+#   if(length(nivel_secundario)==0) nivel_secundario="cluster_0"
+#   marco_agrupado <- agrupar_nivel(marco_muestral, nivel = nivel)
+#   marco_agrupado <- marco_agrupado %>% nest()%>%
+#     left_join(pp[[1]])
+# res2 <- map(marco_agrupado$data,
+#             ~criterio_N(base = .x,
+#                         nivel = nivel,
+#                         variable_estudio = sym(ve),
+#                         num = 5,
+#                         criterio = "unidades",
+#                         ultimo_nivel = F) %>%
+#               rename("m_{nivel}":=n))
 #       res_2 <- criterio_N(base = marco_muestral,
 #                           nivel = nivel,
 #                           variable_estudio = sym(ve),
@@ -425,7 +425,7 @@ asignar_m <- function(diseño, criterio, unidades_nivel){
   # Se elige la unidad de muestreo
   un_muestreo <- diseño$niveles %>% filter(!plan_muestra) %>% slice_min(n=1, order_by = nivel)
   # Se cuentan las unidades secundarias de muestreo
-    # Sirve para saber si hay suficientes unidades secundarias
+  # Sirve para saber si hay suficientes unidades secundarias
   aux <- diseño$poblacion$marco_muestral %>%
     agrupar_nivel(un_muestreo$nivel) %>% {
       if(un_muestreo$nivel==diseño$ultimo_nivel){
@@ -444,10 +444,10 @@ asignar_m <- function(diseño, criterio, unidades_nivel){
       left_join(diseño$n_i %>% last()) %>%
       # Aquí se fuerza al número de manzanas determinada
       mutate("m_{un_muestreo$nivel}":=round((!!sym(glue::glue("n_{un_muestreo$nivel-1}"))/
-                                              !!sym(glue::glue("m_{un_muestreo$nivel-1}")) )/
+                                               !!sym(glue::glue("m_{un_muestreo$nivel-1}")) )/
                                               diseño$n_0)) %>%
-    select(-all_of(c(glue::glue("n_{un_muestreo$nivel-1}"),
-                   glue::glue("m_{un_muestreo$nivel-1}"))))
+      select(-all_of(c(glue::glue("n_{un_muestreo$nivel-1}"),
+                       glue::glue("m_{un_muestreo$nivel-1}"))))
   }
   else{
     if(criterio=="uniforme"){
@@ -483,7 +483,7 @@ asignar_m <- function(diseño, criterio, unidades_nivel){
   # Se asigna el número total de unidades de muestreo
   # Cuando es strata se asigna así mismo y al siguiente
   if(un_muestreo$tipo=="strata"){
-   diseño$niveles <-  diseño$niveles %>%
+    diseño$niveles <-  diseño$niveles %>%
       # El número de estratos. Sirve para el nivel 1, hay que checar para otros niveles
       mutate(unidades=if_else(nivel==un_muestreo$nivel,
                               as.numeric(nrow(res)), unidades))
@@ -495,11 +495,11 @@ asignar_m <- function(diseño, criterio, unidades_nivel){
                             if_else(un_muestreo$nivel==1,res %>%
                                       ungroup() %>%
                                       summarise(n=sum(!!sym(glue::glue("m_{un_muestreo$nivel}")))) %>%
-                              pull(n),
-                              res %>%
-                                ungroup() %>%
-                                summarise(n=mean(!!sym(glue::glue("m_{un_muestreo$nivel}")))) %>%
-                                pull(n) * un_muestreo$unidades),
+                                      pull(n),
+                                    res %>%
+                                      ungroup() %>%
+                                      summarise(n=mean(!!sym(glue::glue("m_{un_muestreo$nivel}")))) %>%
+                                      pull(n) * un_muestreo$unidades),
                             unidades))
   return(res)
 }
@@ -616,6 +616,58 @@ cuotas <- function(diseño){
     group_by(Municipio, Localidad,!!rlang::sym(u_cluster)) %>%
     summarise(across(everything(),.fns = sum, na.rm = T),.groups =  "drop") %>%
     tidyr::pivot_longer(c(-Municipio,-Localidad,-!!sym(u_cluster)), names_to = "edad", values_to = "cantidad") %>%
+    tidyr::separate(edad, c("basura","rango","sexo")) %>% select(-basura) %>%
+    group_by(!!rlang::sym(u_cluster)) %>% mutate(pct = cantidad/sum(cantidad)) %>% ungroup %>%
+    left_join(
+      ent
+    ) %>% mutate(n =  round(pct*entrevistas))
+
+  revision <- cuotas %>% count(!!rlang::sym(u_cluster), wt = n)
+
+  c <- revision %>% left_join(ent) %>% mutate(diff = entrevistas - n) %>%
+    select(a = 1,b = 4) %>%
+    purrr::pmap_df(function(a, b){
+      aux <- cuotas %>% filter(!!rlang::sym(u_cluster) == !! a)
+      ya <- abs(b)
+      while(ya != 0){
+        alea <- min(nrow(aux), ya)
+        aleatorio <- sample(x = seq_len(nrow(aux)), size = alea)
+        aux[aleatorio, "n"] <- aux[aleatorio, "n"] + sign(b)
+        ya <- ya - alea
+      }
+
+      return (aux)
+    })
+
+  cool <- c %>% count(!!rlang::sym(u_cluster), wt = n) %>% left_join(ent) %>% filter(n != entrevistas)
+  if(nrow(cool) == 0 & nrow(c) == nrow(cuotas)) print("Exacto")
+  return(c %>% select(-cantidad,-pct,-entrevistas))
+}
+
+#' Title
+#'
+#' @param dise
+#'
+#' @return
+#' @export
+#'
+#' @examples
+cuotas_ine <- function(diseño){
+  u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
+  u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
+  muestra <- diseño$muestra %>% purrr::pluck(length(diseño$muestra))
+  bd <- diseño$poblacion$marco_muestral %>%
+    semi_join(muestra %>% distinct(!!rlang::sym(u_cluster)))
+
+  ent <- muestra %>% left_join(diseño$n_i$cluster_0) %>% count(!!rlang::sym(u_cluster), wt = n_0, name = "entrevistas")
+
+  cuotas <- bd %>% select(Municipio = NOMBRE_MUN,
+                          Seccion = SECCION,
+                          !!rlang::sym(u_cluster),
+                          P_18A34_M:P_60YMAS_F) %>%
+    group_by(Municipio, Seccion,!!rlang::sym(u_cluster)) %>%
+    summarise(across(everything(),.fns = sum, na.rm = T),.groups =  "drop") %>%
+    tidyr::pivot_longer(c(-Municipio, -Seccion,-!!sym(u_cluster)), names_to = "edad", values_to = "cantidad") %>%
     tidyr::separate(edad, c("basura","rango","sexo")) %>% select(-basura) %>%
     group_by(!!rlang::sym(u_cluster)) %>% mutate(pct = cantidad/sum(cantidad)) %>% ungroup %>%
     left_join(
