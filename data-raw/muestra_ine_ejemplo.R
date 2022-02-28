@@ -122,6 +122,12 @@ diseño_edomex$exportar(shp_edomex, carpeta = "Insumos", zoom = 16)
 # shp_edomex$crear_mapas(diseño = diseño_edomex, zoom = 15, dir = glue::glue("Insumos/Mapas"))
 
 # Sustitiuir --------------------------------------------------------------
+#esta sección es recomendable que vaya en otro script
+library(ggmap)
+
+devtools::load_all(path = "~/Documents/Git/muestreaR")
+diseño_edomex <- readr::read_rds("Insumos/diseño.rda")
+shp_edomex <- readr::read_rds("Insumos/shp.rda")
 diseño_edomex$sustituir_muestra(shp_edomex, id = 6152)
 
 
