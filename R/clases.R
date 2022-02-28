@@ -170,7 +170,7 @@ Diseño <- R6::R6Class("Diseño",
                           if(!file.exists(glue::glue("{carpeta}/Mapas"))) dir.create(glue::glue("{carpeta}/Mapas"))
 
                           shp$crear_mapas(diseño = self, zoom = zoom, dir = glue::glue("{carpeta}/Mapas"))
-                          diseño_qro$cuotas %>% readr::write_excel_csv(glue::glue("{carpeta}/cuotas.csv"))
+                          self$cuotas %>% readr::write_excel_csv(glue::glue("{carpeta}/cuotas.csv"))
                           readr::write_rds(self, glue::glue("{carpeta}/diseño.rda"))
                           shp %>% readr::write_rds(glue::glue("{carpeta}/shp.rda"))
                         },
