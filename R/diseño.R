@@ -664,7 +664,7 @@ cuotas_ine <- function(diseño){
   cuotas <- bd %>% select(Municipio = NOMBRE_MUN,
                           Seccion = SECCION,
                           !!rlang::sym(u_cluster),
-                          P_18A34_M:P_60YMAS_F) %>%
+                          contains("LN22")) %>%
     group_by(Municipio, Seccion,!!rlang::sym(u_cluster)) %>%
     summarise(across(everything(),.fns = sum, na.rm = T),.groups =  "drop") %>%
     tidyr::pivot_longer(c(-Municipio, -Seccion,-!!sym(u_cluster)), names_to = "edad", values_to = "cantidad") %>%

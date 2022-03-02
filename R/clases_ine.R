@@ -143,8 +143,8 @@ DiseñoINE <- R6::R6Class("Diseño",
                                if(self$niveles %>% filter(nivel == 0) %>% pull(unidades) != nrow(aux)){
                                  ajuste <- ((self$niveles %>% filter(nivel == 0) %>% pull(unidades)) - nrow(aux))*self$n_0
 
-                                 nuevo <- self$n_i$cluster_0 %>% semi_join(aux) %>% sample_n(size = ajuste, replace = T) %>%
-                                   mutate(sumar = 1) %>% group_by(cluster_0) %>%
+                                 nuevo <- self$n_i$cluster_0 %>% semi_join(aux) %>% sample_n(size = abs(ajuste), replace = T) %>%
+                                   mutate(sumar = sign(ajuste)) %>% group_by(cluster_0) %>%
                                    summarise(m_0 = unique(m_0), n_0 = unique(n_0),
                                              sumar = sum(sumar)) %>% mutate(n_0 = n_0 + sumar) %>% select(-sumar)
                                  self$n_i$cluster_0 <- self$n_i$cluster_0 %>% anti_join(nuevo, by = "cluster_0") %>% bind_rows(nuevo) %>%
@@ -161,7 +161,7 @@ DiseñoINE <- R6::R6Class("Diseño",
 
                              b <- plan(self)
 
-                             c <- revision(self = self,prop_vars = prop_vars, var_extra = var_extra)
+                             c <- revision_ine(self = self,prop_vars = prop_vars, var_extra = var_extra)
 
                              return(list(a,b,c))
 
@@ -182,6 +182,7 @@ DiseñoINE <- R6::R6Class("Diseño",
                                          glue::glue("{self$dir.exportar}/Mapas/{id} eliminada.png"))
                              self$n_sustitucion <- self$n_sustitucion + 1
                              readr::write_rds(self, glue::glue("{self$dir.exportar}/diseño{self$n_sustitucion}.rda"))
+                             self$cuotas %>% readr::write_excel_csv(glue::glue("{self$dir.exportar}/cuotas{self$n_sustitucion}.csv"))
                            }
                          ),
                          private = list(
@@ -198,16 +199,24 @@ PoblacionINE <- R6::R6Class("Poblacion",
                             public = list(
                               nombre = NULL,
                               marco_muestral=NULL,
+                              informacion_electoral = NULL,
                               initialize=function(nombre,
                                                   ln,
+                                                  electoral,
                                                   shp_mza,
                                                   shp_loc,
                                                   shp_mun){
                                 self$nombre = nombre
+
                                 self$marco_muestral = muestreaR::crear_mm_ine(ln = ln,
                                                                               shp_mza = shp_mza,
                                                                               shp_loc = shp_loc,
                                                                               shp_mun = shp_mun)
+
+                                self$informacion_electoral <- electoral %>% mutate(seccion = as.character(seccion)) %>%
+                                  left_join(self$marco_muestral %>% group_by(SECCION) %>%
+                                              summarise(across(c(lista_nominal, contains("LN22_")), ~sum(.x))),
+                                            by = c("seccion" = "SECCION"))
 
                               },
                               calcular_poblacion=function(na.rm=T){

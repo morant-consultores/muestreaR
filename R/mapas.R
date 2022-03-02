@@ -119,7 +119,7 @@ graficar_mapa_muestra_ine <- function(lflt = NULL, muestra, shp, nivel){
   } else{
     if(nivel == "MUNICIPIO"){
       lflt %>% addPolygons(data = shp %>% purrr::pluck(nivel) %>% inner_join(muestra %>% distinct(across(all_of(nivel)), .keep_all = T)),
-                           color = ~pal(strata_1), fillOpacity = 1, label = ~glue::glue("Municipio: {NOMBRE_MUN}"))
+                           fillColor = ~pal(strata_1), color = "black", opacity = 1, weight = 1, fillOpacity = 1, label = ~glue::glue("Municipio: {NOMBRE_MUN}"))
     } else{
       mapear <- shp %>% purrr::pluck(nivel) %>% inner_join(muestra %>% distinct(across(all_of(nivel)), .keep_all = T))
 
@@ -219,11 +219,18 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas"){
                              source = "google",force = T, zoom = zoom)
     Google <- ggmap::ggmap(nc_map)
     # Google
+    puntos <- man %>% filter(sf::st_geometry_type(.) == "POINT")
+    man <- man %>% filter(sf::st_geometry_type(.) != "POINT")
     g <- Google +
       geom_sf(data = aux_mapeo,
               inherit.aes = F, alpha = 0, color = "blue") +
       geom_sf(data = man,
               inherit.aes = F, alpha = 0, color = "red") +
+      geom_sf(data = puntos,
+              inherit.aes = F, alpha = 1, color = "red") +
+      geom_sf_label(data = puntos, color = "red",
+                    inherit.aes = F, aes(label = MANZANA), hjust = "inward",
+                   vjust = "inward", size = 2) +
       # scale_x_continuous(limits = c(caja[1], caja[3])) + scale_y_continuous(limits = c(caja[2],caja[4])) +
       guides(fill = "none") +
       theme_minimal() +
