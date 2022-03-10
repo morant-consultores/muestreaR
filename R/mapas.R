@@ -124,7 +124,7 @@ graficar_mapa_muestra_ine <- function(lflt = NULL, muestra, shp, nivel){
       mapear <- shp %>% purrr::pluck(nivel) %>% inner_join(muestra %>% distinct(across(all_of(nivel)), .keep_all = T))
 
       lflt %>% addPolygons(data = mapear, stroke = T, color = "black",
-                           fillColor = ~pal(nivel), fillOpacity = 1,weight = 1, opacity = 1,
+                           fillColor = ~pal(nivel), fillOpacity = .2,weight = 1, opacity = 1,
                            popup = ~glue::glue("Sección: {SECCION}")) %>%
         addLegend(data = mapear, pal = pal, values = ~nivel)
     }
