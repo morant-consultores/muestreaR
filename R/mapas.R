@@ -128,7 +128,7 @@ graficar_mapa_muestra_ine <- function(lflt = NULL, muestra, shp, nivel){
           addCircleMarkers(data = mapear %>% filter(sf::st_geometry_type(.) == "POINT"),
                               label = ~glue::glue("Localidad: {MANZANA}"), opacity = 1, fillOpacity = 1,
                               fillColor = "#f72585", color = "black", weight = 1) %>%
-          addLegend(position = "bottomright", colors = "#f72585", labels = "Localidades")
+          addLegend(position = "bottomright", colors = "#f72585", labels = "Localidades rurales")
 
       } else{
         mapear <- shp %>% purrr::pluck(nivel) %>% inner_join(muestra %>% distinct(across(all_of(nivel)), .keep_all = T))
