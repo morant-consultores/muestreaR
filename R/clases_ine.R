@@ -247,8 +247,11 @@ CartografiaINE <- R6::R6Class("Cartografia",
                                   self$shp <- crear_shp_ine(df_shp, dl_shp, mun_shp, loc_shp, secc_shp,mza_shp)
                                 },
     graficar_mapa = function(lflt = NULL, bd, nivel){
+      nivel_p <- if(nivel == "MANZANA"){
+        "MZA"
+      } else nivel
       graficar_mapa_muestra_ine(lflt = lflt,
-                                muestra = if(!is.data.frame(bd)) bd %>% purrr::pluck(nivel) %>% tidyr::unnest(data) else bd,
+                                muestra = if(!is.data.frame(bd)) bd %>% purrr::pluck(nivel_p) %>% tidyr::unnest(data) else bd,
                                 shp = self$shp,
                                 nivel = nivel)
     },

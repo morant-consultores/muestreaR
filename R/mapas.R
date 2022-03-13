@@ -121,14 +121,25 @@ graficar_mapa_muestra_ine <- function(lflt = NULL, muestra, shp, nivel){
       lflt %>% addPolygons(data = shp %>% purrr::pluck(nivel) %>% inner_join(muestra %>% distinct(across(all_of(nivel)), .keep_all = T)),
                            fillColor = ~pal(strata_1), color = "black", opacity = 1, weight = 1, fillOpacity = 1, label = ~glue::glue("Municipio: {NOMBRE_MUN}"))
     } else{
-      mapear <- shp %>% purrr::pluck(nivel) %>% inner_join(muestra %>% distinct(across(all_of(nivel)), .keep_all = T))
+      if(nivel == "MANZANA"){
+        mapear <- shp %>% purrr::pluck(nivel) %>% inner_join(muestra %>% distinct(across(all_of(nivel)), .keep_all = T))
 
-      lflt %>% addPolygons(data = mapear, stroke = T, color = "black",
-                           fillColor = ~pal(nivel), fillOpacity = .2,weight = 1, opacity = 1,
-                           popup = ~glue::glue("Sección: {SECCION}")) %>%
-        addLegend(data = mapear, pal = pal, values = ~nivel)
+        lflt %>%
+          addCircleMarkers(data = mapear %>% filter(sf::st_geometry_type(.) == "POINT"),
+                              label = ~glue::glue("Localidad: {MANZANA}"), opacity = 1, fillOpacity = 1,
+                              fillColor = "#f72585", color = "black", weight = 1) %>%
+          addLegend(position = "bottomright", colors = "#f72585", labels = "Localidades")
+
+      } else{
+        mapear <- shp %>% purrr::pluck(nivel) %>% inner_join(muestra %>% distinct(across(all_of(nivel)), .keep_all = T))
+
+        lflt %>% addPolygons(data = mapear,
+                             stroke = T, color = "black",
+                             fillColor = ~pal(nivel), fillOpacity = .2,weight = 1, opacity = 1,
+                             popup = ~glue::glue("Sección: {SECCION}")) %>%
+          addLegend(data = mapear, pal = pal, values = ~nivel, position = "bottomright")
+      }
     }
-
   }
 
   return(mapa)
