@@ -245,7 +245,7 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas"){
       # scale_x_continuous(limits = c(caja[1], caja[3])) + scale_y_continuous(limits = c(caja[2],caja[4])) +
       guides(fill = "none") +
       theme_minimal() +
-      ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOMBRE_MUN)} \n Sección: {unique(aux_mapeo$SECCION)}  \n {u_cluster}: {i}")) +
+      ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOMBRE_MUN)}  \n {u_cluster}: {i}")) +
       labs(subtitle =  cuotas) +
       theme(plot.title = element_text(hjust = 1), plot.subtitle = element_text(size = 10, hjust = 0))
 

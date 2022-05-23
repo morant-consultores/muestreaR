@@ -693,5 +693,5 @@ cuotas_ine <- function(diseño){
 
   cool <- c %>% count(!!rlang::sym(u_cluster), wt = n) %>% left_join(ent) %>% filter(n != entrevistas)
   if(nrow(cool) == 0 & nrow(c) == nrow(cuotas)) print("Exacto")
-  return(c %>% select(-cantidad,-pct,-entrevistas))
+  return(c %>% select(-cantidad,-pct,-entrevistas,-Seccion))
 }
