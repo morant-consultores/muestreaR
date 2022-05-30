@@ -133,10 +133,14 @@ graficar_mapa_muestra_ine <- function(lflt = NULL, muestra, shp, nivel){
       } else{
         mapear <- shp %>% purrr::pluck(nivel) %>% inner_join(muestra %>% distinct(across(all_of(nivel)), .keep_all = T))
 
+        nivel <- mapear %>% as_tibble %>% select(contains("cluster")) %>% names %>% parse_number %>% max
+
         lflt %>% addPolygons(data = mapear,
                              stroke = T, color = "black",
                              fillColor = ~pal(nivel), fillOpacity = .2,weight = 1, opacity = 1,
-                             popup = ~glue::glue("Sección: {SECCION}")) %>%
+                             # popup = ~glue::glue("Sección: {SECCION}")
+                             popup = paste0("cluster_",nivel,": ", as_tibble(mapear)[[paste("cluster",nivel,sep = "_")]])
+        ) %>%
           addLegend(data = mapear, pal = pal, values = ~nivel, position = "bottomright")
       }
     }
