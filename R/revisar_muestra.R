@@ -171,7 +171,7 @@ revision_ine <- function(self, prop_vars = NULL, var_extra = NULL){
   a <- tb %>% ggplot() +
     geom_segment(aes(x = puntual, xend = original, y =variable, yend = variable )) +
     geom_point(aes(x = original, y = variable, color = color), size = 5) +
-    geom_text(data = tb %>% top_n(5,wt = longitud),
+    ggrepel::geom_text_repel(data = tb %>% top_n(5,wt = longitud),
               aes(x = `2.5 %`, y = as.numeric(variable)+.5, label = scales::comma(longitud)),
               hjust = 1, vjust = 0) +
     geom_segment(data = tb %>% top_n(5,wt = longitud),
