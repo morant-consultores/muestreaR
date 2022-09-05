@@ -179,7 +179,6 @@ crear_shp <- function(mun, locU, agebR, agebU, locR, mza){
 #' @examples
 #'
 crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
-
   shp_mza <- shp_mza %>% filter(st_is_valid(.), STATUS == 1)
   aux <- st_join(shp_loc, shp_mza %>% select(MANZANA))
   shp_lpr <- aux %>% filter(is.na(MANZANA)) %>% select(-MANZANA)
@@ -220,6 +219,18 @@ crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
       shp_mza %>% count(SECCION, name = "n_mza")
     ) %>% mutate(across(2:lista_nominal, ~.x/n_mza)) %>% select(-n_mza)
 
+  # ln_mza <- ln %>% #filter(SECCION == 3) %>%
+  #   left_join(
+  #     shp_mza %>% count(SECCION,SECCION2, name = "n_mza") %>%
+  #       count(SECCION2), by = c("SECCION" = "SECCION2")
+  #   ) %>% mutate(across(2:lista_nominal, ~.x/n)) %>% select(-n) %>%
+  #   left_join(
+  #     shp_mza %>% distinct(SECCION, SECCION2), by = c("SECCION" = "SECCION2")
+  #   ) %>% select(-SECCION) %>% relocate(SECCION = SECCION.y) %>%
+  #   left_join(
+  #     shp_mza %>% count(SECCION, name = "n_mza")
+  #   ) %>% mutate(across(2:lista_nominal, ~.x/n_mza)) %>% select(-n_mza) %>%
+  #   filter(!is.na(SECCION))
 
   mza <- shp_mza %>% left_join(shp_mun) %>%
     left_join(ln_mza, by = "SECCION") %>%
@@ -245,23 +256,23 @@ crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
 #'
 #' @examples
 crear_shp_ine <- function(df, dl, mun, loc, secc, mza){
-  df <- df %>% transmute(across(c(ENTIDAD,DISTRITO_F), ~as.character(.x)))
+  df <- df %>% transmute(across(c(ENTIDAD,DISTRITO_F), ~as.character(.x))) %>% st_make_valid()
 
-  dl <- dl %>% transmute(across(c(ENTIDAD,DISTRITO_L), ~as.character(.x)))
+  dl <- dl %>% transmute(across(c(ENTIDAD,DISTRITO_L), ~as.character(.x))) %>% st_make_valid()
 
   mun <- mun %>% rename(NOMBRE_MUN = NOMBRE) %>%
-    mutate(across(ENTIDAD:MUNICIPIO, ~as.character(.x))) %>% select(ENTIDAD:NOMBRE_MUN)
+    mutate(across(ENTIDAD:MUNICIPIO, ~as.character(.x))) %>% select(ENTIDAD:NOMBRE_MUN) %>% st_make_valid()
 
   loc <- loc %>% rename(MANZANA = NOMBRE) %>%
     mutate(across(ENTIDAD:LOCALIDAD, ~as.character(.x))) %>%
-    select(ENTIDAD:MANZANA)
+    select(ENTIDAD:MANZANA) %>% st_make_valid()
 
   secc <- secc %>% rename(DISTRITO_F = DISTRITO) %>%
     mutate(across(ENTIDAD:SECCION, ~as.character(.x))) %>%
-    select(ENTIDAD:SECCION)
+    select(ENTIDAD:SECCION) %>% st_make_valid()
 
   mza <- mza %>% filter(st_is_valid(.), STATUS == 1) %>% select(ENTIDAD:MANZANA) %>%
-    mutate(across(ENTIDAD:MANZANA, ~as.character(.x)))
+    mutate(across(ENTIDAD:MANZANA, ~as.character(.x))) %>% st_make_valid()
 
   mza <- bind_rows(mza, loc) %>% arrange(as.numeric(SECCION))
 
