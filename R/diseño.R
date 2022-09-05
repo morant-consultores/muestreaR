@@ -421,7 +421,7 @@ nivel <- function(aux, nivel, grupo, tipo, n, peso_tamaño, criterio_n){
 # }
 #
 
-asignar_m <- function(diseño, criterio, unidades_nivel){
+asignar_m <- function(diseño, criterio, unidades_nivel, manual){
   # Se elige la unidad de muestreo
   un_muestreo <- diseño$niveles %>% filter(!plan_muestra) %>% slice_min(n=1, order_by = nivel)
   # Se cuentan las unidades secundarias de muestreo
@@ -459,6 +459,11 @@ asignar_m <- function(diseño, criterio, unidades_nivel){
                starts_with("cluster_"),
                glue::glue("m_{un_muestreo$nivel}"))
     }
+    if(criterio == "manual"){
+      res <- diseño$poblacion$marco_muestral %>%
+        agrupar_nivel(un_muestreo$nivel) %>%
+        summarise() %>% mutate("m_{un_muestreo$nivel}":= manual)
+    }
     if(criterio=="unidades"){
       res <- aux %>%
         mutate("m_{un_muestreo$nivel}":= repartir_cociente(unidades_nivel,unidades_nivel*n/sum(n)))
@@ -469,9 +474,10 @@ asignar_m <- function(diseño, criterio, unidades_nivel){
       res <- diseño$poblacion$marco_muestral %>%
         agrupar_nivel(un_muestreo$nivel) %>%
         summarise(n=sum(!!sym(diseño$variable_poblacional))) %>%
+        # agrupar_nivel(un_muestreo$nivel) %>%
         mutate("m_{un_muestreo$nivel}":= repartir_cociente(unidades_nivel,unidades_nivel*n/sum(n))) %>%
+        # mutate("m_{un_muestreo$nivel}":= round(unidades_nivel/n_groups(.)*n/sum(n))) %>%
         select(-n)
-
     }
 
   }
@@ -572,6 +578,9 @@ muestrear <- function(diseño, nivel){
     group_by(total, .add = T) %>%
     tidyr::nest() %>%
     ungroup() %>%
+    # semi_join(
+    #   diseño$n_i %>% .[[nivel_principal]] %>% filter(!!rlang::sym(glue::glue("m_{nivel}")) >0)
+    # ) %>%
     split(.[[nivel_principal]]) %>% purrr::map_df(~{
       n_nivel <- diseño$n_i %>% .[[nivel_principal]] %>%
         filter(!!sym(nivel_principal) == unique(.x[[nivel_principal]])) %>% pull(glue::glue("m_{nivel}"))
