@@ -229,7 +229,7 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas"){
     cuotas <- paste(s %>% names(), s, sep = ": ") %>% paste(collapse = "\n")
     man <- man_shp %>% filter(!!rlang::sym(u_cluster) == i)
     aux_mapeo <- shp_mapa %>% filter(!!rlang::sym(u_cluster) == i)
-    caja <- aux_mapeo %>% sf::st_union() %>% sf::st_centroid() %>% sf::st_coordinates() %>% as.numeric()
+    caja <- aux_mapeo %>% st_make_valid() %>% sf::st_union() %>% sf::st_centroid() %>% sf::st_coordinates() %>% as.numeric()
     nc_map <- ggmap::get_map(location = caja, maptype = "roadmap",
                              source = "google",force = T, zoom = zoom)
     Google <- ggmap::ggmap(nc_map)

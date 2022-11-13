@@ -1,4 +1,5 @@
 #' @export
+#' @import tibble dplyr
 Diseño <- R6::R6Class("Diseño",
                       public =list(
                         poblacion=NULL,
@@ -7,7 +8,7 @@ Diseño <- R6::R6Class("Diseño",
                         n_0=NULL,
                         n_i=list(),
                         variable_poblacional=NULL,
-                        niveles=tibble(nivel=NULL,
+                        niveles= tibble::tibble(nivel=NULL,
                                        tipo=NULL,
                                        descripcion=NULL,
                                        llave=NULL,
