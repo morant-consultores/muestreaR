@@ -237,8 +237,8 @@ DiseñoINE <- R6::R6Class("Diseño",
                              readr::write_rds(self, glue::glue("{carpeta}/diseño.rda"))
                              shp %>% readr::write_rds(glue::glue("{carpeta}/shp.rda"))
                            },
-                           sustituir_muestra = function(shp, id, zoom = 16){
-                             self <- sustituir_muestra_ine(self, shp, id, zoom, dir = glue::glue("{self$dir.exportar}/Mapas"))
+                           sustituir_muestra = function(shp, id, zoom = 16, ajustar_cuotas = T){
+                             self <- sustituir_muestra_ine(self, shp, id, zoom, dir = glue::glue("{self$dir.exportar}/Mapas"), ajustar_cuotas = ajustar_cuotas)
 
                              if(!file.exists(glue::glue("{self$dir.exportar}/Mapas/Eliminadas"))) dir.create(glue::glue("{self$dir.exportar}/Mapas/Eliminadas"))
 
