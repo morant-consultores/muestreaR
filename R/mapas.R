@@ -135,11 +135,13 @@ graficar_mapa_muestra_ine <- function(lflt = NULL, muestra, shp, nivel){
 
         nivel <- mapear %>% as_tibble %>% select(contains("cluster")) %>% names %>% parse_number %>% max
 
+        popup_cluster <- paste0("cluster_",nivel,": ", as_tibble(mapear)[[paste("cluster",nivel,sep = "_")]])
+        popup_mun <- paste("Municipio: ", mapear$NOMBRE_MUN)
         lflt %>% addPolygons(data = mapear,
                              stroke = T, color = "black",
                              fillColor = ~pal(nivel), fillOpacity = .2,weight = 1, opacity = 1,
                              # popup = ~glue::glue("Sección: {SECCION}")
-                             popup = paste0("cluster_",nivel,": ", as_tibble(mapear)[[paste("cluster",nivel,sep = "_")]])
+                             popup = paste(popup_mun, popup_cluster, sep = "<br>")
         ) %>%
           addLegend(data = mapear, pal = pal, values = ~nivel, position = "bottomright")
       }
