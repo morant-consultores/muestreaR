@@ -183,18 +183,25 @@ crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
   aux <- st_join(shp_loc, shp_mza %>% select(MANZANA))
   shp_lpr <- aux %>% filter(is.na(MANZANA)) %>% select(-MANZANA)
 
+  if("LISTA" %in% colnames(shp_lpr)){
+    shp_lpr <- shp_lpr %>% relocate(LISTA, .before = LOCALIDAD)
+  }
+
   shp_lpr <- shp_lpr %>% as_tibble %>% rename(MANZANA = NOMBRE) %>%
-    mutate(across(ENTIDAD:LOCALIDAD, ~as.character(.x))) %>%
+    mutate(across(c(ENTIDAD:LOCALIDAD,-contains("LISTA")), ~as.character(.x))) %>%
     select(ENTIDAD:MANZANA) %>% mutate(TIPO = "rural")
 
   shp_mun <- shp_mun %>% as_tibble %>% rename(NOMBRE_MUN = NOMBRE) %>%
     mutate(across(ENTIDAD:MUNICIPIO, ~as.character(.x))) %>% select(ENTIDAD:NOMBRE_MUN)
 
+  if("LISTA" %in% colnames(shp_mza)){
+    shp_mza <- shp_mza %>% relocate(LISTA, .before = MANZANA)
+  }
+
   shp_mza <- shp_mza %>% as_tibble %>% select(ENTIDAD:MANZANA) %>%
-    mutate(across(ENTIDAD:MANZANA, ~as.character(.x))) %>% mutate(TIPO = "urbana")
+    mutate(across(c(ENTIDAD:MANZANA,-contains("LISTA")), ~as.character(.x))) %>% mutate(TIPO = "urbana")
 
   shp_mza <- shp_mza %>% bind_rows(shp_lpr) %>% arrange(as.numeric(SECCION))
-
 
   ln <- ln %>% select(SECCION, contains("LISTA_")) %>% pivot_longer(-SECCION, names_to = "sector",
                                                                     values_to = "n") %>%
@@ -236,6 +243,10 @@ crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
     left_join(ln_mza, by = "SECCION") %>%
     mutate(across(where(is.numeric), ~if_else(is.na(.x), 0, .x))) %>%
     rownames_to_column(var = "id")# %>% filter(lista_nominal > 0)
+
+  if("LISTA" %in% colnames(mza)){
+    mza <- mza %>% mutate(lista_nominal = if_else(is.na(LISTA), lista_nominal, LISTA)) %>% select(-LISTA)
+  }
 
   return(mza)
 }
