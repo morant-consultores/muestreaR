@@ -256,7 +256,7 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas"){
       theme(plot.title = element_text(hjust = 1), plot.subtitle = element_text(size = 10, hjust = 0))
 
     ggsave(g, filename= sprintf("%s.png", i),
-           path=dir,width = 11,height = 8.5,units = "in",dpi = "print")
+           path=dir,width = 11,height = 8.5,units = "in",dpi = "print", bg = "white")
   }
   beepr::beep()
 
