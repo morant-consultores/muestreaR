@@ -242,10 +242,12 @@ crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
   mza <- shp_mza %>% left_join(shp_mun) %>%
     left_join(ln_mza, by = "SECCION") %>%
     mutate(across(where(is.numeric), ~if_else(is.na(.x), 0, .x))) %>%
-    rownames_to_column(var = "id")# %>% filter(lista_nominal > 0)
+    rownames_to_column(var = "id")
 
   if("LISTA" %in% colnames(mza)){
-    mza <- mza %>% mutate(lista_nominal = if_else(is.na(LISTA), lista_nominal, LISTA)) %>% select(-LISTA)
+    mza <- mza %>%
+      mutate(lista_nominal = if_else(is.na(LISTA) | LISTA == 0, lista_nominal, LISTA)) %>%
+      select(-LISTA)
   }
 
   return(mza)
