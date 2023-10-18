@@ -247,7 +247,22 @@ crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
   if("LISTA" %in% colnames(mza)){
     mza <- mza %>%
       mutate(lista_nominal = if_else(is.na(LISTA) | LISTA == 0, lista_nominal, LISTA)) %>%
+      filter(lista_nominal > 0) |>
       select(-LISTA)
+
+    pct_general <- mza |> pivot_longer(starts_with("LN22")) |>
+      filter(value != 0) |>
+      count(name, wt = value) |>
+      mutate(pct = n/sum(n)) |>
+      select(-n)
+
+    mza <- mza |>
+      pivot_longer(starts_with("LN22")) |>
+      left_join(pct_general, join_by(name)) |>
+      mutate(value = if_else(value == 0, lista_nominal*pct, value)) |>
+      select(-pct) |>
+      pivot_wider(names_from = name, values_from = value)
+
   }
 
   return(mza)
