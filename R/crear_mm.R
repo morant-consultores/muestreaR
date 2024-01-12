@@ -214,7 +214,7 @@ crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
     mutate(fin = as.numeric(fin),
            fin = if_else(is.na(fin),200,fin),
            rango = cut(as.numeric(fin), c(17,24,39,59,Inf),
-                       labels = paste0("LN22_",c("18A24","25A39","40A60","60YMAS")))) %>%
+                       labels = paste0("LN22_",c("18A24","25A39","40A59","60YMAS")))) %>%
     count(SECCION,rango,sexo, wt = n) %>% mutate(sexo = if_else(sexo == "HOMBRES","M","F")) %>%
     unite(rango_sexo, rango:sexo) %>%
     pivot_wider(SECCION,names_from = rango_sexo,values_from = n) %>%
