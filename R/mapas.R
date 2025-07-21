@@ -161,15 +161,18 @@ graficar_mapa_muestra_ine <- function(lflt = NULL, muestra, shp, nivel){
 #' @export
 #'
 #' @examples
-google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
+google_maps <- function(diseño, shp, zoom, dir = "Mapas", cluster = NULL){
 
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
   bd <- diseño$muestra %>% purrr::pluck(length(diseño$muestra)) %>% tidyr::unnest(data)
 
-  cluster <- bd %>% distinct(!!rlang::sym(u_cluster)) %>% pull(1)
+  if(!is.null(cluster)){
+    cluster <- bd %>% distinct(!!rlang::sym(u_cluster)) %>% pull(1)
   ya <- list.files(path=dir) %>% gsub('^.*_\\s*|\\s*.png.*$', '', .)
   cluster <- cluster[!cluster %in% ya]
+  }
+  
   # agebs <- agebs %>% mutate(CVE_AGEB = paste0(22,CVE_MUN,CVE_LOC,CVE_AGEB))
   shp_mapa <- shp %>% purrr::pluck(u_nivel %>% pull(variable)) %>% inner_join(bd)
   man_shp <- shp %>% purrr::pluck("MZA") %>% inner_join(bd)
