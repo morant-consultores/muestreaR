@@ -133,7 +133,7 @@ graficar_mapa_muestra_ine <- function(lflt = NULL, muestra, shp, nivel){
       } else{
         mapear <- shp %>% purrr::pluck(nivel) %>% inner_join(muestra %>% distinct(across(all_of(nivel)), .keep_all = T))
 
-        nivel <- mapear %>% as_tibble %>% select(contains("cluster")) %>% names %>% parse_number %>% max
+        nivel <- mapear %>% as_tibble %>% select(contains("cluster")) %>% names %>% readr::parse_number %>% max
 
         popup_cluster <- paste0("cluster_",nivel,": ", as_tibble(mapear)[[paste("cluster",nivel,sep = "_")]])
         popup_mun <- paste("Municipio: ", mapear$NOMBRE_MUN)
