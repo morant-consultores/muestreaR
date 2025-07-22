@@ -161,17 +161,17 @@ graficar_mapa_muestra_ine <- function(lflt = NULL, muestra, shp, nivel){
 #' @export
 #'
 #' @examples
-google_maps <- function(diseño, shp, zoom, dir = "Mapas", cluster = NULL){
+google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
 
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
   bd <- diseño$muestra %>% purrr::pluck(length(diseño$muestra)) %>% tidyr::unnest(data)
 
-  if(!is.null(cluster)){
-    cluster <- bd %>% distinct(!!rlang::sym(u_cluster)) %>% pull(1)
+  
+  cluster <- bd %>% distinct(!!rlang::sym(u_cluster)) %>% pull(1)
   ya <- list.files(path=dir) %>% gsub('^.*_\\s*|\\s*.png.*$', '', .)
   cluster <- cluster[!cluster %in% ya]
-  }
+  
   
   # agebs <- agebs %>% mutate(CVE_AGEB = paste0(22,CVE_MUN,CVE_LOC,CVE_AGEB))
   shp_mapa <- shp %>% purrr::pluck(u_nivel %>% pull(variable)) %>% inner_join(bd)
@@ -205,21 +205,25 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas", cluster = NULL){
       theme(plot.title = element_text(hjust = 1), plot.subtitle = element_text(size = 10, hjust = 0))
 
     ggsave(g, filename= sprintf("%s.png", i),
-           path=dir,width = 11,height = 8.5,units = "in",dpi = "print")
+           path=dir,width = 11,height = 8.5,units = "in",dpi = "print", bg = "white")
+    
   }
   beepr::beep()
 
 }
 
-google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas"){
+{
 
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
   bd <- diseño$muestra %>% purrr::pluck(length(diseño$muestra)) %>% tidyr::unnest(data)
 
-  cluster <- bd %>% distinct(!!rlang::sym(u_cluster)) %>% pull(1)
-  ya <- list.files(path=dir) %>% gsub('^.*_\\s*|\\s*.png.*$', '', .)
-  cluster <- cluster[!cluster %in% ya]
+  if(!is.null(cluster)){
+    cluster <- bd %>% distinct(!!rlang::sym(u_cluster)) %>% pull(1)
+    ya <- list.files(path=dir) %>% gsub('^.*_\\s*|\\s*.png.*$', '', .)
+    cluster <- cluster[!cluster %in% ya]
+  }
+  
   # agebs <- agebs %>% mutate(CVE_AGEB = paste0(22,CVE_MUN,CVE_LOC,CVE_AGEB))
   shp_mapa <- shp %>% purrr::pluck(u_nivel %>% pull(variable)) %>% inner_join(bd)
   man_shp <- shp %>% purrr::pluck("MANZANA") %>% inner_join(bd)
@@ -258,8 +262,15 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas"){
       labs(subtitle =  cuotas) +
       theme(plot.title = element_text(hjust = 1), plot.subtitle = element_text(size = 10, hjust = 0))
 
-    ggsave(g, filename= sprintf("%s.png", i),
-           path=dir,width = 11,height = 8.5,units = "in",dpi = "print", bg = "white")
+    
+    
+      
+    if(exportar){
+      ggsave(g, filename= sprintf("%s.png", i),
+      path=dir,width = 11,height = 8.5,units = "in",dpi = "print")
+    } else{
+      return(g)
+    }
   }
   beepr::beep()
 

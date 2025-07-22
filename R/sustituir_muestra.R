@@ -82,7 +82,7 @@ return(diseño)
 #' @export
 #'
 #' @examples
-sustituir_muestra_ine <- function(diseño, shp, id, zoom, dir, ajustar_cuotas){
+sustituir_muestra_ine <- function(diseño, shp, id, zoom, dir, ajustar_cuotas, crear_mapa = T){
 
   # sólo se puede sustituir el último nivel
   t_nivel <- diseño$niveles %>% filter(nivel == !!diseño$ultimo_nivel) %>% pull(variable)
@@ -137,7 +137,10 @@ sustituir_muestra_ine <- function(diseño, shp, id, zoom, dir, ajustar_cuotas){
 
   # library(ggmap)
   # ggmap::ggmap(ggmap::get_map())
-  muestreaR:::google_maps_ine(diseño, shp = shp$shp, zoom = zoom, dir = dir)
+  if(crear_mapa){
+    muestreaR:::google_maps_ine(diseño, shp = shp$shp, zoom = zoom, dir = dir)
+  }
+  
 
   return(diseño)
   # diseño %>% readr::write_rds(glue::glue("auditoria/data/diseño_qro{i}.rda"))
