@@ -9,9 +9,6 @@ sustituir_muestra(diseño, shp, id, zoom, dir)
 \arguments{
 \item{zoom}{}
 }
-\value{
-
-}
 \description{
 Title
 }

@@ -9,9 +9,6 @@ graficar_mapa_poblacion(bd, shp, nivel, variable)
 \arguments{
 \item{variable}{}
 }
-\value{
-
-}
 \description{
 Title
 }

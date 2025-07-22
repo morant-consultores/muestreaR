@@ -9,9 +9,6 @@ formato(var, tamaño, bandera = 0)
 \arguments{
 \item{bandera}{}
 }
-\value{
-
-}
 \description{
 Title
 }

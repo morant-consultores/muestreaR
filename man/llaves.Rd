@@ -9,9 +9,6 @@ llaves(diseño)
 \arguments{
 \item{dise}{}
 }
-\value{
-
-}
 \description{
 Title
 }

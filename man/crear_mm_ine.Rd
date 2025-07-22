@@ -9,12 +9,6 @@ crear_mm_ine(ln, shp_mza, shp_loc, shp_mun)
 \arguments{
 \item{shp_mun}{}
 }
-\value{
-
-}
 \description{
 Title
-}
-\examples{
-
 }

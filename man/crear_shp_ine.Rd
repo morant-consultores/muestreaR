@@ -9,9 +9,6 @@ crear_shp_ine(df, dl, mun, loc, secc, mza)
 \arguments{
 \item{mza}{}
 }
-\value{
-
-}
 \description{
 Title
 }

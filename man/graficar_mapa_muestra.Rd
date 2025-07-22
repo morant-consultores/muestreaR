@@ -9,9 +9,6 @@ graficar_mapa_muestra(lflt = NULL, muestra, shp, nivel)
 \arguments{
 \item{nivel}{}
 }
-\value{
-
-}
 \description{
 Title
 }

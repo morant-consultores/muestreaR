@@ -9,9 +9,6 @@ revision(self, prop_vars = c("POCUPADA"), var_extra = NULL)
 \arguments{
 \item{var_extra}{}
 }
-\value{
-
-}
 \description{
 Title
 }

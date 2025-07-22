@@ -9,9 +9,6 @@ repartir_cociente(n, x)
 \arguments{
 \item{x}{}
 }
-\value{
-
-}
 \description{
 Title
 }
