@@ -228,7 +228,7 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
   bd <- diseño$muestra %>% purrr::pluck(length(diseño$muestra)) %>% tidyr::unnest(data)
 
-  if(!is.null(cluster)){
+  if(is.null(cluster)){
     cluster <- bd %>% distinct(!!rlang::sym(u_cluster)) %>% pull(1)
     ya <- list.files(path=dir) %>% gsub('^.*_\\s*|\\s*.png.*$', '', .)
     cluster <- cluster[!cluster %in% ya]
