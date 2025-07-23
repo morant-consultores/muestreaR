@@ -82,7 +82,7 @@ return(diseño)
 #' @export
 #'
 #' @examples
-sustituir_muestra_ine <- function(diseño, shp, id, zoom, dir, ajustar_cuotas, crear_mapa = T){
+sustituir_muestra_ine <- function(diseño, shp, id, zoom, dir, ajustar_cuotas, crear_mapa){
 
   # sólo se puede sustituir el último nivel
   t_nivel <- diseño$niveles %>% filter(nivel == !!diseño$ultimo_nivel) %>% pull(variable)

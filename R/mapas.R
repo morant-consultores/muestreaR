@@ -212,7 +212,17 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
 
 }
 
-google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas"){
+#' Title
+#'
+#' @param dise
+#' @param shp
+#' @param zoom
+#'
+#' @return
+#' @export
+#'
+#' @examples
+google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T){
 
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
