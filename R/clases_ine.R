@@ -240,14 +240,16 @@ DiseñoINE <- R6::R6Class("Diseño",
                            sustituir_muestra = function(shp, id, zoom = 16, ajustar_cuotas = T, crear_mapa = T){
                              self <- sustituir_muestra_ine(self, shp, id, zoom, dir = glue::glue("{self$dir.exportar}/Mapas"), ajustar_cuotas = ajustar_cuotas, crear_mapa = crear_mapa)
 
-                             if(!file.exists(glue::glue("{self$dir.exportar}/Mapas/Eliminadas"))) dir.create(glue::glue("{self$dir.exportar}/Mapas/Eliminadas"))
+                             if(crear_mapa){
+                              if(!file.exists(glue::glue("{self$dir.exportar}/Mapas/Eliminadas"))) dir.create(glue::glue("{self$dir.exportar}/Mapas/Eliminadas"))
 
                              file.rename(glue::glue("{self$dir.exportar}/Mapas/{id}.png"),
                                          glue::glue("{self$dir.exportar}/Mapas/Eliminadas/{id}.png"))
 
                              self$n_sustitucion <- self$n_sustitucion + 1
                              readr::write_rds(self, glue::glue("{self$dir.exportar}/diseño{self$n_sustitucion}.rda"))
-                             self$cuotas %>% readr::write_excel_csv(glue::glue("{self$dir.exportar}/cuotas{self$n_sustitucion}.csv"))
+                             self$cuotas %>% readr::write_excel_csv(glue::glue("{self$dir.exportar}/cuotas{self$n_sustitucion}.csv")) 
+                             }
                            }
                          ),
                          private = list(
