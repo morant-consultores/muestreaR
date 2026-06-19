@@ -23,6 +23,11 @@ DiseñoINE <- R6::R6Class(
     n_sustitucion = 0,
     dir.exportar = NULL,
     sobre_muestra = NULL,
+    semilla = NULL,
+    #' @param semilla Valor numérico opcional. Si se proporciona, el diseño es
+    #'   reproducible: cada etapa estocástica (extraer_muestra, calcular_cuotas,
+    #'   sustituir_muestra) fija una sub-semilla derivada de `semilla`. Si es NULL
+    #'   (por defecto) el comportamiento es idéntico al histórico (sin set.seed).
     initialize = function(
       poblacion,
       n,
@@ -30,13 +35,15 @@ DiseñoINE <- R6::R6Class(
       variable_poblacional,
       unidad_muestreo,
       id_unidad_muestreo,
-      llave_muestreo
+      llave_muestreo,
+      semilla = NULL
     ) {
       self$poblacion = poblacion
       self$n = n
       private$unidad_muestreo = unidad_muestreo
       self$n_0 = n_0
       self$variable_poblacional = variable_poblacional
+      self$semilla = semilla
       self$niveles = self$agregar_nivel(
         variable = id_unidad_muestreo,
         tipo = "cluster",
@@ -256,6 +263,9 @@ DiseñoINE <- R6::R6Class(
       self$poblacion$marco_muestral <- calcular_fpc(self, nivel = nivel)
     },
     extraer_muestra = function(nivel) {
+      # Reproducibilidad: sub-semilla por nivel para que las etapas no compartan
+      # el estado del generador (ver campo `semilla`).
+      if (!is.null(self$semilla)) set.seed(self$semilla + nivel)
       m <- muestrear(self, nivel = nivel)
       aux <- m %>% purrr::pluck(length(m))
       if (nivel == self$ultimo_nivel) {
@@ -288,6 +298,7 @@ DiseñoINE <- R6::R6Class(
       self$muestra <- m
     },
     calcular_cuotas = function(ajustar = T) {
+      if (!is.null(self$semilla)) set.seed(self$semilla + 1000)
       self$cuotas <- cuotas_ine(self, ajustar = ajustar)
     },
     revisar_muestra = function(prop_vars, var_extra) {
@@ -328,6 +339,7 @@ DiseñoINE <- R6::R6Class(
       ajustar_cuotas = T,
       crear_mapa = T
     ) {
+      if (!is.null(self$semilla)) set.seed(self$semilla + 2000 + self$n_sustitucion)
       self <- sustituir_muestra_ine(
         self,
         shp,

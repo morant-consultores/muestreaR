@@ -19,18 +19,21 @@ Diseño <- R6::R6Class("Diseño",
                         cuotas = NULL,
                         n_sustitucion = 0,
                         dir.exportar = NULL,
+                        semilla = NULL,
                         initialize = function(poblacion,
                                               n,
                                               n_0,
                                               variable_poblacional,
                                               unidad_muestreo,
                                               id_unidad_muestreo,
-                                              llave_muestreo){
+                                              llave_muestreo,
+                                              semilla = NULL){
                           self$poblacion=poblacion
                           self$n=n
                           private$unidad_muestreo=unidad_muestreo
                           self$n_0=n_0
                           self$variable_poblacional=variable_poblacional
+                          self$semilla=semilla
                           self$niveles=self$agregar_nivel(variable=id_unidad_muestreo,
                                                           tipo="cluster",
                                                           descripcion = unidad_muestreo,
@@ -135,6 +138,8 @@ Diseño <- R6::R6Class("Diseño",
                           self$poblacion$marco_muestral <- calcular_fpc(self, nivel = nivel)
                         },
                         extraer_muestra = function(nivel){
+                          # Reproducibilidad: sub-semilla por nivel (ver campo `semilla`).
+                          if(!is.null(self$semilla)) set.seed(self$semilla + nivel)
                           m <- muestrear(self, nivel = nivel)
                           aux <- m %>% purrr::pluck(length(m))
                           if(nivel == self$ultimo_nivel){
@@ -153,6 +158,7 @@ Diseño <- R6::R6Class("Diseño",
                           self$muestra <- m
                         },
                         calcular_cuotas = function(){
+                          if(!is.null(self$semilla)) set.seed(self$semilla + 1000)
                           self$cuotas <- cuotas(self)
                         },
                         revisar_muestra = function(prop_vars, var_extra){
@@ -176,6 +182,7 @@ Diseño <- R6::R6Class("Diseño",
                           shp %>% readr::write_rds(glue::glue("{carpeta}/shp.rda"))
                         },
                         sustituir_muestra = function(shp, id, zoom = 16){
+                          if(!is.null(self$semilla)) set.seed(self$semilla + 2000 + self$n_sustitucion)
                           self <- sustituir_muestra(self, shp, id, zoom, dir = glue::glue("{self$dir.exportar}/Mapas"))
                           file.rename(glue::glue("{self$dir.exportar}/Mapas/{id}.png"),
                                       glue::glue("{self$dir.exportar}/Mapas/{id} eliminada.png"))
