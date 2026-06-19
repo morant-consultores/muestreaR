@@ -20,11 +20,10 @@
 #   source("inst/ejemplos/disenar_muestra_demo.R")
 #
 # NOTA SOBRE REPRODUCIBILIDAD:
-#   El sorteo de la muestra es aleatorio. Para que el resultado sea reproducible se
-#   fija una semilla con set.seed() antes de cada paso estocástico. En la Fase 1 de
-#   mejoras esto se integrará como parámetro `semilla` de DiseñoINE$new(); aquí se
-#   hace de forma explícita para que el script funcione con la versión ACTUAL del
-#   paquete sin modificarlo.
+#   El sorteo de la muestra es aleatorio. El diseño se crea con `semilla = 123`, de
+#   modo que cada etapa estocástica (extraer_muestra, calcular_cuotas) fija sola su
+#   sub-semilla y el resultado es reproducible: dos corridas dan la misma muestra.
+#   Si omites `semilla`, el comportamiento es el histórico (no reproducible).
 # =====================================================================================
 
 devtools::load_all()
@@ -127,7 +126,8 @@ diseno <- DiseñoINE$new(
   variable_poblacional = "lista_nominal",
   unidad_muestreo      = "Manzanas",
   id_unidad_muestreo   = "id",
-  llave_muestreo       = "Man"
+  llave_muestreo       = "Man",
+  semilla              = 123           # <-- diseño reproducible (Fase 1)
 )
 
 # Añadimos los niveles jerárquicos, de mayor a menor (igual que en producción):
@@ -174,12 +174,13 @@ message("PASO 3 — fpc calculados. Columnas fpc en el marco: ",
 # PASO 4 — EXTRAER LA MUESTRA (paso estocástico → fijamos semilla)
 # -------------------------------------------------------------------------------------
 # Se sortea nivel por nivel: municipios dentro de región, secciones dentro de
-# municipio, manzanas dentro de sección. En la Fase 1 la semilla se guardará en
-# DiseñoINE$new(semilla=); aquí la fijamos a mano antes de cada etapa.
+# municipio, manzanas dentro de sección. Como el diseño se creó con semilla = 123,
+# cada etapa fija sola su sub-semilla (123 + nivel) y el resultado es reproducible:
+# vuelve a correr el script y obtendrás exactamente la misma muestra.
 # -------------------------------------------------------------------------------------
-set.seed(123 + 1); diseno$extraer_muestra(nivel = 1)
-set.seed(123 + 2); diseno$extraer_muestra(nivel = 2)
-set.seed(123 + 3); diseno$extraer_muestra(nivel = 3)
+diseno$extraer_muestra(nivel = 1)
+diseno$extraer_muestra(nivel = 2)
+diseno$extraer_muestra(nivel = 3)
 
 muestra_final <- diseno$muestra |> purrr::pluck(length(diseno$muestra))
 message("PASO 4 — muestra extraída. Manzanas seleccionadas: ",
@@ -197,9 +198,9 @@ diseno$muestra |>
 # PASO 5 — CUOTAS de edad y sexo (paso estocástico → fijamos semilla)
 # -------------------------------------------------------------------------------------
 # Reparte las entrevistas de cada sección en celdas edad x sexo según el desglose
-# LN22_*. El ajuste final ±1 para cuadrar exactamente es aleatorio.
+# LN22_*. El ajuste final ±1 para cuadrar exactamente es aleatorio, pero la semilla
+# del diseño (123 + 1000) lo vuelve reproducible.
 # -------------------------------------------------------------------------------------
-set.seed(123 + 1000)
 diseno$calcular_cuotas(ajustar = TRUE)
 
 message("PASO 5 — cuotas calculadas. Total de entrevistas en cuotas: ",
