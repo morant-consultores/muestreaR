@@ -66,7 +66,7 @@ generar_poblacion_ine <- function(marco = generar_marco_ine()) {
 #   - los nombres de columnas de la lista nominal usan rangos que NO contienen los
 #     patrones "_18_" ni "_19_" (que crear_mm_ine reescribe para edades de un año).
 # -------------------------------------------------------------------------------------
-generar_fixture_crear_mm <- function() {
+generar_fixture_crear_mm <- function(con_lista = FALSE) {
   # cuadrado de lado s con esquina inferior-izquierda (x, y)
   sq <- function(x, y, s = 0.01) {
     sf::st_polygon(list(matrix(
@@ -87,11 +87,13 @@ generar_fixture_crear_mm <- function() {
     )
 
   geom_mza <- lapply(grid$row, function(i) sq(i * 0.01, 0)) |> sf::st_sfc(crs = 4326)
-  shp_mza <- sf::st_sf(
-    grid |> dplyr::select(ENTIDAD, MUNICIPIO, SECCION, MANZANA) |>
-      dplyr::mutate(STATUS = 1L),
-    geometry = geom_mza
-  )
+  attrs_mza <- grid |> dplyr::select(ENTIDAD, MUNICIPIO, SECCION, MANZANA) |>
+    dplyr::mutate(STATUS = 1L)
+  # con_lista = TRUE añade la columna LISTA (lista nominal por manzana) que traen
+  # los marcos reales del INE y que activa la rama de relleno proporcional al final
+  # de crear_mm_ine (ver R/crear_mm.R, `if("LISTA" %in% colnames(mza))`).
+  if (con_lista) attrs_mza <- attrs_mza |> dplyr::mutate(LISTA = 50 + grid$row)
+  shp_mza <- sf::st_sf(attrs_mza, geometry = geom_mza)
 
   # una localidad por sección, que cubre sus manzanas (=> sin rurales)
   loc <- grid |>

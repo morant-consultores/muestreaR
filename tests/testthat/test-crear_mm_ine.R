@@ -44,3 +44,20 @@ test_that("crear_mm_ine genera tamaños poblacionales positivos y consistentes",
 
   expect_equal(total_por_seccion$total, esperado$total)
 })
+
+test_that("crear_mm_ine procesa la rama con columna LISTA (relleno proporcional)", {
+  # Los marcos reales del INE traen una columna LISTA en shp_mza que activa la
+  # rama de relleno proporcional al final de crear_mm_ine. Esta rama usa funciones
+  # de tidyr: si no están prefijadas falla en producción aunque el fixture base
+  # (sin LISTA) pase. Este test la ejercita explícitamente.
+  fx <- generar_fixture_crear_mm(con_lista = TRUE)
+
+  marco <- suppressWarnings(
+    crear_mm_ine(ln = fx$ln, shp_mza = fx$shp_mza,
+                 shp_loc = fx$shp_loc, shp_mun = fx$shp_mun)
+  )
+
+  expect_true(all(marco$lista_nominal > 0))
+  expect_false("LISTA" %in% names(marco))            # la columna LISTA se consume
+  expect_length(grep("^LN22_", names(marco), value = TRUE), 8)
+})
