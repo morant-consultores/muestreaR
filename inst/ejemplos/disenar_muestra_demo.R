@@ -61,19 +61,21 @@ set.seed(2025)  # semilla global para que el marco sintético sea siempre idént
 #   - LN22_*_F/M    : desglose de lista nominal por rango de edad y sexo (para cuotas)
 # -------------------------------------------------------------------------------------
 
-# Geografía sintética: 2 regiones x 2 municipios x 3 secciones x 4 manzanas = 48 manzanas
+# Geografía sintética con anidamiento limpio  region > SECCION > manzana,
+# igual que la topología de 2 niveles de las muestras reales de Edomex 2025.
+# 2 regiones x 6 secciones x 4 manzanas = 48 manzanas.
 geo <- tidyr::expand_grid(
-  region   = c("Region 1", "Region 2"),
-  municipio_n = 1:2,
-  seccion_n   = 1:3,
-  manzana_n   = 1:4
+  region    = c("Region 1", "Region 2"),
+  seccion_n = 1:6,
+  manzana_n = 1:4
 ) |>
   mutate(
-    MUNICIPIO  = sprintf("MUN_%s_%d",
-                         ifelse(region == "Region 1", "A", "B"), municipio_n),
+    reg_id     = as.integer(factor(region)),
+    # 2 municipios por región (las cuotas se reportan por municipio)
+    MUNICIPIO  = sprintf("MUN_%d_%d", reg_id, ceiling(seccion_n / 3)),
     NOMBRE_MUN = paste("Municipio", MUNICIPIO),
-    # SECCION única a lo largo de todo el marco (como en datos reales del INE)
-    SECCION    = as.character(row_number() %/% 4 + 1000),
+    # SECCION única dentro de cada región (anidamiento estricto)
+    SECCION    = as.character(reg_id * 100 + seccion_n + 1000),
     id         = as.character(row_number())   # id único por manzana
   )
 
@@ -130,13 +132,12 @@ diseno <- DiseñoINE$new(
   semilla              = 123           # <-- diseño reproducible (Fase 1)
 )
 
-# Añadimos los niveles jerárquicos, de mayor a menor (igual que en producción):
+# Añadimos los niveles jerárquicos, igual que en producción (2 niveles):
 #   nivel 1 = region   (ESTRATO)
-#   nivel 2 = MUNICIPIO (CLUSTER)
-#   nivel 3 = SECCION   (CLUSTER, último nivel)
-diseno$agregar_nivel("region",    tipo = "strata",  descripcion = "Regiones",            llave = "region")
-diseno$agregar_nivel("MUNICIPIO", tipo = "cluster", descripcion = "Municipios",          llave = "Mun")
-diseno$agregar_nivel("SECCION",   tipo = "cluster", descripcion = "Secciones electorales", llave = "SECCION")
+#   nivel 2 = SECCION  (CLUSTER, último nivel)
+# Las manzanas (id) son el nivel 0, definido al crear el diseño.
+diseno$agregar_nivel("region",  tipo = "strata",  descripcion = "Regiones",             llave = "region")
+diseno$agregar_nivel("SECCION", tipo = "cluster", descripcion = "Secciones electorales", llave = "SECCION")
 
 message("PASO 1 — niveles definidos:")
 print(diseno$niveles)
@@ -145,13 +146,11 @@ print(diseno$niveles)
 # PASO 2 — PLAN DE MUESTRA por nivel
 # -------------------------------------------------------------------------------------
 # Cuántas unidades se reparten en cada nivel y bajo qué criterio:
-#   "peso"     : proporcional al tamaño poblacional (lista_nominal)
-#   "uniforme" : reparto uniforme
-#   nivel 3    : el último nivel se calcula automáticamente
+#   "peso"  : las secciones se reparten proporcional al tamaño (lista_nominal)
+#   nivel 2 : el último nivel (manzanas por sección) se calcula automáticamente
 # -------------------------------------------------------------------------------------
-diseno$plan_muestra(nivel = 1, criterio = "peso",     unidades_nivel = 4)   # 4 municipios
-diseno$plan_muestra(nivel = 2, criterio = "uniforme", unidades_nivel = 8)   # 8 secciones
-diseno$plan_muestra(nivel = 3)                                              # manzanas
+diseno$plan_muestra(nivel = 1, criterio = "peso", unidades_nivel = 8)   # 8 secciones
+diseno$plan_muestra(nivel = 2)                                          # manzanas (último)
 
 message("PASO 2 — plan de muestra calculado. Unidades por nivel:")
 print(diseno$niveles |> dplyr::select(nivel, tipo, descripcion, unidades, plan_muestra))
@@ -159,11 +158,11 @@ print(diseno$niveles |> dplyr::select(nivel, tipo, descripcion, unidades, plan_m
 # =====================================================================================
 # PASO 3 — FACTORES DE CORRECCIÓN POBLACIONAL (fpc)
 # -------------------------------------------------------------------------------------
-# IMPORTANTE: el orden requerido es 2, 3, 0 (no 0, 1, 2, 3). Este orden no es
-# obvio y es uno de los puntos que la Fase 4 (rediseño de API) busca volver explícito.
+# IMPORTANTE: el orden requerido es 2, 0 (el último nivel cluster, luego el 0; los
+# estratos no llevan fpc). Este orden no es obvio y es uno de los puntos que la
+# Fase 4 (rediseño de API) busca volver explícito.
 # -------------------------------------------------------------------------------------
 diseno$fpc(nivel = 2)
-diseno$fpc(nivel = 3)
 diseno$fpc(nivel = 0)
 
 message("PASO 3 — fpc calculados. Columnas fpc en el marco: ",
@@ -173,14 +172,13 @@ message("PASO 3 — fpc calculados. Columnas fpc en el marco: ",
 # =====================================================================================
 # PASO 4 — EXTRAER LA MUESTRA (paso estocástico → fijamos semilla)
 # -------------------------------------------------------------------------------------
-# Se sortea nivel por nivel: municipios dentro de región, secciones dentro de
-# municipio, manzanas dentro de sección. Como el diseño se creó con semilla = 123,
-# cada etapa fija sola su sub-semilla (123 + nivel) y el resultado es reproducible:
-# vuelve a correr el script y obtendrás exactamente la misma muestra.
+# Se sortea nivel por nivel: secciones dentro de región, manzanas dentro de sección.
+# Como el diseño se creó con semilla = 123, cada etapa fija sola su sub-semilla
+# (123 + nivel) y el resultado es reproducible: vuelve a correr el script y
+# obtendrás exactamente la misma muestra.
 # -------------------------------------------------------------------------------------
 diseno$extraer_muestra(nivel = 1)
 diseno$extraer_muestra(nivel = 2)
-diseno$extraer_muestra(nivel = 3)
 
 muestra_final <- diseno$muestra |> purrr::pluck(length(diseno$muestra))
 message("PASO 4 — muestra extraída. Manzanas seleccionadas: ",

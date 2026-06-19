@@ -9,19 +9,22 @@
 # =====================================================================================
 
 # Marco muestral sintético: cada fila es una manzana (unidad mínima).
-# 2 regiones x 2 municipios x n_secciones x n_manzanas. Determinista.
-generar_marco_ine <- function(n_secciones = 3, n_manzanas = 4) {
+# Anidamiento limpio  region (estrato) > SECCION (cluster) > manzana,
+# igual que la topología de las muestras reales de Edomex 2025.
+# 2 regiones x n_secciones x n_manzanas. Determinista.
+generar_marco_ine <- function(n_secciones = 6, n_manzanas = 4) {
   geo <- tidyr::expand_grid(
-    region      = c("Region 1", "Region 2"),
-    municipio_n = 1:2,
-    seccion_n   = seq_len(n_secciones),
-    manzana_n   = seq_len(n_manzanas)
+    region    = c("Region 1", "Region 2"),
+    seccion_n = seq_len(n_secciones),
+    manzana_n = seq_len(n_manzanas)
   ) |>
     dplyr::mutate(
-      MUNICIPIO  = sprintf("MUN_%s_%d",
-                           ifelse(region == "Region 1", "A", "B"), municipio_n),
+      reg_id     = as.integer(factor(region)),
+      # 2 municipios por región (mitad de las secciones cada uno)
+      MUNICIPIO  = sprintf("MUN_%d_%d", reg_id, ceiling(seccion_n / (n_secciones / 2))),
       NOMBRE_MUN = paste("Municipio", MUNICIPIO),
-      SECCION    = as.character(dplyr::row_number() %/% n_manzanas + 1000),
+      # SECCION única dentro de cada región (anidamiento estricto)
+      SECCION    = as.character(reg_id * 100 + seccion_n + 1000),
       id         = as.character(dplyr::row_number())
     )
 
@@ -124,8 +127,11 @@ generar_fixture_crear_mm <- function() {
 }
 
 # Diseño INE completo y reproducible (semilla fija) listo para extraer muestra.
-# Ejecuta: niveles -> plan_muestra -> fpc. Deja el diseño listo para extraer_muestra().
-generar_diseno_ine <- function(n = 240, n_0 = 5, semilla = 123,
+# Replica la topología REAL de las muestras de Edomex 2025: 2 niveles
+#   nivel 1 = region  (estrato)
+#   nivel 2 = SECCION (cluster, último nivel)
+# Ejecuta niveles -> plan_muestra -> fpc y deja el diseño listo para extraer_muestra().
+generar_diseno_ine <- function(n = 240, n_0 = 5, semilla = 123, unidades_nivel = 8,
                                poblacion = generar_poblacion_ine()) {
   diseno <- DiseñoINE$new(
     poblacion            = poblacion,
@@ -137,16 +143,13 @@ generar_diseno_ine <- function(n = 240, n_0 = 5, semilla = 123,
     llave_muestreo       = "Man",
     semilla              = semilla
   )
-  diseno$agregar_nivel("region",    tipo = "strata",  descripcion = "Regiones",             llave = "region")
-  diseno$agregar_nivel("MUNICIPIO", tipo = "cluster", descripcion = "Municipios",           llave = "Mun")
-  diseno$agregar_nivel("SECCION",   tipo = "cluster", descripcion = "Secciones electorales", llave = "SECCION")
+  diseno$agregar_nivel("region",  tipo = "strata",  descripcion = "Regiones",             llave = "region")
+  diseno$agregar_nivel("SECCION", tipo = "cluster", descripcion = "Secciones electorales", llave = "SECCION")
 
-  diseno$plan_muestra(nivel = 1, criterio = "peso",     unidades_nivel = 4)
-  diseno$plan_muestra(nivel = 2, criterio = "uniforme", unidades_nivel = 8)
-  diseno$plan_muestra(nivel = 3)
+  diseno$plan_muestra(nivel = 1, criterio = "peso", unidades_nivel = unidades_nivel)
+  diseno$plan_muestra(nivel = 2)   # último nivel
 
   diseno$fpc(nivel = 2)
-  diseno$fpc(nivel = 3)
   diseno$fpc(nivel = 0)
 
   diseno

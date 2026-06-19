@@ -5,7 +5,7 @@
 
 test_that("el pipeline DiseñoINE produce una muestra estable (semilla = 123)", {
   diseno <- generar_diseno_ine(semilla = 123)
-  diseno$extraer_muestra(1); diseno$extraer_muestra(2); diseno$extraer_muestra(3)
+  diseno$extraer_muestra(1); diseno$extraer_muestra(2)
 
   resumen_muestra <- diseno$muestra |>
     purrr::pluck(length(diseno$muestra)) |>
@@ -18,7 +18,7 @@ test_that("el pipeline DiseñoINE produce una muestra estable (semilla = 123)", 
 
 test_that("las cuotas del pipeline son estables (semilla = 123)", {
   diseno <- generar_diseno_ine(semilla = 123)
-  diseno$extraer_muestra(1); diseno$extraer_muestra(2); diseno$extraer_muestra(3)
+  diseno$extraer_muestra(1); diseno$extraer_muestra(2)
   diseno$calcular_cuotas()
 
   cuotas <- diseno$cuotas |>
