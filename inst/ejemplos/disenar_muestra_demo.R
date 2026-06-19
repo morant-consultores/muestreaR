@@ -27,6 +27,7 @@
 #   paquete sin modificarlo.
 # =====================================================================================
 
+devtools::load_all()
 library(dplyr)
 library(tidyr)
 library(purrr)
