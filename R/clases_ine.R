@@ -72,7 +72,7 @@ DiseñoINE <- R6::R6Class(
             .
           }
         } %>%
-        group_by(!!sym(variable), add = T) %>%
+        group_by(!!sym(variable), .add = TRUE) %>%
         mutate("{tipo}_{self$ultimo_nivel}" := cur_group_id()) %>%
         ungroup()
       # Modificar sel niveles

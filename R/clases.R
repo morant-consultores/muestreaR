@@ -59,7 +59,7 @@ Diseño <- R6::R6Class("Diseño",
                             {if(self$ultimo_nivel!=0) agrupar_nivel(., nivel=self$ultimo_nivel)
                               else .
                             } %>%
-                            group_by(!!sym(variable), add=T) %>%
+                            group_by(!!sym(variable), .add = TRUE) %>%
                             mutate("{tipo}_{self$ultimo_nivel}":= cur_group_id()) %>%
                             ungroup()
                           # Modificar sel niveles
