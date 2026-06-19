@@ -657,7 +657,7 @@ cuotas <- function(diseño){
                              P_25A59_M = P_18YMAS_M - P_18A24_M - P_60YMAS_M,
                              P_60YMAS_F,P_60YMAS_M) %>%
     group_by(Municipio, Localidad,!!rlang::sym(u_cluster)) %>%
-    summarise(across(everything(),.fns = sum, na.rm = T),.groups =  "drop") %>%
+    summarise(across(everything(), \(x) sum(x, na.rm = TRUE)),.groups =  "drop") %>%
     tidyr::pivot_longer(c(-Municipio,-Localidad,-!!sym(u_cluster)), names_to = "edad", values_to = "cantidad") %>%
     tidyr::separate(edad, c("basura","rango","sexo")) %>% select(-basura) %>%
     group_by(!!rlang::sym(u_cluster)) %>% mutate(pct = cantidad/sum(cantidad)) %>% ungroup %>%
@@ -709,7 +709,7 @@ cuotas_ine <- function(diseño, ajustar){
                           !!rlang::sym(u_cluster),
                           contains("LN22")) %>%
     group_by(Municipio, Seccion,!!rlang::sym(u_cluster)) %>%
-    summarise(across(everything(),.fns = sum, na.rm = T),.groups =  "drop") %>%
+    summarise(across(everything(), \(x) sum(x, na.rm = TRUE)),.groups =  "drop") %>%
     tidyr::pivot_longer(c(-Municipio, -Seccion,-!!sym(u_cluster)), names_to = "edad", values_to = "cantidad") %>%
     tidyr::separate(edad, c("basura","rango","sexo")) %>% select(-basura) %>%
     group_by(!!rlang::sym(u_cluster)) %>% mutate(pct = cantidad/sum(cantidad)) %>% ungroup %>%
