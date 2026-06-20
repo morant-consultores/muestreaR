@@ -41,6 +41,21 @@ test_that("validar_estratos acumula los problemas y aprueba lo válido", {
   expect_gte(length(probs), 2)   # entrevistas negativas + estrato inexistente
 })
 
+test_that("validar_estratos exige cobertura total del marco", {
+  pob <- generar_poblacion_ine()   # marco con Region 1 y Region 2
+  # solo se declara un estrato -> el otro quedaría sin asignar
+  probs <- validar_estratos(pob, data.frame(estrato = "Region 1", entrevistas = 50))
+  expect_true(any(grepl("sin estrato declarado", probs)))
+})
+
+test_that("validar_estratos detecta objetivos demasiado pequeños (0 secciones)", {
+  pob <- generar_poblacion_ine()
+  # 3 entrevistas con 10 efectivas/sección -> 0 secciones
+  probs <- validar_estratos(pob, data.frame(estrato = c("Region 1", "Region 2"),
+                                            entrevistas = c(3, 50)))
+  expect_true(any(grepl("demasiado peque", probs)))
+})
+
 test_that("disenar_muestra_ine es reproducible con la misma semilla", {
   pob <- generar_poblacion_ine()
   est <- data.frame(estrato = c("Region 1", "Region 2"), entrevistas = c(50, 50))

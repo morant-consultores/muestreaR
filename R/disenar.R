@@ -256,18 +256,36 @@ validar_estratos <- function(poblacion, estratos,
                    sprintf("La variable de estrato '%s' no existe en el marco muestral.",
                            variable_estrato))
   } else {
-    faltan <- setdiff(as.character(estratos$estrato), as.character(unique(marco[[variable_estrato]])))
+    valores_marco <- as.character(unique(marco[[variable_estrato]]))
+    faltan <- setdiff(as.character(estratos$estrato), valores_marco)
     if (length(faltan)) {
       problemas <- c(problemas,
                      sprintf("Estratos que no existen en el marco ('%s'): %s.",
                              variable_estrato, paste(faltan, collapse = ", ")))
     }
+    # cobertura total: todo valor del marco debe tener un estrato declarado, si no
+    # esas unidades quedan sin asignar y el muestreo falla con un error críptico.
+    sobran <- setdiff(valores_marco, as.character(estratos$estrato))
+    if (length(sobran)) {
+      problemas <- c(problemas, sprintf(
+        "Valores de '%s' en el marco sin estrato declarado: %s.",
+        variable_estrato, paste(sobran, collapse = ", ")))
+    }
   }
 
-  # secciones requeridas vs disponibles (si se conoce el cluster y todo lo previo va bien)
+  # secciones requeridas: positivas y dentro de las disponibles (si la estructura
+  # previa es válida y se conoce el cluster).
   if (length(problemas) == 0 && variable_cluster %in% names(marco) &&
       variable_estrato %in% names(marco)) {
     asig <- calcular_asignacion(estratos, n_0, manzanas_por_seccion, tasa_rechazo, modo_rechazo)
+
+    cero <- asig[which(asig$secciones < 1), ]
+    if (nrow(cero)) {
+      problemas <- c(problemas, sprintf(
+        "Objetivo demasiado pequeño: %s no alcanza(n) ni una sección (mín. %d entrevistas con n_0=%d, manzanas=%d).",
+        paste(cero$estrato, collapse = ", "), n_0 * manzanas_por_seccion, n_0, manzanas_por_seccion))
+    }
+
     disp <- marco |>
       dplyr::distinct(.data[[variable_estrato]], .data[[variable_cluster]]) |>
       dplyr::count(.data[[variable_estrato]], name = "disponibles")
