@@ -161,6 +161,49 @@ disenar_muestra_ine <- function(poblacion, estratos,
   diseno
 }
 
+#' Resumen del diseño: objetivo vs realizado por estrato
+#'
+#' Devuelve, por estrato, lo planeado (objetivo de entrevistas, secciones,
+#' manzanas/sección y entrevistas a levantar) y lo realizado tras la extracción
+#' (secciones, manzanas y entrevistas), para revisar de un vistazo qué tan cerca
+#' quedó la muestra del objetivo.
+#'
+#' @param diseno Objeto [DiseñoINE] con la muestra extraída, idealmente generado
+#'   por [disenar_muestra_ine()] (que adjunta la asignación planeada).
+#'
+#' @return `tibble` con una fila por estrato.
+#' @export
+resumen_diseno <- function(diseno) {
+  var_estrato <- diseno$niveles |> dplyr::filter(nivel == 1) |> dplyr::pull(variable)
+  col_cluster <- paste0("cluster_", diseno$ultimo_nivel)
+
+  ult <- diseno$muestra |> purrr::pluck(length(diseno$muestra)) |> tidyr::unnest(data)
+  realizado <- ult |>
+    dplyr::left_join(diseno$n_i$cluster_0, by = "cluster_0") |>
+    dplyr::group_by(.data[[var_estrato]]) |>
+    dplyr::summarise(
+      secciones_real   = dplyr::n_distinct(.data[[col_cluster]]),
+      manzanas_real    = dplyr::n(),
+      entrevistas_real = sum(n_0),
+      .groups = "drop"
+    )
+  names(realizado)[1] <- "estrato"
+  realizado$estrato <- as.character(realizado$estrato)
+
+  asig <- attr(diseno, "asignacion")
+  if (is.null(asig)) return(realizado)
+
+  asig |>
+    dplyr::transmute(
+      estrato        = as.character(estrato),
+      objetivo       = entrevistas,
+      secciones_plan = secciones,
+      manzanas_plan  = manzanas_por_seccion,
+      a_levantar     = entrevistas_a_levantar
+    ) |>
+    dplyr::left_join(realizado, by = "estrato")
+}
+
 #' Validar la tabla de estratos de un diseño
 #'
 #' Comprueba que la tabla de estratos y los parámetros del modelo operativo sean
