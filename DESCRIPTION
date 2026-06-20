@@ -1,12 +1,14 @@
 Package: muestreaR
-Title: What the Package Does (One Line, Title Case)
+Title: Diseño de Muestras Polietápicas para Encuestas
 Version: 0.0.0.9000
-Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+Authors@R:
+    person("Emilio", "Morones", , "emorones@morant.com.mx", role = c("aut", "cre"))
+Description: Herramientas para diseñar muestras polietápicas para encuestas en
+    domicilio. Construye el marco muestral a partir de la cartografía y la lista
+    nominal, define el diseño por niveles (estratos y conglomerados con muestreo
+    proporcional al tamaño), extrae la muestra, calcula cuotas de edad y sexo y
+    exporta los insumos de campo.
+License: MIT + file LICENSE
 Depends: 
     R (>= 2.10)
 Imports: 

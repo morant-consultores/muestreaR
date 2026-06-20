@@ -5,3 +5,4 @@
 ^cobertura\.xml$
 ^codecov\.yml$
 ^graphify-out$
+^LICENSE\.md$
