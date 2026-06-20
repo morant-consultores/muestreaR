@@ -25,3 +25,30 @@
 #' @importFrom utils head
 #' @importFrom R6 R6Class
 "_PACKAGE"
+
+# Variables usadas en evaluación no estándar (NSE) de dplyr/tidyr.
+# Se declaran para silenciar los NOTE "no visible binding for global variable".
+utils::globalVariables(c(
+  ".", "2.5 %", "97.5 %", "AGEB", "ALTITUD",
+  "AMBITO", "basura", "cantidad", "cluster_0",
+  "color", "CVE_AGEB", "CVE_ENT", "CVE_LOC",
+  "CVE_MUN", "CVE_MZA", "CVEGEO", "data",
+  "descripcion", "DISTRITO", "DISTRITO_F", "DISTRITO_L",
+  "edad", "ENTIDAD", "entrevistas", "fin",
+  "fpc_0", "gini", "id", "LISTA",
+  "LISTA NOMINAL", "lista_nominal", "llave", "LOC",
+  "Localidad", "LOCALIDAD", "longitud", "LONGITUD",
+  "MANZANA", "manzanas", "MUN", "Municipio",
+  "MUNICIPIO", "MZA", "n_0", "n_mza",
+  "name", "nivel", "NOM_LOC", "NOM_MUN",
+  "NOMBRE", "NOMBRE_MUN", "NOMGEO", "original",
+  "P_18A24_F", "P_18A24_M", "P_18YMAS_F", "P_18YMAS_M",
+  "P_60YMAS_F", "P_60YMAS_M", "pct", "plan_muestra",
+  "pobtot", "POBTOT", "porc", "puntual",
+  "rango", "rango_sexo", "region", "Seccion",
+  "SECCION", "sector", "sexo", "STATUS",
+  "strata_1", "tipo", "TIPOMZA", "total",
+  "Total", "unidades", "value", "variable",
+  "VPH_SINTIC"
+))
+
