@@ -1,13 +1,15 @@
-#' Title
+#' Formatear una clave a un ancho fijo
 #'
-#' @param var
-#' @param tama
-#' @param bandera
+#' Convierte un valor a caracter rellenándolo hasta un ancho fijo, útil para
+#' normalizar claves geoestadísticas (entidad, municipio, localidad, etc.).
 #'
-#' @return
+#' @param var Valor o vector a formatear.
+#' @param tamaño Entero con el ancho deseado de la cadena resultante.
+#' @param bandera Bandera de `formatC()` para el relleno (por defecto `0`,
+#'   que rellena con ceros a la izquierda).
+#'
+#' @return Vector de caracteres con el ancho fijo indicado.
 #' @export
-#'
-#' @examples
 formato <- function(var, tamaño, bandera = 0){
 
   readr::parse_character(
@@ -15,16 +17,20 @@ formato <- function(var, tamaño, bandera = 0){
   )
 }
 
-#' Title
+#' Construir el marco muestral (marco censal INEGI)
 #'
-#' @param a
-#' @param b
-#' @param cd
+#' Arma el marco muestral a nivel manzana a partir de las bases de población del
+#' censo (manzana y localidad) y la cartografía, normalizando las claves
+#' geoestadísticas y uniendo localidades amanzanadas y puntuales rurales.
 #'
-#' @return
+#' @param mza Base de población por manzana (censo INEGI).
+#' @param loc Base de población por localidad (censo INEGI).
+#' @param loc_shp Cartografía de localidades (objeto `sf`).
+#' @param lpr_shp Cartografía de localidades puntuales rurales (objeto `sf`).
+#'
+#' @return `tibble` del marco muestral con una fila por manzana y las claves
+#'   geoestadísticas normalizadas.
 #' @export
-#'
-#' @examples
 crear_mm <- function(mza,
                      loc,
                      loc_shp,
@@ -106,19 +112,21 @@ crear_mm <- function(mza,
 }
 
 
-#' Title
+#' Construir la lista de cartografías (marco censal INEGI)
 #'
-#' @param mun
-#' @param locU
-#' @param agebR
-#' @param agebU
-#' @param locR
-#' @param mza
+#' Normaliza y agrupa los distintos shapefiles (municipio, localidad urbana y
+#' rural, AGEB rural y urbana, manzana) en una lista lista para graficar mapas y
+#' generar insumos de campo.
 #'
-#' @return
+#' @param mun Shapefile de municipios (`sf`).
+#' @param locU Shapefile de localidades urbanas (`sf`).
+#' @param agebR Shapefile de AGEB rurales (`sf`).
+#' @param agebU Shapefile de AGEB urbanas (`sf`).
+#' @param locR Shapefile de localidades rurales (`sf`).
+#' @param mza Shapefile de manzanas (`sf`).
+#'
+#' @return Lista nombrada de cartografías (`MUN`, `ARLU`, `AULR`, `AGEB`, `MZA`).
 #' @export
-#'
-#' @examples
 crear_shp <- function(mun, locU, agebR, agebU, locR, mza){
   mun <- mun %>% transmute(MUN = CVEGEO, NOM_MUN = NOMGEO)
 
@@ -143,18 +151,22 @@ crear_shp <- function(mun, locU, agebR, agebU, locR, mza){
 }
 
 
-#' Title
+#' Construir el marco muestral (marco electoral INE)
 #'
-#' @param ln
-#' @param shp_mza
-#' @param shp_loc
-#' @param shp_mun
+#' Arma el marco muestral a nivel manzana a partir de la lista nominal del INE y
+#' la cartografía electoral (manzanas, localidades y municipios). Reparte la
+#' lista nominal por sección entre sus manzanas y clasifica el desglose por
+#' rango de edad y sexo (`LN22_*`).
 #'
-#' @return
+#' @param ln Lista nominal del INE con columnas `SECCION`, los conteos por edad
+#'   y sexo (`LISTA_*`) y `LISTA NOMINAL`.
+#' @param shp_mza Shapefile de manzanas (`sf`), con columna `STATUS`.
+#' @param shp_loc Shapefile de localidades (`sf`).
+#' @param shp_mun Shapefile de municipios (`sf`).
+#'
+#' @return `tibble` del marco muestral con una fila por manzana, `lista_nominal`
+#'   y el desglose `LN22_*` por edad y sexo.
 #' @export
-#'
-#' @examples
-#'
 crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
   shp_mza <- shp_mza %>% filter(sf::st_is_valid(.), STATUS == 1)
   aux <- sf::st_join(shp_loc, shp_mza %>% select(MANZANA))
@@ -234,19 +246,22 @@ crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
 
 
 
-#' Title
+#' Construir la lista de cartografías (marco electoral INE)
 #'
-#' @param df
-#' @param dl
-#' @param mun
-#' @param loc
-#' @param secc
-#' @param mza
+#' Normaliza y agrupa los shapefiles electorales (distrito federal y local,
+#' municipio, sección y manzana) en una lista lista para graficar mapas y
+#' generar insumos de campo.
 #'
-#' @return
+#' @param df Shapefile de distritos federales (`sf`).
+#' @param dl Shapefile de distritos locales (`sf`).
+#' @param mun Shapefile de municipios (`sf`).
+#' @param loc Shapefile de localidades (`sf`).
+#' @param secc Shapefile de secciones electorales (`sf`).
+#' @param mza Shapefile de manzanas (`sf`), con columna `STATUS`.
+#'
+#' @return Lista nombrada de cartografías (`DISTRITO_F`, `DISTRITO_L`,
+#'   `MUNICIPIO`, `SECCION`, `MANZANA`).
 #' @export
-#'
-#' @examples
 crear_shp_ine <- function(df, dl, mun, loc, secc, mza){
   df <- df %>% transmute(across(c(ENTIDAD,DISTRITO_F), ~as.character(.x))) %>% st_make_valid()
 

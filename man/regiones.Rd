@@ -2,10 +2,24 @@
 % Please edit documentation in R/diseno.R
 \name{regiones}
 \alias{regiones}
-\title{Title}
+\title{Asignar regiones (estratos) al marco muestral}
 \usage{
 regiones(bd, id, regiones)
 }
+\arguments{
+\item{bd}{\code{tibble} del marco muestral.}
+
+\item{id}{Nombre (caracter) de la variable que identifica a cada unidad
+(p. ej. \code{"SECCION"}).}
+
+\item{regiones}{Lista nombrada: cada elemento es una región y contiene el
+vector de valores de \code{id} que la componen.}
+}
+\value{
+El marco muestral con una columna \code{region} al inicio.
+}
 \description{
-Title
+Clasifica las unidades del marco muestral en regiones a partir de una lista
+que asocia cada región con un conjunto de valores de la variable \code{id}. Avisa
+si quedan unidades sin clasificar o si la lista incluye valores inexistentes.
 }

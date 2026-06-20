@@ -2,10 +2,19 @@
 % Please edit documentation in R/diseno.R
 \name{cuotas}
 \alias{cuotas}
-\title{Title}
+\title{Calcular cuotas de edad y sexo (marco censal INEGI)}
 \usage{
 cuotas(diseño)
 }
+\arguments{
+\item{diseño}{Objeto de la clase \link{Diseño} con la muestra ya extraída.}
+}
+\value{
+\code{tibble} con las cuotas por conglomerado, rango de edad y sexo
+(columna \code{n} con el número de entrevistas).
+}
 \description{
-Title
+Reparte las entrevistas asignadas a cada conglomerado de la muestra en celdas
+de rango de edad y sexo, proporcionalmente a la población del censo, y ajusta
+al entero más cercano cuadrando el total por conglomerado.
 }

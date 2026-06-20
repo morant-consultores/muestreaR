@@ -2,10 +2,28 @@
 % Please edit documentation in R/crear_mm.R
 \name{crear_shp}
 \alias{crear_shp}
-\title{Title}
+\title{Construir la lista de cartografías (marco censal INEGI)}
 \usage{
 crear_shp(mun, locU, agebR, agebU, locR, mza)
 }
+\arguments{
+\item{mun}{Shapefile de municipios (\code{sf}).}
+
+\item{locU}{Shapefile de localidades urbanas (\code{sf}).}
+
+\item{agebR}{Shapefile de AGEB rurales (\code{sf}).}
+
+\item{agebU}{Shapefile de AGEB urbanas (\code{sf}).}
+
+\item{locR}{Shapefile de localidades rurales (\code{sf}).}
+
+\item{mza}{Shapefile de manzanas (\code{sf}).}
+}
+\value{
+Lista nombrada de cartografías (\code{MUN}, \code{ARLU}, \code{AULR}, \code{AGEB}, \code{MZA}).
+}
 \description{
-Title
+Normaliza y agrupa los distintos shapefiles (municipio, localidad urbana y
+rural, AGEB rural y urbana, manzana) en una lista lista para graficar mapas y
+generar insumos de campo.
 }

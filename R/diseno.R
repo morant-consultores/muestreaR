@@ -1,30 +1,35 @@
 
 
-#' Title
+#' Etiquetar un nivel de muestreo en el marco
 #'
-#' @param bd
-#' @param grupo
-#' @param tipo
-#' @param i
+#' Agrupa el marco muestral por una variable y crea una columna identificadora
+#' del conglomerado o estrato para ese nivel, con nombre `{tipo}_{i}`.
 #'
-#' @return
+#' @param bd `tibble` del marco muestral.
+#' @param grupo Variable por la que se agrupa el nivel (sin comillas).
+#' @param tipo Tipo de nivel: `"cluster"` o `"strata"`.
+#' @param i Entero con el número de nivel.
+#'
+#' @return El marco muestral con una columna nueva `{tipo}_{i}` que identifica al grupo.
 #' @export
 #' @import dplyr ggplot2
-#' @examples
 agregar_nivel <- function(bd, grupo, tipo, i){
   bd %>% group_by({{grupo}}, .add = T) %>%
     mutate(!!glue::glue("{tipo}_{i}"):= cur_group_id()) %>% ungroup
 }
 
-#' Title
+#' Calcular el factor de corrección poblacional (fpc) de un nivel
 #'
-#' @param bd
+#' Calcula las probabilidades de inclusión de primer orden para el nivel
+#' indicado y las agrega al marco muestral como columna `fpc_{nivel}`. Estas
+#' probabilidades alimentan el diseño `survey` (muestreo proporcional al tamaño).
 #'
-#' @return
+#' @param diseño Objeto de la clase [Diseño] (o [DiseñoINE]).
+#' @param nivel Entero con el nivel para el que se calcula el fpc. El nivel 0
+#'   corresponde a la unidad mínima (manzana).
+#'
+#' @return El marco muestral del diseño con la columna `fpc_{nivel}` añadida.
 #' @export
-#'
-#' @examples
-
 calcular_fpc <- function(diseño, nivel = 1){
   nombres <- names(diseño$poblacion$marco_muestral)
   nivel_anterior <- diseño$niveles %>% filter(nivel == (!!nivel - 1))
@@ -59,16 +64,20 @@ calcular_fpc <- function(diseño, nivel = 1){
 }
 
 
-#' Title
+#' Asignar regiones (estratos) al marco muestral
 #'
-#' @param bd
-#' @param id
-#' @param regiones
+#' Clasifica las unidades del marco muestral en regiones a partir de una lista
+#' que asocia cada región con un conjunto de valores de la variable `id`. Avisa
+#' si quedan unidades sin clasificar o si la lista incluye valores inexistentes.
 #'
-#' @return
+#' @param bd `tibble` del marco muestral.
+#' @param id Nombre (caracter) de la variable que identifica a cada unidad
+#'   (p. ej. `"SECCION"`).
+#' @param regiones Lista nombrada: cada elemento es una región y contiene el
+#'   vector de valores de `id` que la componen.
+#'
+#' @return El marco muestral con una columna `region` al inicio.
 #' @export
-#'
-#' @examples
 regiones <- function(bd, id, regiones){
   aux <- regiones %>% tibble::enframe(name = "region", value = id) %>% tidyr::unnest(all_of(id))
   faltan <- bd %>% anti_join(aux) %>% distinct(!!sym(id)) %>% pull(1) %>% paste(collapse = ", ")
@@ -208,17 +217,21 @@ asignar_n <- function(diseño){
 
 
 
-#' Title
+#' Sortear la muestra de un nivel
 #'
-#' @param base
-#' @param nivel
-#' @param variable_estudio
-#' @param bd_n
+#' Extrae aleatoriamente las unidades del nivel indicado dentro de cada unidad
+#' del nivel anterior, con probabilidad proporcional al tamaño (variable
+#' poblacional) salvo en el último nivel, donde el sorteo es equiprobable.
+#' Para reproducibilidad, fija la semilla del diseño antes de llamar a esta
+#' función (ver el campo `semilla` de [DiseñoINE]).
 #'
-#' @return
+#' @param diseño Objeto de la clase [Diseño] (o [DiseñoINE]) con el plan de
+#'   muestra ya calculado.
+#' @param nivel Entero con el nivel a sortear.
+#'
+#' @return Lista con la muestra acumulada hasta el nivel indicado; el último
+#'   elemento contiene las unidades recién sorteadas (anidadas en `data`).
 #' @export
-#'
-#' @examples
 muestrear <- function(diseño, nivel){
 
   nombres <- names(diseño$poblacion$marco_muestral)
@@ -296,15 +309,17 @@ muestrear <- function(diseño, nivel){
 
 }
 
-#' Title
+#' Calcular cuotas de edad y sexo (marco censal INEGI)
 #'
-#' @param dise
+#' Reparte las entrevistas asignadas a cada conglomerado de la muestra en celdas
+#' de rango de edad y sexo, proporcionalmente a la población del censo, y ajusta
+#' al entero más cercano cuadrando el total por conglomerado.
 #'
-#' @return
+#' @param diseño Objeto de la clase [Diseño] con la muestra ya extraída.
+#'
+#' @return `tibble` con las cuotas por conglomerado, rango de edad y sexo
+#'   (columna `n` con el número de entrevistas).
 #' @export
-#'
-#' @examples
-#'
 cuotas <- function(diseño){
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
@@ -352,14 +367,17 @@ cuotas <- function(diseño){
   return(c %>% select(-cantidad,-pct,-entrevistas))
 }
 
-#' Title
+#' Calcular cuotas de edad y sexo (marco electoral INE)
 #'
-#' @param dise
+#' Versión para el marco del INE: reparte las entrevistas de cada conglomerado
+#' en celdas de rango de edad y sexo según la lista nominal (`LN22_*`).
 #'
-#' @return
+#' @param diseño Objeto de la clase [DiseñoINE] con la muestra ya extraída.
+#' @param ajustar `logical`. Si es `TRUE`, ajusta ±1 las cuotas redondeadas para
+#'   cuadrar exactamente las entrevistas por conglomerado.
+#'
+#' @return `tibble` con las cuotas por conglomerado, rango de edad y sexo.
 #' @export
-#'
-#' @examples
 cuotas_ine <- function(diseño, ajustar){
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)

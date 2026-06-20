@@ -2,10 +2,24 @@
 % Please edit documentation in R/diseno.R
 \name{muestrear}
 \alias{muestrear}
-\title{Title}
+\title{Sortear la muestra de un nivel}
 \usage{
 muestrear(diseño, nivel)
 }
+\arguments{
+\item{diseño}{Objeto de la clase \link{Diseño} (o \link{DiseñoINE}) con el plan de
+muestra ya calculado.}
+
+\item{nivel}{Entero con el nivel a sortear.}
+}
+\value{
+Lista con la muestra acumulada hasta el nivel indicado; el último
+elemento contiene las unidades recién sorteadas (anidadas en \code{data}).
+}
 \description{
-Title
+Extrae aleatoriamente las unidades del nivel indicado dentro de cada unidad
+del nivel anterior, con probabilidad proporcional al tamaño (variable
+poblacional) salvo en el último nivel, donde el sorteo es equiprobable.
+Para reproducibilidad, fija la semilla del diseño antes de llamar a esta
+función (ver el campo \code{semilla} de \link{DiseñoINE}).
 }

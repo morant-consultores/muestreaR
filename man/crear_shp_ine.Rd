@@ -2,10 +2,29 @@
 % Please edit documentation in R/crear_mm.R
 \name{crear_shp_ine}
 \alias{crear_shp_ine}
-\title{Title}
+\title{Construir la lista de cartografías (marco electoral INE)}
 \usage{
 crear_shp_ine(df, dl, mun, loc, secc, mza)
 }
+\arguments{
+\item{df}{Shapefile de distritos federales (\code{sf}).}
+
+\item{dl}{Shapefile de distritos locales (\code{sf}).}
+
+\item{mun}{Shapefile de municipios (\code{sf}).}
+
+\item{loc}{Shapefile de localidades (\code{sf}).}
+
+\item{secc}{Shapefile de secciones electorales (\code{sf}).}
+
+\item{mza}{Shapefile de manzanas (\code{sf}), con columna \code{STATUS}.}
+}
+\value{
+Lista nombrada de cartografías (\code{DISTRITO_F}, \code{DISTRITO_L},
+\code{MUNICIPIO}, \code{SECCION}, \code{MANZANA}).
+}
 \description{
-Title
+Normaliza y agrupa los shapefiles electorales (distrito federal y local,
+municipio, sección y manzana) en una lista lista para graficar mapas y
+generar insumos de campo.
 }

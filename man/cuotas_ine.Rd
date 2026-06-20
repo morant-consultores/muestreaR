@@ -2,10 +2,20 @@
 % Please edit documentation in R/diseno.R
 \name{cuotas_ine}
 \alias{cuotas_ine}
-\title{Title}
+\title{Calcular cuotas de edad y sexo (marco electoral INE)}
 \usage{
 cuotas_ine(diseño, ajustar)
 }
+\arguments{
+\item{diseño}{Objeto de la clase \link{DiseñoINE} con la muestra ya extraída.}
+
+\item{ajustar}{\code{logical}. Si es \code{TRUE}, ajusta ±1 las cuotas redondeadas para
+cuadrar exactamente las entrevistas por conglomerado.}
+}
+\value{
+\code{tibble} con las cuotas por conglomerado, rango de edad y sexo.
+}
 \description{
-Title
+Versión para el marco del INE: reparte las entrevistas de cada conglomerado
+en celdas de rango de edad y sexo según la lista nominal (\verb{LN22_*}).
 }

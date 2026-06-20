@@ -2,10 +2,25 @@
 % Please edit documentation in R/crear_mm.R
 \name{crear_mm}
 \alias{crear_mm}
-\title{Title}
+\title{Construir el marco muestral (marco censal INEGI)}
 \usage{
 crear_mm(mza, loc, loc_shp, lpr_shp)
 }
+\arguments{
+\item{mza}{Base de población por manzana (censo INEGI).}
+
+\item{loc}{Base de población por localidad (censo INEGI).}
+
+\item{loc_shp}{Cartografía de localidades (objeto \code{sf}).}
+
+\item{lpr_shp}{Cartografía de localidades puntuales rurales (objeto \code{sf}).}
+}
+\value{
+\code{tibble} del marco muestral con una fila por manzana y las claves
+geoestadísticas normalizadas.
+}
 \description{
-Title
+Arma el marco muestral a nivel manzana a partir de las bases de población del
+censo (manzana y localidad) y la cartografía, normalizando las claves
+geoestadísticas y uniendo localidades amanzanadas y puntuales rurales.
 }
