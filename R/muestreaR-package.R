@@ -19,7 +19,9 @@
 #' @import purrr
 #' @import sf
 #' @import tidyr
-#' @importFrom rlang sym enquo
+#' @importFrom rlang sym enquo :=
 #' @importFrom glue glue
-#' @importFrom stats var confint reorder
+#' @importFrom stats var confint reorder na.omit
+#' @importFrom utils head
+#' @importFrom R6 R6Class
 "_PACKAGE"

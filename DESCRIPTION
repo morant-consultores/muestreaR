@@ -29,10 +29,12 @@ Imports:
     sampling,
     scales,
     sf,
+    stats,
     stringr,
     survey,
     tibble,
-    tidyr
+    tidyr,
+    utils
 Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

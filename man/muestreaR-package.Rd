@@ -18,11 +18,11 @@ funciones solo corrían si el usuario tenía esos paquetes adjuntados
 invocan con prefijo \code{paquete::funcion()} y no necesitan importarse aquí.
 }
 \author{
-\strong{Maintainer}: First Last \email{first.last@example.com} (\href{https://orcid.org/YOUR-ORCID-ID}{ORCID})
+\strong{Maintainer}: Emilio Morones \email{emorones@morant.com.mx}
 
 Authors:
 \itemize{
-  \item First Last \email{first.last@example.com} (\href{https://orcid.org/YOUR-ORCID-ID}{ORCID})
+  \item Emilio Morones \email{emorones@morant.com.mx}
 }
 
 }
