@@ -35,7 +35,7 @@ utils::globalVariables(c(
   "color", "CVE_AGEB", "CVE_ENT", "CVE_LOC",
   "CVE_MUN", "CVE_MZA", "CVEGEO", "data",
   "descripcion", "DISTRITO", "DISTRITO_F", "DISTRITO_L",
-  "edad", "ENTIDAD", "entrevistas", "fin",
+  "edad", "ENTIDAD", "entrevistas", "estrato", "fin",
   "fpc_0", "gini", "id", "LISTA",
   "LISTA NOMINAL", "lista_nominal", "llave", "LOC",
   "Localidad", "LOCALIDAD", "longitud", "LONGITUD",
@@ -48,7 +48,7 @@ utils::globalVariables(c(
   "P_60YMAS_F", "P_60YMAS_M", "pct", "plan_muestra",
   "pobtot", "POBTOT", "porc", "puntual",
   "rango", "rango_sexo", "region", "Seccion",
-  "SECCION", "sector", "sexo", "STATUS",
+  "SECCION", "secciones", "sector", "sexo", "STATUS",
   "strata_1", "tipo", "TIPOMZA", "total",
   "Total", "unidades", "value", "variable",
   "VPH_SINTIC"
