@@ -2,10 +2,30 @@
 % Please edit documentation in R/sustituir_muestra.R
 \name{sustituir_muestra_ine}
 \alias{sustituir_muestra_ine}
-\title{Title}
+\title{Sustituir una unidad de la muestra (marco electoral INE)}
 \usage{
 sustituir_muestra_ine(diseño, shp, id, zoom, dir, ajustar_cuotas, crear_mapa)
 }
+\arguments{
+\item{diseño}{Objeto de la clase \link{DiseñoINE} con la muestra extraída.}
+
+\item{shp}{Lista de cartografías electorales del diseño.}
+
+\item{id}{Identificador de la unidad a sustituir.}
+
+\item{zoom}{Nivel de zoom para el mapa de la unidad sustituta.}
+
+\item{dir}{Carpeta donde se guardan los mapas.}
+
+\item{ajustar_cuotas}{\code{logical}. Si es \code{TRUE}, recalcula las cuotas tras la
+sustitución.}
+
+\item{crear_mapa}{\code{logical}. Si es \code{TRUE}, genera el mapa de la nueva unidad.}
+}
+\value{
+El diseño con la unidad sustituida.
+}
 \description{
-Title
+Versión para el marco del INE: reemplaza una unidad seleccionada por otra del
+mismo conglomerado, con opción de reajustar las cuotas y regenerar el mapa.
 }

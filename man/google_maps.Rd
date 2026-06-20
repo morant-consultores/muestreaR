@@ -2,10 +2,23 @@
 % Please edit documentation in R/mapas.R
 \name{google_maps}
 \alias{google_maps}
-\title{Title}
+\title{Exportar mapas de campo con Google Maps (marco censal INEGI)}
 \usage{
 google_maps(diseño, shp, zoom, dir = "Mapas")
 }
+\arguments{
+\item{diseño}{Objeto de la clase \link{Diseño} con la muestra extraída.}
+
+\item{shp}{Lista de cartografías del diseño.}
+
+\item{zoom}{Nivel de zoom de Google Maps.}
+
+\item{dir}{Carpeta de destino de los mapas (por defecto \code{"Mapas"}).}
+}
+\value{
+Invisible. Se ejecuta por su efecto secundario (escribe los mapas).
+}
 \description{
-Title
+Genera y guarda en disco un mapa por unidad mínima de la muestra usando
+imágenes de Google Maps, para el trabajo de campo.
 }

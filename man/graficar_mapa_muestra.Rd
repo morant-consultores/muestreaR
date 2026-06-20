@@ -2,10 +2,23 @@
 % Please edit documentation in R/mapas.R
 \name{graficar_mapa_muestra}
 \alias{graficar_mapa_muestra}
-\title{Title}
+\title{Mapa de la muestra por nivel (marco censal INEGI)}
 \usage{
 graficar_mapa_muestra(lflt = NULL, muestra, shp, nivel)
 }
+\arguments{
+\item{lflt}{Objeto \code{leaflet} base sobre el que dibujar (opcional).}
+
+\item{muestra}{Muestra extraída del diseño (lista por nivel o \code{data.frame}).}
+
+\item{shp}{Lista de cartografías del diseño.}
+
+\item{nivel}{Nivel geográfico a graficar.}
+}
+\value{
+Un objeto \code{leaflet}.
+}
 \description{
-Title
+Dibuja un mapa interactivo (\code{leaflet}) resaltando las unidades seleccionadas
+en la muestra para el nivel indicado.
 }

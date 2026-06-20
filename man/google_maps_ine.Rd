@@ -2,10 +2,28 @@
 % Please edit documentation in R/mapas.R
 \name{google_maps_ine}
 \alias{google_maps_ine}
-\title{Title}
+\title{Exportar mapas de campo con Google Maps (marco electoral INE)}
 \usage{
 google_maps_ine(diseño, shp, zoom, dir = "Mapas", exportar = T, cluster = NULL)
 }
+\arguments{
+\item{diseño}{Objeto de la clase \link{DiseñoINE} con la muestra extraída.}
+
+\item{shp}{Lista de cartografías electorales del diseño.}
+
+\item{zoom}{Nivel de zoom de Google Maps.}
+
+\item{dir}{Carpeta de destino de los mapas (por defecto \code{"Mapas"}).}
+
+\item{exportar}{\code{logical}. Si es \code{TRUE}, escribe los mapas en disco.}
+
+\item{cluster}{Identificador opcional de un conglomerado para limitar la
+generación de mapas a ese conglomerado.}
+}
+\value{
+Invisible. Se ejecuta por su efecto secundario (escribe los mapas).
+}
 \description{
-Title
+Versión para el marco del INE: genera y guarda en disco un mapa por unidad
+mínima de la muestra usando imágenes de Google Maps.
 }

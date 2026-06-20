@@ -1,3 +1,14 @@
+#' Diseño muestral polietápico (marco censal INEGI)
+#'
+#' Clase R6 que representa un diseño de muestra polietápico sobre el marco
+#' censal del INEGI. Acumula los niveles (estratos y conglomerados), calcula el
+#' plan de muestra y los factores de corrección poblacional, extrae la muestra y
+#' calcula las cuotas de edad y sexo.
+#'
+#' @param semilla Valor numérico opcional. Si se proporciona, el diseño es
+#'   reproducible: cada etapa estocástica fija una sub-semilla derivada de
+#'   `semilla`. Si es `NULL` (por defecto), el comportamiento es el histórico.
+#'
 #' @export
 #' @import tibble dplyr
 Diseño <- R6::R6Class("Diseño",
@@ -196,8 +207,12 @@ Diseño <- R6::R6Class("Diseño",
                       )
 )
 
+#' Población y marco muestral (marco censal INEGI)
+#'
+#' Clase R6 que construye y almacena el marco muestral a partir de las bases del
+#' censo y la cartografía, y permite clasificar las unidades en regiones.
+#'
 #' @export
-
 Poblacion <- R6::R6Class("Poblacion",
                          public = list(
                            nombre = NULL,
@@ -226,8 +241,12 @@ Poblacion <- R6::R6Class("Poblacion",
                          )
 )
 
+#' Cartografía del diseño (marco censal INEGI)
+#'
+#' Clase R6 que almacena las cartografías del diseño y provee métodos para
+#' graficar mapas de la población y de la muestra, y exportar los mapas de campo.
+#'
 #' @export
-
 Cartografia <- R6::R6Class("Cartografia",
                            public = list(
                              shp = NULL,

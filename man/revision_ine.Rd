@@ -2,10 +2,22 @@
 % Please edit documentation in R/revisar_muestra.R
 \name{revision_ine}
 \alias{revision_ine}
-\title{Title}
+\title{Revisar la muestra contra el marco (marco electoral INE)}
 \usage{
 revision_ine(self, prop_vars = NULL, var_extra = NULL)
 }
+\arguments{
+\item{self}{Objeto de la clase \link{DiseñoINE} con la muestra y el diseño \code{survey}.}
+
+\item{prop_vars}{Vector de variables para estimar como proporción (razón).}
+
+\item{var_extra}{Vector de variables adicionales para estimar como total.}
+}
+\value{
+Lista con la gráfica de comparación y la tabla de estimaciones.
+}
 \description{
-Title
+Versión para el marco del INE: estima totales y proporciones (incluyendo el
+efecto de diseño) usando la información electoral por sección y los compara
+contra los valores reales.
 }

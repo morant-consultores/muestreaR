@@ -1,4 +1,16 @@
 # Diseño ------------------------------------------------------------------
+#' Diseño muestral polietápico (marco electoral INE)
+#'
+#' Clase R6 que representa un diseño de muestra polietápico sobre el marco
+#' electoral del INE (lista nominal y cartografía electoral). Acumula los
+#' niveles (estratos y conglomerados), calcula el plan de muestra y los factores
+#' de corrección poblacional, extrae la muestra, calcula las cuotas de edad y
+#' sexo, y gestiona sustituciones y sobremuestra.
+#'
+#' @param semilla Valor numérico opcional. Si se proporciona, el diseño es
+#'   reproducible: cada etapa estocástica fija una sub-semilla derivada de
+#'   `semilla`. Si es `NULL` (por defecto), el comportamiento es el histórico.
+#'
 #' @export
 DiseñoINE <- R6::R6Class(
   "Diseño",
@@ -381,6 +393,12 @@ DiseñoINE <- R6::R6Class(
 
 # Población ---------------------------------------------------------------
 
+#' Población y marco muestral (marco electoral INE)
+#'
+#' Clase R6 que construye el marco muestral a partir de la lista nominal del INE
+#' y la cartografía electoral, almacena la información electoral por sección y
+#' permite clasificar las unidades en regiones.
+#'
 #' @export
 PoblacionINE <- R6::R6Class(
   "Poblacion",
@@ -421,8 +439,12 @@ PoblacionINE <- R6::R6Class(
   )
 )
 
+#' Cartografía del diseño (marco electoral INE)
+#'
+#' Clase R6 que almacena las cartografías electorales del diseño y provee
+#' métodos para graficar mapas de la muestra y exportar los mapas de campo.
+#'
 #' @export
-
 CartografiaINE <- R6::R6Class(
   "Cartografia",
   public = list(

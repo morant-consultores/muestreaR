@@ -1,11 +1,12 @@
-#' Title
+#' Visualizar las llaves de los niveles del diseño
 #'
-#' @param dise
+#' Genera una gráfica que muestra, por nivel, la variable de muestreo, su llave
+#' y su descripción. Útil para revisar la estructura del diseño.
 #'
-#' @return
+#' @param diseño Objeto de la clase [Diseño] (o [DiseñoINE]).
+#'
+#' @return Un objeto `ggplot`.
 #' @export
-#'
-#' @examples
 llaves <- function(diseño){
   diseño$niveles %>% ggplot(aes(y = nivel, x = 0, label = glue::glue("{variable} - {llave}"), fill = tipo)) +
     geom_label(hjust = "inward") +
@@ -37,15 +38,18 @@ plan <- function(diseño){
     facet_wrap(~total, scales = "free") +
     theme(rect = element_blank())
 }
-#' Title
+#' Revisar la muestra contra el marco (marco censal INEGI)
 #'
-#' @param prop_vars
-#' @param var_extra
+#' Estima totales y proporciones de variables de interés a partir del diseño
+#' `survey` y los compara contra los valores del marco muestral, mostrando si el
+#' valor real cae dentro del intervalo de confianza estimado.
 #'
-#' @return
+#' @param self Objeto de la clase [Diseño] con la muestra y el diseño `survey`.
+#' @param prop_vars Vector de variables para estimar como proporción.
+#' @param var_extra Vector de variables adicionales para estimar como total.
+#'
+#' @return Un objeto `ggplot` (o una composición `cowplot`) con la comparación.
 #' @export
-#'
-#' @examples
 revision <- function(self, prop_vars = c("POCUPADA"), var_extra = NULL){
   bd <- self$muestra %>% purrr::pluck(self$ultimo_nivel) %>% tidyr::unnest(data)
   bd <- bd %>% mutate(across(prop_vars,~.x/!!rlang::sym(self$variable_poblacional),.names = "{.col}_prop"))
@@ -122,16 +126,18 @@ revision <- function(self, prop_vars = c("POCUPADA"), var_extra = NULL){
 
 }
 
-#' Title
+#' Revisar la muestra contra el marco (marco electoral INE)
 #'
-#' @param self
-#' @param prop_vars
-#' @param var_extra
+#' Versión para el marco del INE: estima totales y proporciones (incluyendo el
+#' efecto de diseño) usando la información electoral por sección y los compara
+#' contra los valores reales.
 #'
-#' @return
+#' @param self Objeto de la clase [DiseñoINE] con la muestra y el diseño `survey`.
+#' @param prop_vars Vector de variables para estimar como proporción (razón).
+#' @param var_extra Vector de variables adicionales para estimar como total.
+#'
+#' @return Lista con la gráfica de comparación y la tabla de estimaciones.
 #' @export
-#'
-#' @examples
 revision_ine <- function(self, prop_vars = NULL, var_extra = NULL){
   bd <- self$muestra %>% purrr::pluck("SECCION") %>%
     mutate(data = map(data, ~.x %>%

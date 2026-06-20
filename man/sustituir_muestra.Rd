@@ -2,10 +2,25 @@
 % Please edit documentation in R/sustituir_muestra.R
 \name{sustituir_muestra}
 \alias{sustituir_muestra}
-\title{Title}
+\title{Sustituir una unidad de la muestra (marco censal INEGI)}
 \usage{
 sustituir_muestra(diseño, shp, id, zoom, dir)
 }
+\arguments{
+\item{diseño}{Objeto de la clase \link{Diseño} con la muestra extraída.}
+
+\item{shp}{Lista de cartografías del diseño.}
+
+\item{id}{Identificador de la unidad a sustituir.}
+
+\item{zoom}{Nivel de zoom para el mapa de la unidad sustituta.}
+
+\item{dir}{Carpeta donde se guardan los mapas.}
+}
+\value{
+El diseño con la unidad sustituida.
+}
 \description{
-Title
+Reemplaza una unidad seleccionada (p. ej. una manzana inviable en campo) por
+otra del mismo conglomerado, recalculando la muestra y regenerando su mapa.
 }

@@ -1,14 +1,16 @@
-#' Title
+#' Sustituir una unidad de la muestra (marco censal INEGI)
 #'
-#' @param dise
-#' @param shp
-#' @param id
-#' @param zoom
+#' Reemplaza una unidad seleccionada (p. ej. una manzana inviable en campo) por
+#' otra del mismo conglomerado, recalculando la muestra y regenerando su mapa.
 #'
-#' @return
+#' @param diseño Objeto de la clase [Diseño] con la muestra extraída.
+#' @param shp Lista de cartografías del diseño.
+#' @param id Identificador de la unidad a sustituir.
+#' @param zoom Nivel de zoom para el mapa de la unidad sustituta.
+#' @param dir Carpeta donde se guardan los mapas.
+#'
+#' @return El diseño con la unidad sustituida.
 #' @export
-#'
-#' @examples
 sustituir_muestra <- function(diseño, shp, id, zoom, dir){
 
 # sólo se puede sustituir el último nivel
@@ -70,18 +72,22 @@ return(diseño)
 # diseño %>% readr::write_rds(glue::glue("auditoria/data/diseño_qro{i}.rda"))
 }
 
-#' Title
+#' Sustituir una unidad de la muestra (marco electoral INE)
 #'
-#' @param dise
-#' @param shp
-#' @param id
-#' @param zoom
-#' @param dir
+#' Versión para el marco del INE: reemplaza una unidad seleccionada por otra del
+#' mismo conglomerado, con opción de reajustar las cuotas y regenerar el mapa.
 #'
-#' @return
+#' @param diseño Objeto de la clase [DiseñoINE] con la muestra extraída.
+#' @param shp Lista de cartografías electorales del diseño.
+#' @param id Identificador de la unidad a sustituir.
+#' @param zoom Nivel de zoom para el mapa de la unidad sustituta.
+#' @param dir Carpeta donde se guardan los mapas.
+#' @param ajustar_cuotas `logical`. Si es `TRUE`, recalcula las cuotas tras la
+#'   sustitución.
+#' @param crear_mapa `logical`. Si es `TRUE`, genera el mapa de la nueva unidad.
+#'
+#' @return El diseño con la unidad sustituida.
 #' @export
-#'
-#' @examples
 sustituir_muestra_ine <- function(diseño, shp, id, zoom, dir, ajustar_cuotas, crear_mapa){
 
   # sólo se puede sustituir el último nivel
