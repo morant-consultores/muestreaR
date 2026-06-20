@@ -61,6 +61,32 @@ diseno$extraer_muestra(nivel = 2)
 diseno$calcular_cuotas(ajustar = TRUE)
 ```
 
+### Forma declarativa
+
+Todo el flujo anterior se puede resolver con una sola llamada que recibe los
+objetivos por estrato como una tabla y los parámetros del modelo operativo
+(entrevistas por manzana, manzanas por sección, tasa de rechazo). Soporta
+asignación desproporcionada (sobremuestreo) y ajuste por rechazo:
+
+```r
+estratos <- data.frame(
+  estrato     = c("Toluca", "Ecatepec", "Resto"),
+  entrevistas = c(300, 300, 900)        # entrevistas efectivas objetivo
+)
+
+diseno <- disenar_muestra_ine(
+  poblacion            = pob_edomex,
+  estratos             = estratos,
+  n_0                  = 5,
+  manzanas_por_seccion = 2,
+  tasa_rechazo         = 0.5,           # 50% de rechazo sin sustitución
+  modo_rechazo         = "manzanas",    # infla manzanas/sección (sin dispersar)
+  semilla              = 123
+)
+
+resumen_diseno(diseno)                  # objetivo vs realizado por estrato
+```
+
 Para un recorrido completo y ejecutable sobre datos sintéticos, consulta la
 viñeta *"Diseñar una muestra paso a paso"* o el script
 [`inst/ejemplos/disenar_muestra_demo.R`](inst/ejemplos/disenar_muestra_demo.R).

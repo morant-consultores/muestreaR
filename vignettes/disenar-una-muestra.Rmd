@@ -120,6 +120,39 @@ El total de entrevistas en las cuotas coincide con el objetivo del diseño:
 sum(diseno$cuotas$n)
 ```
 
+## Forma declarativa (una sola llamada)
+
+Todo lo anterior —definir niveles, plan, fpc en el orden correcto, extraer y
+cuotas— se puede hacer con una sola función declarativa, `disenar_muestra_ine()`,
+que recibe los objetivos por estrato como una **tabla** y los parámetros del
+modelo operativo (entrevistas por manzana, manzanas por sección, tasa de
+rechazo). Es la forma pensada para automatizarse desde una skill o una interfaz.
+
+```{r declarativa}
+estratos <- data.frame(
+  estrato     = c("Region 1", "Region 2"),
+  entrevistas = c(50, 40)          # entrevistas efectivas objetivo por estrato
+)
+
+diseno2 <- disenar_muestra_ine(
+  poblacion            = poblacion,
+  estratos             = estratos,
+  n_0                  = 5,
+  manzanas_por_seccion = 2,
+  tasa_rechazo         = 0,        # p. ej. 0.5 para 50% de rechazo sin sustitución
+  semilla              = 123
+)
+
+# Objetivo vs realizado por estrato
+resumen_diseno(diseno2)
+```
+
+Para **asignación desproporcionada** (sobremuestreo), basta poner distinto número
+de entrevistas por estrato (p. ej. 30 municipios a 300 y "Resto" a 900); y para
+absorber el rechazo se ajusta `tasa_rechazo` (y `modo_rechazo`, que por defecto
+infla las manzanas por sección sin dispersar la muestra). `validar_estratos()`
+permite revisar la especificación **antes** de correr el muestreo.
+
 ## En producción
 
 En un proyecto real, los pasos 1 y 2 se reemplazan por:
