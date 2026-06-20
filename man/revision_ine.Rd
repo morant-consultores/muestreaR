@@ -6,9 +6,6 @@
 \usage{
 revision_ine(self, prop_vars = NULL, var_extra = NULL)
 }
-\arguments{
-\item{var_extra}{}
-}
 \description{
 Title
 }

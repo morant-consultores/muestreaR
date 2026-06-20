@@ -6,9 +6,6 @@
 \usage{
 calcular_fpc(diseño, nivel = 1)
 }
-\arguments{
-\item{bd}{}
-}
 \description{
 Title
 }

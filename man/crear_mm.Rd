@@ -6,9 +6,6 @@
 \usage{
 crear_mm(mza, loc, loc_shp, lpr_shp)
 }
-\arguments{
-\item{cd}{}
-}
 \description{
 Title
 }

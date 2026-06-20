@@ -6,9 +6,6 @@
 \usage{
 google_maps(diseño, shp, zoom, dir = "Mapas")
 }
-\arguments{
-\item{zoom}{}
-}
 \description{
 Title
 }

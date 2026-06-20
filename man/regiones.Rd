@@ -6,9 +6,6 @@
 \usage{
 regiones(bd, id, regiones)
 }
-\arguments{
-\item{regiones}{}
-}
 \description{
 Title
 }

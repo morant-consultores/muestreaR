@@ -6,9 +6,6 @@
 \usage{
 sustituir_muestra_ine(diseño, shp, id, zoom, dir, ajustar_cuotas, crear_mapa)
 }
-\arguments{
-\item{dir}{}
-}
 \description{
 Title
 }

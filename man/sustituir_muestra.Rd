@@ -6,9 +6,6 @@
 \usage{
 sustituir_muestra(diseño, shp, id, zoom, dir)
 }
-\arguments{
-\item{zoom}{}
-}
 \description{
 Title
 }

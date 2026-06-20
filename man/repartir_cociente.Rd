@@ -6,9 +6,6 @@
 \usage{
 repartir_cociente(n, x)
 }
-\arguments{
-\item{x}{}
-}
 \description{
 Title
 }

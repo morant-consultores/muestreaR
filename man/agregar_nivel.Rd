@@ -6,9 +6,6 @@
 \usage{
 agregar_nivel(bd, grupo, tipo, i)
 }
-\arguments{
-\item{i}{}
-}
 \description{
 Title
 }

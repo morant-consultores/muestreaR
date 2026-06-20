@@ -6,9 +6,6 @@
 \usage{
 llaves(diseño)
 }
-\arguments{
-\item{dise}{}
-}
 \description{
 Title
 }

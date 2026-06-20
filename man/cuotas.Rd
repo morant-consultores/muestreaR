@@ -6,9 +6,6 @@
 \usage{
 cuotas(diseño)
 }
-\arguments{
-\item{dise}{}
-}
 \description{
 Title
 }

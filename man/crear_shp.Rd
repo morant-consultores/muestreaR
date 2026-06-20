@@ -6,9 +6,6 @@
 \usage{
 crear_shp(mun, locU, agebR, agebU, locR, mza)
 }
-\arguments{
-\item{mza}{}
-}
 \description{
 Title
 }

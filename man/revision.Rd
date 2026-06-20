@@ -6,9 +6,6 @@
 \usage{
 revision(self, prop_vars = c("POCUPADA"), var_extra = NULL)
 }
-\arguments{
-\item{var_extra}{}
-}
 \description{
 Title
 }

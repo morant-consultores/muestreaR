@@ -6,9 +6,6 @@
 \usage{
 graficar_mapa_muestra_ine(lflt = NULL, muestra, shp, nivel)
 }
-\arguments{
-\item{nivel}{}
-}
 \description{
 Title
 }

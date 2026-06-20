@@ -6,9 +6,6 @@
 \usage{
 muestrear(diseño, nivel)
 }
-\arguments{
-\item{bd_n}{}
-}
 \description{
 Title
 }

@@ -6,9 +6,6 @@
 \usage{
 cuotas_ine(diseño, ajustar)
 }
-\arguments{
-\item{dise}{}
-}
 \description{
 Title
 }

@@ -4,10 +4,7 @@
 \alias{google_maps_ine}
 \title{Title}
 \usage{
-google_maps_ine(diseño, shp, zoom, dir = "Mapas")
-}
-\arguments{
-\item{zoom}{}
+google_maps_ine(diseño, shp, zoom, dir = "Mapas", exportar = T, cluster = NULL)
 }
 \description{
 Title
