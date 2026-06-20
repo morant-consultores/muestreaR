@@ -38,7 +38,9 @@ df_shp <- rgdal::readOGR(dsn=glue::glue("{wd}/SHP/2021/15-MEXICO/DISTRITO_FEDERA
 # Población ---------------------------------------------------------------
 devtools::load_all(path = "~/Documents/Git/muestreaR")
 # `electoral` es la base electoral por sección (resultados/padrón) que la clase
-# usa para construir `informacion_electoral` y revisar la muestra.
+# usa para construir `informacion_electoral` y revisar la muestra. En producción
+# proviene del paquete de datos electorales, p. ej.:
+#   electoral_edomex <- Electoral$new(eleccion = "gb_23", entidad = "mex")$bd
 edomex <- PoblacionINE$new(nombre = "Estado de México",
                            ln = ln_edomex,
                            electoral = electoral_edomex,

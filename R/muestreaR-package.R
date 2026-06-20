@@ -24,6 +24,7 @@
 #' @importFrom stats var confint reorder na.omit
 #' @importFrom utils head
 #' @importFrom R6 R6Class
+#' @importFrom grDevices topo.colors
 "_PACKAGE"
 
 # Variables usadas en evaluación no estándar (NSE) de dplyr/tidyr.
@@ -42,7 +43,8 @@ utils::globalVariables(c(
   "MUNICIPIO", "MZA", "n_0", "n_mza",
   "name", "nivel", "NOM_LOC", "NOM_MUN",
   "NOMBRE", "NOMBRE_MUN", "NOMGEO", "original",
-  "P_18A24_F", "P_18A24_M", "P_18YMAS_F", "P_18YMAS_M",
+  "P_18A24_F", "P_18A24_M", "P_18YMAS", "P_18YMAS_F", "P_18YMAS_M",
+  "porcentaje", "resultado",
   "P_60YMAS_F", "P_60YMAS_M", "pct", "plan_muestra",
   "pobtot", "POBTOT", "porc", "puntual",
   "rango", "rango_sexo", "region", "Seccion",
