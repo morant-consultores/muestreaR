@@ -66,3 +66,84 @@ calcular_asignacion <- function(estratos,
     entrevistas_a_levantar = secciones * n_0 * mps
   )
 }
+
+#' Validar la tabla de estratos de un diseño
+#'
+#' Comprueba que la tabla de estratos y los parámetros del modelo operativo sean
+#' coherentes con el marco muestral, **acumulando** todos los problemas (no sólo
+#' el primero) para que puedan mostrarse juntos (p. ej. en una interfaz o skill).
+#'
+#' @param poblacion Objeto `PoblacionINE` (o equivalente con `$marco_muestral`).
+#' @param estratos `data.frame` de estratos (ver [calcular_asignacion()]).
+#' @param variable_estrato Columna del marco que define el estrato.
+#' @param variable_cluster Columna del conglomerado (último nivel); si se da, se
+#'   verifica que las secciones requeridas no excedan las disponibles por estrato.
+#' @param n_0,manzanas_por_seccion,tasa_rechazo,modo_rechazo Parámetros del modelo
+#'   operativo (ver [calcular_asignacion()]).
+#'
+#' @return Vector de caracteres con los problemas encontrados (longitud 0 si la
+#'   especificación es válida). No lanza error.
+#' @export
+validar_estratos <- function(poblacion, estratos,
+                             variable_estrato = "region",
+                             variable_cluster = "SECCION",
+                             n_0 = 5,
+                             manzanas_por_seccion = 2,
+                             tasa_rechazo = 0,
+                             modo_rechazo = c("manzanas", "secciones")) {
+  problemas <- character(0)
+  marco <- poblacion$marco_muestral
+
+  # estructura de la tabla
+  if (!all(c("estrato", "entrevistas") %in% names(estratos))) {
+    problemas <- c(problemas,
+                   "`estratos` debe tener al menos las columnas `estrato` y `entrevistas`.")
+    return(problemas)   # sin estas columnas no se puede seguir validando
+  }
+  if (!is.numeric(estratos$entrevistas) || any(estratos$entrevistas <= 0, na.rm = TRUE)) {
+    problemas <- c(problemas, "`entrevistas` debe ser numérica y positiva en todos los estratos.")
+  }
+  if (anyDuplicated(estratos$estrato)) {
+    problemas <- c(problemas, "Hay estratos duplicados en la tabla.")
+  }
+
+  # tasa de rechazo
+  tasa <- if ("tasa_rechazo" %in% names(estratos)) estratos$tasa_rechazo else tasa_rechazo
+  if (any(tasa < 0 | tasa >= 1, na.rm = TRUE)) {
+    problemas <- c(problemas, "`tasa_rechazo` debe estar en el intervalo [0, 1).")
+  }
+
+  # variable de estrato en el marco
+  if (!variable_estrato %in% names(marco)) {
+    problemas <- c(problemas,
+                   sprintf("La variable de estrato '%s' no existe en el marco muestral.",
+                           variable_estrato))
+  } else {
+    faltan <- setdiff(as.character(estratos$estrato), as.character(unique(marco[[variable_estrato]])))
+    if (length(faltan)) {
+      problemas <- c(problemas,
+                     sprintf("Estratos que no existen en el marco ('%s'): %s.",
+                             variable_estrato, paste(faltan, collapse = ", ")))
+    }
+  }
+
+  # secciones requeridas vs disponibles (si se conoce el cluster y todo lo previo va bien)
+  if (length(problemas) == 0 && variable_cluster %in% names(marco) &&
+      variable_estrato %in% names(marco)) {
+    asig <- calcular_asignacion(estratos, n_0, manzanas_por_seccion, tasa_rechazo, modo_rechazo)
+    disp <- marco |>
+      dplyr::distinct(.data[[variable_estrato]], .data[[variable_cluster]]) |>
+      dplyr::count(.data[[variable_estrato]], name = "disponibles")
+    names(disp)[1] <- "estrato"
+    chequeo <- dplyr::left_join(asig, disp, by = "estrato")
+    excede <- chequeo[which(chequeo$secciones > chequeo$disponibles), ]
+    if (nrow(excede)) {
+      problemas <- c(problemas, sprintf(
+        "Las secciones requeridas exceden las disponibles en: %s.",
+        paste(sprintf("%s (%d > %d)", excede$estrato, excede$secciones, excede$disponibles),
+              collapse = ", ")))
+    }
+  }
+
+  problemas
+}
