@@ -31,16 +31,6 @@ calcular_fpc <- function(diseño, nivel = 1){
   nivel_principal <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel}"),
                           value = T )
   if(length(nivel_principal)!=1) stop("El nivel seleccionado no se encuestra en el marco muestral")
-  # if(nivel_principal=="cluster_0") stop("Hay que arreglar esto")
-  # if(nivel == diseño$ultimo_nivel) nivel_secundario <- "cluster_0"
-  # else{
-  #   nivel_secundario <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel+1}"),
-  #                            value = T )
-  #   if(length(nivel_secundario)==0) {
-  #     warning("El nivel posterior no se encuentra en el marco muestral, se utiliza en cambio el último nivel")
-  #     nivel_secundario <- "cluster_0"
-  #   }
-  # }
 
   aux <- if(nivel == 0){
     nivel_principal <- diseño$niveles %>% filter(nivel == max(nivel)) %>% pull(nivel)

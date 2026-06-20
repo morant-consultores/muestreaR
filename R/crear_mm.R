@@ -29,8 +29,6 @@ crear_mm <- function(mza,
                      loc,
                      loc_shp,
                      lpr_shp){
-  # print(mza)
-  # poblacion <- read_csv(mza,na = "*")
   poblacion <- mza
   parseN <- poblacion %>% select(POBTOT:last_col()) %>% select(where(is.character)) %>% names
   poblacion <- poblacion %>% mutate(across(all_of(parseN), ~readr::parse_double(.x,na = c("","NA","*","N/A"))))
@@ -44,7 +42,6 @@ crear_mm <- function(mza,
     LOC = formato(LOC, tamaño = 4)
   )
 
-  # loc_shp <- readOGR(dsn=loc_shp,encoding = "CP1252") %>% spTransform(CRS("+init=epsg:4326")) %>% st_as_sf()
   murb <- murb %>% left_join(loc_shp %>% as_tibble() %>%
                                transmute(ENTIDAD = formato(CVE_ENT, tamaño = 2),
                                          MUN =formato(CVE_MUN, tamaño = 3),
@@ -53,16 +50,11 @@ crear_mm <- function(mza,
   murb <- murb %>% mutate(tipo_localidad = "Localidad amanzanada",
                           ARLU = if_else(AMBITO == "Urbana", glue::glue("{ENTIDAD}{MUN}{LOC}-LOC-{AMBITO}"), glue::glue("{ENTIDAD}{MUN}{AGEB}-AGEB-{AMBITO}")),
                           AULR = if_else(AMBITO == "Urbana", glue::glue("{ENTIDAD}{MUN}{LOC}{AGEB}-AGEB-{AMBITO}"), glue::glue("{ENTIDAD}{MUN}{LOC}{AGEB}800-LOC-{AMBITO}")),
-                          # ARLU = if_else(AMBITO == "Urbana", "LU", "AR"),
-                          # AULR = if_else(AMBITO == "Urbana", "AU", "LR"),
                           tipo = "Localidad amanzanada")
 
 
 
-  # localidad <- read_csv(loc,na = "*")
   localidad <- loc
-  # ageb_shp <- st_read(ageb_shp)%>%
-  #   st_transform(4326)
 
   loc_no_murb <- localidad %>% filter(!grepl("Total de|Localidades",NOM_LOC)) %>%
     mutate(
@@ -76,15 +68,9 @@ crear_mm <- function(mza,
   loc_no_murb <- loc_no_murb %>%
     select(-(LONGITUD:ALTITUD)) %>%
     mutate(
-      # LONGITUD=map_dbl(LONGITUD,~as.numeric(char2dms(.x,"°","'"))),
-      # LATITUD =map_dbl(LATITUD,~as.numeric(char2dms(.x,"°","'"))),
-      # ALTITUD = as.numeric(ALTITUD),
       across(all_of(parseN2), ~readr::parse_double(.x, na = c("","NA","*","N/A")))
     )
 
-  # loc <- loc_no_murb %>% st_as_sf(coords = c("LONGITUD","LATITUD"), crs = 4326) %>%
-  #   sf::st_join(ageb_shp %>% mutate(valid = sf::st_is_valid(geometry)) %>% filter(valid)) %>% as_tibble %>%
-  #   select(MUN,LOC,AGEB = CVE_AGEB)
 
   loc_no_murb <- loc_no_murb %>% left_join(
     lpr_shp %>%
@@ -99,8 +85,6 @@ crear_mm <- function(mza,
 
   loc_no_murb <- loc_no_murb %>% mutate(ARLU = glue::glue("{ENTIDAD}{MUN}{AGEB}-AGEB-Rural"),
                                         AULR = glue::glue("{ENTIDAD}{MUN}{LOC}{AGEB}800-LOC-Rural"),
-                                        # ARLU = "AR",
-                                        # AULR = "LR",
                                         tipo = "Localidad puntual rural")
 
 
@@ -117,13 +101,6 @@ crear_mm <- function(mza,
     tibble::rownames_to_column("id")
 
 
-  # yo <- yo %>% summarise(sum(POBTOT)) %>% pull(1)
-  # urb <- localidad %>% slice(1) %>% pull(POBTOT)
-  # list(
-  #   identical(yo,urb),
-  #   yo-urb,
-  #   .x
-  # )
 
   return(final)
 }
@@ -210,7 +187,6 @@ crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
            sector = gsub(pattern = "_Y_",replacement =  "_",x =  sector),
     ) %>%
     tidyr::separate(sector, into = c("lista","ini","fin","sexo")) %>%
-    # mutate(across(ini:fin, parse_number)) %>%
     mutate(fin = as.numeric(fin),
            fin = if_else(is.na(fin),200,fin),
            rango = cut(as.numeric(fin), c(17,24,39,59,Inf),
@@ -226,18 +202,6 @@ crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
       shp_mza %>% count(SECCION, name = "n_mza")
     ) %>% mutate(across(2:lista_nominal, ~.x/n_mza)) %>% select(-n_mza)
 
-  # ln_mza <- ln %>% #filter(SECCION == 3) %>%
-  #   left_join(
-  #     shp_mza %>% count(SECCION,SECCION2, name = "n_mza") %>%
-  #       count(SECCION2), by = c("SECCION" = "SECCION2")
-  #   ) %>% mutate(across(2:lista_nominal, ~.x/n)) %>% select(-n) %>%
-  #   left_join(
-  #     shp_mza %>% distinct(SECCION, SECCION2), by = c("SECCION" = "SECCION2")
-  #   ) %>% select(-SECCION) %>% relocate(SECCION = SECCION.y) %>%
-  #   left_join(
-  #     shp_mza %>% count(SECCION, name = "n_mza")
-  #   ) %>% mutate(across(2:lista_nominal, ~.x/n_mza)) %>% select(-n_mza) %>%
-  #   filter(!is.na(SECCION))
 
   mza <- shp_mza %>% left_join(shp_mun) %>%
     left_join(ln_mza, by = "SECCION") %>%
