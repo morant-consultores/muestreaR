@@ -23,6 +23,18 @@ y el **electoral** (INE, clases `DiseñoINE`/`PoblacionINE`/`CartografiaINE`).
 remotes::install_github("morant-consultores/muestreaR")
 ```
 
+## Preprocesamiento (insumos del INE → población)
+
+Antes de diseñar la muestra, las funciones de preprocesamiento convierten los
+insumos del INE en una población, con un paso por función:
+
+```r
+cart <- leer_cartografia_ine(".../SHP/2023/15 MEXICO")        # shapefiles necesarios
+ln   <- leer_lista_nominal_ine(".../ln_re_sexo.xlsx", 15)     # lista nominal
+ln2  <- corregir_lista_nominal(ln, base_ine)                  # reconcilia LN por edad/sexo
+pob  <- construir_poblacion_ine(ln2, electoral, cart)         # población lista para diseñar
+```
+
 ## Uso
 
 El flujo de diseño tiene cinco pasos: definir los niveles, calcular el plan de
