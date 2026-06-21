@@ -15,7 +15,10 @@
 #'   opcionalmente, `tasa_rechazo` (rechazo por estrato; si falta se usa el
 #'   argumento `tasa_rechazo`).
 #' @param n_0 Entrevistas por manzana (por defecto 5).
-#' @param manzanas_por_seccion Manzanas por sección base (por defecto 2).
+#' @param manzanas_por_seccion Manzanas por sección base (por defecto 2). Se usa
+#'   cuando `estratos` no trae una columna `manzanas_por_seccion`; si la trae, se
+#'   usa por estrato (útil para municipios chicos que necesitan más manzanas por
+#'   sección para alcanzar su objetivo en pocas secciones).
 #' @param tasa_rechazo Tasa de rechazo global en \[0, 1) (por defecto 0). Se usa
 #'   cuando `estratos` no trae una columna `tasa_rechazo`.
 #' @param modo_rechazo `"manzanas"` (default: infla las manzanas por sección,
@@ -45,15 +48,23 @@ calcular_asignacion <- function(estratos,
   }
 
   factor <- 1 / (1 - tasa)
+
+  # manzanas por sección base: por estrato si existe la columna, si no el escalar
+  mps_base <- if ("manzanas_por_seccion" %in% names(estratos)) estratos$manzanas_por_seccion else manzanas_por_seccion
+  mps_base <- ifelse(is.na(mps_base), manzanas_por_seccion, mps_base)
+  if (any(mps_base < 1)) {
+    stop("`manzanas_por_seccion` debe ser >= 1 en todos los estratos.")
+  }
+
   # secciones base por el objetivo efectivo
-  secciones_base <- estratos$entrevistas / (n_0 * manzanas_por_seccion)
+  secciones_base <- estratos$entrevistas / (n_0 * mps_base)
 
   if (modo_rechazo == "manzanas") {
     secciones <- round(secciones_base)
-    mps       <- round(manzanas_por_seccion * factor)
+    mps       <- round(mps_base * factor)
   } else {
     secciones <- round(secciones_base * factor)
-    mps       <- rep(manzanas_por_seccion, length(secciones))
+    mps       <- round(mps_base)
   }
 
   tibble::tibble(
@@ -88,7 +99,9 @@ calcular_asignacion <- function(estratos,
 #' @param n_0,manzanas_por_seccion,tasa_rechazo,modo_rechazo Parámetros del modelo
 #'   operativo (ver [calcular_asignacion()]).
 #' @param semilla Semilla para reproducibilidad (ver [DiseñoINE]).
-#' @param calcular_cuotas `logical`. Si es `TRUE`, calcula las cuotas.
+#' @param calcular_cuotas `logical`. Calcular cuotas de edad/sexo. Por defecto
+#'   `FALSE`: Morant ya no usa cuotas (la no respuesta se maneja por sobremuestreo,
+#'   no por cuotas ni sustituciones, que sesgan). Queda como opción de legado.
 #' @param ajustar_cuotas `logical`. Se pasa a `calcular_cuotas()`.
 #' @param validar `logical`. Si es `TRUE`, valida con [validar_estratos()] y
 #'   aborta con un mensaje si hay problemas.
@@ -106,7 +119,7 @@ disenar_muestra_ine <- function(poblacion, estratos,
                                 tasa_rechazo = 0,
                                 modo_rechazo = c("manzanas", "secciones"),
                                 semilla = NULL,
-                                calcular_cuotas = TRUE,
+                                calcular_cuotas = FALSE,
                                 ajustar_cuotas = TRUE,
                                 validar = TRUE) {
   modo_rechazo <- match.arg(modo_rechazo)

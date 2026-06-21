@@ -20,7 +20,10 @@ argumento \code{tasa_rechazo}).}
 
 \item{n_0}{Entrevistas por manzana (por defecto 5).}
 
-\item{manzanas_por_seccion}{Manzanas por sección base (por defecto 2).}
+\item{manzanas_por_seccion}{Manzanas por sección base (por defecto 2). Se usa
+cuando \code{estratos} no trae una columna \code{manzanas_por_seccion}; si la trae, se
+usa por estrato (útil para municipios chicos que necesitan más manzanas por
+sección para alcanzar su objetivo en pocas secciones).}
 
 \item{tasa_rechazo}{Tasa de rechazo global en [0, 1) (por defecto 0). Se usa
 cuando \code{estratos} no trae una columna \code{tasa_rechazo}.}

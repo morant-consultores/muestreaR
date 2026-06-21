@@ -64,11 +64,29 @@ test_that("disenar_muestra_ine es reproducible con la misma semilla", {
     d$muestra |> purrr::pluck(length(d$muestra)) |>
       tidyr::unnest(data) |> dplyr::arrange(id)
   }
-  d1 <- disenar_muestra_ine(pob, est, semilla = 123)
-  d2 <- disenar_muestra_ine(pob, est, semilla = 123)
+  d1 <- disenar_muestra_ine(pob, est, semilla = 123, calcular_cuotas = TRUE)
+  d2 <- disenar_muestra_ine(pob, est, semilla = 123, calcular_cuotas = TRUE)
 
   expect_equal(muestra_final(d1), muestra_final(d2))
   expect_equal(d1$cuotas, d2$cuotas)
+})
+
+test_that("calcular_cuotas es FALSE por defecto (cuotas ya no son estándar)", {
+  pob <- generar_poblacion_ine()
+  est <- data.frame(estrato = c("Region 1", "Region 2"), entrevistas = c(50, 50))
+  d <- disenar_muestra_ine(pob, est, semilla = 123)
+  expect_null(d$cuotas)
+})
+
+test_that("manzanas_por_seccion se puede dar por estrato", {
+  est <- data.frame(estrato = c("Chico", "Grande"),
+                    entrevistas = c(300, 300),
+                    manzanas_por_seccion = c(4, 2))
+  a <- calcular_asignacion(est)
+  # Chico: 300/(5*4)=15 secciones, 4 manzanas; Grande: 300/(5*2)=30 secciones, 2 manzanas
+  expect_equal(a$secciones, c(15, 30))
+  expect_equal(a$manzanas_por_seccion, c(4, 2))
+  expect_equal(a$entrevistas_a_levantar, c(300, 300))
 })
 
 test_that("disenar_muestra_ine respeta el total a levantar", {

@@ -16,7 +16,7 @@ disenar_muestra_ine(
   tasa_rechazo = 0,
   modo_rechazo = c("manzanas", "secciones"),
   semilla = NULL,
-  calcular_cuotas = TRUE,
+  calcular_cuotas = FALSE,
   ajustar_cuotas = TRUE,
   validar = TRUE
 )
@@ -40,7 +40,9 @@ operativo (ver \code{\link[=calcular_asignacion]{calcular_asignacion()}}).}
 
 \item{semilla}{Semilla para reproducibilidad (ver \link{DiseñoINE}).}
 
-\item{calcular_cuotas}{\code{logical}. Si es \code{TRUE}, calcula las cuotas.}
+\item{calcular_cuotas}{\code{logical}. Calcular cuotas de edad/sexo. Por defecto
+\code{FALSE}: Morant ya no usa cuotas (la no respuesta se maneja por sobremuestreo,
+no por cuotas ni sustituciones, que sesgan). Queda como opción de legado.}
 
 \item{ajustar_cuotas}{\code{logical}. Se pasa a \code{calcular_cuotas()}.}
 
