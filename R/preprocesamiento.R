@@ -110,3 +110,28 @@ corregir_lista_nominal <- function(ln, base_ine) {
 
   ln_sexo %>% select(-contains("LISTA_")) %>% left_join(ln_edad_sexo)
 }
+
+#' Construir la población muestral (marco electoral INE)
+#'
+#' Envoltura declarativa de `PoblacionINE$new()` que arma la población a partir de
+#' la lista nominal (corregida), la base electoral y la cartografía, dejando claro
+#' qué insumo va en cada lugar.
+#'
+#' @param ln Lista nominal corregida (de [corregir_lista_nominal()]).
+#' @param electoral Base electoral por sección (con columna `seccion`).
+#' @param cartografia Lista de cartografías (de [leer_cartografia_ine()]); usa
+#'   `mza`, `loc` y `mun`.
+#' @param nombre Nombre de la población (p. ej. `"Estado de México"`).
+#'
+#' @return Objeto [PoblacionINE].
+#' @export
+construir_poblacion_ine <- function(ln, electoral, cartografia, nombre = "Población") {
+  PoblacionINE$new(
+    nombre    = nombre,
+    ln        = ln,
+    electoral = electoral,
+    shp_mza   = cartografia$mza,
+    shp_loc   = cartografia$loc,
+    shp_mun   = cartografia$mun
+  )
+}
