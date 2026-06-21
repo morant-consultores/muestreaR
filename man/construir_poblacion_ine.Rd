@@ -12,7 +12,9 @@ construir_poblacion_ine(ln, electoral, cartografia, nombre = "Población")
 \item{electoral}{Base electoral por sección (con columna \code{seccion}).}
 
 \item{cartografia}{Lista de cartografías (de \code{\link[=leer_cartografia_ine]{leer_cartografia_ine()}}); usa
-\code{mza}, \code{loc} y \code{mun}.}
+\code{mza}, \code{loc} y \code{mun} (que es lo que \code{crear_mm_ine} consume para construir el
+marco). Las capas \code{sec}/\code{dl}/\code{df} no se usan aquí; sirven para los mapas de
+campo vía \link{CartografiaINE}.}
 
 \item{nombre}{Nombre de la población (p. ej. \code{"Estado de México"}).}
 }

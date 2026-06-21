@@ -263,6 +263,12 @@ validar_estratos <- function(poblacion, estratos,
     problemas <- c(problemas, "`tasa_rechazo` debe estar en el intervalo [0, 1).")
   }
 
+  # manzanas por sección (escalar o columna por estrato), simétrico con tasa_rechazo
+  mps <- if ("manzanas_por_seccion" %in% names(estratos)) estratos$manzanas_por_seccion else manzanas_por_seccion
+  if (any(mps < 1, na.rm = TRUE)) {
+    problemas <- c(problemas, "`manzanas_por_seccion` debe ser >= 1 en todos los estratos.")
+  }
+
   # variable de estrato en el marco
   if (!variable_estrato %in% names(marco)) {
     problemas <- c(problemas,

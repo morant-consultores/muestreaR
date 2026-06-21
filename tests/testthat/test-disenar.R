@@ -78,6 +78,15 @@ test_that("calcular_cuotas es FALSE por defecto (cuotas ya no son estándar)", {
   expect_null(d$cuotas)
 })
 
+test_that("validar_estratos detecta manzanas_por_seccion < 1 (columna)", {
+  pob <- generar_poblacion_ine()
+  est <- data.frame(estrato = c("Region 1", "Region 2"),
+                    entrevistas = c(50, 50),
+                    manzanas_por_seccion = c(0, 2))
+  probs <- validar_estratos(pob, est)
+  expect_true(any(grepl("manzanas_por_seccion", probs)))
+})
+
 test_that("manzanas_por_seccion se puede dar por estrato", {
   est <- data.frame(estrato = c("Chico", "Grande"),
                     entrevistas = c(300, 300),

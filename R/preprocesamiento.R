@@ -68,11 +68,18 @@ leer_lista_nominal_ine <- function(ruta, entidad = 15) {
 #' @param ln `tibble` de lista nominal (de [leer_lista_nominal_ine()]), con las
 #'   columnas `SECCION`, `LISTA NOMINAL`, `LISTA HOMBRES`, `LISTA MUJERES` y los
 #'   conteos por rango de edad y sexo.
-#' @param base_ine `tibble` de la base del INE por localidad, con `SECCION` y
-#'   columnas `LISTA*` (incluyendo hombres y mujeres).
+#' @param base_ine `tibble` de la base del INE por localidad, con `SECCION` y las
+#'   columnas `LISTA_HOMBRES` y `LISTA_MUJERES` (con guion bajo); son los totales
+#'   por sexo a los que se reescala la lista nominal.
 #'
 #' @return `tibble` de lista nominal corregida, con `SECCION`, `LISTA NOMINAL` y
 #'   los conteos corregidos por rango de edad y sexo.
+#'
+#' @section Supuesto: Se asume que cada sección tiene población **mayor que cero
+#'   en ambos sexos** en la lista nominal original. Si un sexo suma cero en una
+#'   sección, su población de la base no puede repartirse (división por cero) y se
+#'   conserva el original — comportamiento heredado del flujo de producción. Con
+#'   datos reales del INE este caso es raro.
 #' @export
 corregir_lista_nominal <- function(ln, base_ine) {
   auxi <- ln %>%
@@ -120,7 +127,9 @@ corregir_lista_nominal <- function(ln, base_ine) {
 #' @param ln Lista nominal corregida (de [corregir_lista_nominal()]).
 #' @param electoral Base electoral por sección (con columna `seccion`).
 #' @param cartografia Lista de cartografías (de [leer_cartografia_ine()]); usa
-#'   `mza`, `loc` y `mun`.
+#'   `mza`, `loc` y `mun` (que es lo que `crear_mm_ine` consume para construir el
+#'   marco). Las capas `sec`/`dl`/`df` no se usan aquí; sirven para los mapas de
+#'   campo vía [CartografiaINE].
 #' @param nombre Nombre de la población (p. ej. `"Estado de México"`).
 #'
 #' @return Objeto [PoblacionINE].

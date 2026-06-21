@@ -11,8 +11,9 @@ corregir_lista_nominal(ln, base_ine)
 columnas \code{SECCION}, \verb{LISTA NOMINAL}, \verb{LISTA HOMBRES}, \verb{LISTA MUJERES} y los
 conteos por rango de edad y sexo.}
 
-\item{base_ine}{\code{tibble} de la base del INE por localidad, con \code{SECCION} y
-columnas \verb{LISTA*} (incluyendo hombres y mujeres).}
+\item{base_ine}{\code{tibble} de la base del INE por localidad, con \code{SECCION} y las
+columnas \code{LISTA_HOMBRES} y \code{LISTA_MUJERES} (con guion bajo); son los totales
+por sexo a los que se reescala la lista nominal.}
 }
 \value{
 \code{tibble} de lista nominal corregida, con \code{SECCION}, \verb{LISTA NOMINAL} y
@@ -24,3 +25,11 @@ del INE por localidad, reescalando los conteos por sexo a los totales de la
 base. Es el paso de preprocesamiento más delicado; reproduce exactamente la
 lógica usada en producción.
 }
+\section{Supuesto}{
+ Se asume que cada sección tiene población \strong{mayor que cero
+en ambos sexos} en la lista nominal original. Si un sexo suma cero en una
+sección, su población de la base no puede repartirse (división por cero) y se
+conserva el original — comportamiento heredado del flujo de producción. Con
+datos reales del INE este caso es raro.
+}
+
