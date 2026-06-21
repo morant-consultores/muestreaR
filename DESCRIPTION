@@ -37,6 +37,7 @@ Imports:
     utils
 Suggests:
     knitr,
+    readxl,
     rmarkdown,
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
