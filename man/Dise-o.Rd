@@ -149,7 +149,7 @@ reproducible: cada etapa estocástica fija una sub-semilla derivada de
 \subsection{\code{Diseño$exportar()}}{
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{Diseño$exportar(shp, zoom = 16, carpeta = "Insumos")}
+    \preformatted{Diseño$exportar(shp, zoom = 16, carpeta = "Insumos", mapas = TRUE)}
     \if{html}{\out{</div>}}
   }
 }

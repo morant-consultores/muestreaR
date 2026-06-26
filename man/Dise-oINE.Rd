@@ -163,7 +163,16 @@ sustituir_muestra) fija una sub-semilla derivada de \code{semilla}. Si es NULL
 \subsection{\code{Diseño$exportar()}}{
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{Diseño$exportar(shp, zoom = 16, carpeta = "Insumos")}
+    \preformatted{Diseño$exportar(shp, zoom = 16, carpeta = "Insumos", mapas = TRUE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{mapas}}{\code{logical}. Si es \code{TRUE} (por defecto) genera los mapas de
+campo con Google Maps (consume el API de Google). Ponlo en \code{FALSE} para
+exportar solo el diseño, la cartografía y las cuotas, sin generar mapas.}
+    }
     \if{html}{\out{</div>}}
   }
 }

@@ -182,13 +182,14 @@ Diseño <- R6::R6Class("Diseño",
                           return(list(a,b,c))
 
                         },
-                        exportar = function(shp, zoom = 16, carpeta = "Insumos"){
+                        exportar = function(shp, zoom = 16, carpeta = "Insumos", mapas = TRUE){
                           self$dir.exportar <- carpeta
                           if(!file.exists(carpeta)) dir.create(carpeta)
-                          if(!file.exists(glue::glue("{carpeta}/Mapas"))) dir.create(glue::glue("{carpeta}/Mapas"))
-
-                          shp$crear_mapas(diseño = self, zoom = zoom, dir = glue::glue("{carpeta}/Mapas"))
-                          self$cuotas %>% readr::write_excel_csv(glue::glue("{carpeta}/cuotas.csv"))
+                          if(mapas){
+                            if(!file.exists(glue::glue("{carpeta}/Mapas"))) dir.create(glue::glue("{carpeta}/Mapas"))
+                            shp$crear_mapas(diseño = self, zoom = zoom, dir = glue::glue("{carpeta}/Mapas"))
+                          }
+                          if(!is.null(self$cuotas)) self$cuotas %>% readr::write_excel_csv(glue::glue("{carpeta}/cuotas.csv"))
                           readr::write_rds(self, glue::glue("{carpeta}/diseño.rda"))
                           shp %>% readr::write_rds(glue::glue("{carpeta}/shp.rda"))
                         },

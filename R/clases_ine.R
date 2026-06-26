@@ -326,21 +326,27 @@ DiseñoINE <- R6::R6Class(
 
       return(list(a, b, c))
     },
-    exportar = function(shp, zoom = 16, carpeta = "Insumos") {
+    #' @param mapas `logical`. Si es `TRUE` (por defecto) genera los mapas de
+    #'   campo con Google Maps (consume el API de Google). Ponlo en `FALSE` para
+    #'   exportar solo el diseño, la cartografía y las cuotas, sin generar mapas.
+    exportar = function(shp, zoom = 16, carpeta = "Insumos", mapas = TRUE) {
       self$dir.exportar <- carpeta
       if (!file.exists(carpeta)) {
         dir.create(carpeta)
       }
-      if (!file.exists(glue::glue("{carpeta}/Mapas"))) {
-        dir.create(glue::glue("{carpeta}/Mapas"))
+      if (mapas) {
+        if (!file.exists(glue::glue("{carpeta}/Mapas"))) {
+          dir.create(glue::glue("{carpeta}/Mapas"))
+        }
+        shp$crear_mapas(
+          diseño = self,
+          zoom = zoom,
+          dir = glue::glue("{carpeta}/Mapas")
+        )
       }
-
-      shp$crear_mapas(
-        diseño = self,
-        zoom = zoom,
-        dir = glue::glue("{carpeta}/Mapas")
-      )
-      self$cuotas %>% readr::write_excel_csv(glue::glue("{carpeta}/cuotas.csv"))
+      if (!is.null(self$cuotas)) {
+        self$cuotas %>% readr::write_excel_csv(glue::glue("{carpeta}/cuotas.csv"))
+      }
       readr::write_rds(self, glue::glue("{carpeta}/diseño.rda"))
       shp %>% readr::write_rds(glue::glue("{carpeta}/shp.rda"))
     },

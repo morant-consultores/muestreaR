@@ -4,7 +4,7 @@
 \alias{crear_shp_ine}
 \title{Construir la lista de cartografías (marco electoral INE)}
 \usage{
-crear_shp_ine(df, dl, mun, loc, secc, mza)
+crear_shp_ine(df = NULL, dl = NULL, mun, loc, secc, mza)
 }
 \arguments{
 \item{df}{Shapefile de distritos federales (\code{sf}).}

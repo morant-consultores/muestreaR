@@ -262,24 +262,26 @@ crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
 #' @return Lista nombrada de cartografías (`DISTRITO_F`, `DISTRITO_L`,
 #'   `MUNICIPIO`, `SECCION`, `MANZANA`).
 #' @export
-crear_shp_ine <- function(df, dl, mun, loc, secc, mza){
-  df <- df %>% transmute(across(c(ENTIDAD,DISTRITO_F), ~as.character(.x))) %>% st_make_valid()
+crear_shp_ine <- function(df = NULL, dl = NULL, mun, loc, secc, mza){
+  # Los distritos son opcionales: solo se necesitan si se estratifica/visualiza por
+  # distrito. Si no se proporcionan, quedan como NULL en la lista de cartografías.
+  df <- if (is.null(df)) NULL else df %>% transmute(across(c(ENTIDAD,DISTRITO_F), ~as.character(.x))) %>% sf::st_make_valid()
 
-  dl <- dl %>% transmute(across(c(ENTIDAD,DISTRITO_L), ~as.character(.x))) %>% st_make_valid()
+  dl <- if (is.null(dl)) NULL else dl %>% transmute(across(c(ENTIDAD,DISTRITO_L), ~as.character(.x))) %>% sf::st_make_valid()
 
   mun <- mun %>% rename(NOMBRE_MUN = NOMBRE) %>%
-    mutate(across(ENTIDAD:MUNICIPIO, ~as.character(.x))) %>% select(ENTIDAD:NOMBRE_MUN) %>% st_make_valid()
+    mutate(across(ENTIDAD:MUNICIPIO, ~as.character(.x))) %>% select(ENTIDAD:NOMBRE_MUN) %>% sf::st_make_valid()
 
   loc <- loc %>% rename(MANZANA = NOMBRE) %>%
     mutate(across(ENTIDAD:LOCALIDAD, ~as.character(.x))) %>%
-    select(ENTIDAD:MANZANA) %>% st_make_valid()
+    select(ENTIDAD:MANZANA) %>% sf::st_make_valid()
 
   secc <- secc %>% rename(DISTRITO_F = DISTRITO) %>%
     mutate(across(ENTIDAD:SECCION, ~as.character(.x))) %>%
-    select(ENTIDAD:SECCION) %>% st_make_valid()
+    select(ENTIDAD:SECCION) %>% sf::st_make_valid()
 
-  mza <- mza %>% filter(st_is_valid(.), STATUS == 1) %>% select(ENTIDAD:MANZANA) %>%
-    mutate(across(ENTIDAD:MANZANA, ~as.character(.x))) %>% st_make_valid()
+  mza <- mza %>% filter(sf::st_is_valid(.), STATUS == 1) %>% select(ENTIDAD:MANZANA) %>%
+    mutate(across(ENTIDAD:MANZANA, ~as.character(.x))) %>% sf::st_make_valid()
 
   mza <- bind_rows(mza, loc) %>% arrange(as.numeric(SECCION))
 
