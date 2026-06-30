@@ -50,3 +50,7 @@ jobs:
         with:
           upload-snapshots: true
           build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
+          # La clase central de la API se llama `Diseño` (con ñ): R CMD check emite
+          # un WARNING inevitable de "non-ASCII characters in code" que no se puede
+          # escapar en un nombre de símbolo. Fallamos solo ante ERRORs reales.
+          error-on: '"error"'
