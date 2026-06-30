@@ -33,3 +33,12 @@ conserva el original — comportamiento heredado del flujo de producción. Con
 datos reales del INE este caso es raro.
 }
 
+\section{Redondeo}{
+ Cada celda (rango de edad × sexo) se reescala de forma
+independiente con \code{round(pct * total_nuevo)}, igual que en producción. Por el
+redondeo, la suma de las celdas de un sexo puede diferir del total de la base
+en ±1 por sección (no hay ajuste de mayor-residuo). Es despreciable frente al
+tamaño de la lista nominal, pero si se requiere cuadre exacto por sexo conviene
+aplicar un reparto de cociente entero a posteriori.
+}
+

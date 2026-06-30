@@ -80,6 +80,12 @@ leer_lista_nominal_ine <- function(ruta, entidad = 15) {
 #'   sección, su población de la base no puede repartirse (división por cero) y se
 #'   conserva el original — comportamiento heredado del flujo de producción. Con
 #'   datos reales del INE este caso es raro.
+#' @section Redondeo: Cada celda (rango de edad × sexo) se reescala de forma
+#'   independiente con `round(pct * total_nuevo)`, igual que en producción. Por el
+#'   redondeo, la suma de las celdas de un sexo puede diferir del total de la base
+#'   en ±1 por sección (no hay ajuste de mayor-residuo). Es despreciable frente al
+#'   tamaño de la lista nominal, pero si se requiere cuadre exacto por sexo conviene
+#'   aplicar un reparto de cociente entero a posteriori.
 #' @export
 corregir_lista_nominal <- function(ln, base_ine) {
   auxi <- ln %>%
