@@ -2,13 +2,23 @@
 % Please edit documentation in R/mapas.R
 \name{graficar_mapa_muestra_ine}
 \alias{graficar_mapa_muestra_ine}
-\title{Title}
+\title{Mapa de la muestra por nivel (marco electoral INE)}
 \usage{
 graficar_mapa_muestra_ine(lflt = NULL, muestra, shp, nivel)
 }
 \arguments{
-\item{nivel}{}
+\item{lflt}{Objeto \code{leaflet} base sobre el que dibujar (opcional).}
+
+\item{muestra}{Muestra extraída del diseño (lista por nivel o \code{data.frame}).}
+
+\item{shp}{Lista de cartografías electorales del diseño.}
+
+\item{nivel}{Nivel geográfico a graficar.}
+}
+\value{
+Un objeto \code{leaflet}.
 }
 \description{
-Title
+Versión para el marco del INE: dibuja un mapa interactivo (\code{leaflet})
+resaltando las unidades seleccionadas en la muestra para el nivel indicado.
 }

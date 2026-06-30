@@ -7,3 +7,4 @@ auditoria/data
 auditoria/rsconnect
 renv
 R/escuelas.R
+graphify-out/

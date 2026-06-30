@@ -2,13 +2,22 @@
 % Please edit documentation in R/crear_mm.R
 \name{formato}
 \alias{formato}
-\title{Title}
+\title{Formatear una clave a un ancho fijo}
 \usage{
 formato(var, tamaño, bandera = 0)
 }
 \arguments{
-\item{bandera}{}
+\item{var}{Valor o vector a formatear.}
+
+\item{tamaño}{Entero con el ancho deseado de la cadena resultante.}
+
+\item{bandera}{Bandera de \code{formatC()} para el relleno (por defecto \code{0},
+que rellena con ceros a la izquierda).}
+}
+\value{
+Vector de caracteres con el ancho fijo indicado.
 }
 \description{
-Title
+Convierte un valor a caracter rellenándolo hasta un ancho fijo, útil para
+normalizar claves geoestadísticas (entidad, municipio, localidad, etc.).
 }

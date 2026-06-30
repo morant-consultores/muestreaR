@@ -2,13 +2,23 @@
 % Please edit documentation in R/devtools.R
 \name{repartir_cociente}
 \alias{repartir_cociente}
-\title{Title}
+\title{Repartir un total entero por el método del mayor residuo}
 \usage{
 repartir_cociente(n, x)
 }
 \arguments{
-\item{x}{}
+\item{n}{Entero con el total a repartir.}
+
+\item{x}{Vector numérico de asignaciones reales (suma aproximadamente \code{n}).}
+}
+\value{
+Vector de enteros, de la misma longitud que \code{x}, que suma \code{n}.
 }
 \description{
-Title
+Redondea un vector de asignaciones reales a enteros que suman exactamente \code{n},
+asignando las unidades sobrantes a los mayores residuos fraccionarios (método
+de Hamilton / mayor residuo).
+}
+\examples{
+repartir_cociente(10, c(2.4, 3.3, 4.3))
 }

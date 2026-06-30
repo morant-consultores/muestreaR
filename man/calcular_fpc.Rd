@@ -2,13 +2,21 @@
 % Please edit documentation in R/diseno.R
 \name{calcular_fpc}
 \alias{calcular_fpc}
-\title{Title}
+\title{Calcular el factor de corrección poblacional (fpc) de un nivel}
 \usage{
 calcular_fpc(diseño, nivel = 1)
 }
 \arguments{
-\item{bd}{}
+\item{diseño}{Objeto de la clase \link{Diseño} (o \link{DiseñoINE}).}
+
+\item{nivel}{Entero con el nivel para el que se calcula el fpc. El nivel 0
+corresponde a la unidad mínima (manzana).}
+}
+\value{
+El marco muestral del diseño con la columna \verb{fpc_\{nivel\}} añadida.
 }
 \description{
-Title
+Calcula las probabilidades de inclusión de primer orden para el nivel
+indicado y las agrega al marco muestral como columna \verb{fpc_\{nivel\}}. Estas
+probabilidades alimentan el diseño \code{survey} (muestreo proporcional al tamaño).
 }

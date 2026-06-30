@@ -2,13 +2,27 @@
 % Please edit documentation in R/crear_mm.R
 \name{crear_mm_ine}
 \alias{crear_mm_ine}
-\title{Title}
+\title{Construir el marco muestral (marco electoral INE)}
 \usage{
 crear_mm_ine(ln, shp_mza, shp_loc, shp_mun)
 }
 \arguments{
-\item{shp_mun}{}
+\item{ln}{Lista nominal del INE con columnas \code{SECCION}, los conteos por edad
+y sexo (\verb{LISTA_*}) y \verb{LISTA NOMINAL}.}
+
+\item{shp_mza}{Shapefile de manzanas (\code{sf}), con columna \code{STATUS}.}
+
+\item{shp_loc}{Shapefile de localidades (\code{sf}).}
+
+\item{shp_mun}{Shapefile de municipios (\code{sf}).}
+}
+\value{
+\code{tibble} del marco muestral con una fila por manzana, \code{lista_nominal}
+y el desglose \verb{LN22_*} por edad y sexo.
 }
 \description{
-Title
+Arma el marco muestral a nivel manzana a partir de la lista nominal del INE y
+la cartografía electoral (manzanas, localidades y municipios). Reparte la
+lista nominal por sección entre sus manzanas y clasifica el desglose por
+rango de edad y sexo (\verb{LN22_*}).
 }

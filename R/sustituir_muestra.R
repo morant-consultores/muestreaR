@@ -1,14 +1,16 @@
-#' Title
+#' Sustituir una unidad de la muestra (marco censal INEGI)
 #'
-#' @param dise
-#' @param shp
-#' @param id
-#' @param zoom
+#' Reemplaza una unidad seleccionada (p. ej. una manzana inviable en campo) por
+#' otra del mismo conglomerado, recalculando la muestra y regenerando su mapa.
 #'
-#' @return
+#' @param diseño Objeto de la clase [Diseño] con la muestra extraída.
+#' @param shp Lista de cartografías del diseño.
+#' @param id Identificador de la unidad a sustituir.
+#' @param zoom Nivel de zoom para el mapa de la unidad sustituta.
+#' @param dir Carpeta donde se guardan los mapas.
+#'
+#' @return El diseño con la unidad sustituida.
 #' @export
-#'
-#' @examples
 sustituir_muestra <- function(diseño, shp, id, zoom, dir){
 
 # sólo se puede sustituir el último nivel
@@ -25,7 +27,7 @@ subcluster <- muestra %>% filter(!!rlang::sym(nivel) == id) %>% pull(nivel_anter
 nuevo <- diseño$poblacion$marco_muestral %>%
   filter(!!rlang::sym(nivel_anterior) == subcluster) %>%
   anti_join(muestra) %>%
-  muestreaR:::agrupar_nivel(readr::parse_number(nivel)) %>%
+   agrupar_nivel(readr::parse_number(nivel)) %>%
   mutate(total = sum(!!rlang::sym(diseño$variable_poblacional))) %>%
   group_by(total, .add = T) %>%
   tidyr::nest() %>%
@@ -52,7 +54,7 @@ diseño$muestra[[t_nivel]] <- diseño$muestra[[t_nivel]] %>% filter(!!rlang::sym
 diseño$muestra$MZA <- diseño$muestra$MZA %>% filter(!!rlang::sym(nivel) != id) %>% bind_rows(nuevas_manzanas)
 #calcular cuota del nuevo
 
-aux_cuotas <- muestreaR:::cuotas(diseño)
+aux_cuotas <-  cuotas(diseño)
 cuotas_nuevo <- aux_cuotas %>% anti_join(diseño$cuotas, by = nivel)
 
 cuotas_viejo <- diseño$cuotas %>% filter(!!rlang::sym(nivel) == id)
@@ -64,24 +66,28 @@ diseño$cuotas <- diseño$cuotas %>% anti_join(cuotas_viejo, by = nivel) %>%
 
 # library(ggmap)
 # ggmap::ggmap(ggmap::get_map())
-muestreaR:::google_maps(diseño, shp = shp$shp, zoom = zoom, dir = dir)
+ google_maps(diseño, shp = shp$shp, zoom = zoom, dir = dir)
 
 return(diseño)
 # diseño %>% readr::write_rds(glue::glue("auditoria/data/diseño_qro{i}.rda"))
 }
 
-#' Title
+#' Sustituir una unidad de la muestra (marco electoral INE)
 #'
-#' @param dise
-#' @param shp
-#' @param id
-#' @param zoom
-#' @param dir
+#' Versión para el marco del INE: reemplaza una unidad seleccionada por otra del
+#' mismo conglomerado, con opción de reajustar las cuotas y regenerar el mapa.
 #'
-#' @return
+#' @param diseño Objeto de la clase [DiseñoINE] con la muestra extraída.
+#' @param shp Lista de cartografías electorales del diseño.
+#' @param id Identificador de la unidad a sustituir.
+#' @param zoom Nivel de zoom para el mapa de la unidad sustituta.
+#' @param dir Carpeta donde se guardan los mapas.
+#' @param ajustar_cuotas `logical`. Si es `TRUE`, recalcula las cuotas tras la
+#'   sustitución.
+#' @param crear_mapa `logical`. Si es `TRUE`, genera el mapa de la nueva unidad.
+#'
+#' @return El diseño con la unidad sustituida.
 #' @export
-#'
-#' @examples
 sustituir_muestra_ine <- function(diseño, shp, id, zoom, dir, ajustar_cuotas, crear_mapa){
 
   # sólo se puede sustituir el último nivel
@@ -98,7 +104,7 @@ sustituir_muestra_ine <- function(diseño, shp, id, zoom, dir, ajustar_cuotas, c
   nuevo <- diseño$poblacion$marco_muestral %>%
     filter(!!rlang::sym(nivel_anterior) == subcluster) %>%
     anti_join(muestra) %>%
-    muestreaR:::agrupar_nivel(readr::parse_number(nivel)) %>%
+     agrupar_nivel(readr::parse_number(nivel)) %>%
     mutate(total = sum(!!rlang::sym(diseño$variable_poblacional))) %>%
     group_by(total, .add = T) %>%
     tidyr::nest() %>%
@@ -125,7 +131,7 @@ sustituir_muestra_ine <- function(diseño, shp, id, zoom, dir, ajustar_cuotas, c
   diseño$muestra$MZA <- diseño$muestra$MZA %>% filter(!!rlang::sym(nivel) != id) %>% bind_rows(nuevas_manzanas)
   #calcular cuota del nuevo
 
-  aux_cuotas <- muestreaR:::cuotas_ine(diseño, ajustar = ajustar_cuotas)
+  aux_cuotas <-  cuotas_ine(diseño, ajustar = ajustar_cuotas)
   cuotas_nuevo <- aux_cuotas %>% anti_join(diseño$cuotas, by = nivel)
 
   cuotas_viejo <- diseño$cuotas %>% filter(!!rlang::sym(nivel) == id)
@@ -138,7 +144,7 @@ sustituir_muestra_ine <- function(diseño, shp, id, zoom, dir, ajustar_cuotas, c
   # library(ggmap)
   # ggmap::ggmap(ggmap::get_map())
   if(crear_mapa){
-    muestreaR:::google_maps_ine(diseño, shp = shp$shp, zoom = zoom, dir = dir)
+     google_maps_ine(diseño, shp = shp$shp, zoom = zoom, dir = dir)
   }
   
 

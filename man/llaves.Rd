@@ -2,13 +2,17 @@
 % Please edit documentation in R/revisar_muestra.R
 \name{llaves}
 \alias{llaves}
-\title{Title}
+\title{Visualizar las llaves de los niveles del diseño}
 \usage{
 llaves(diseño)
 }
 \arguments{
-\item{dise}{}
+\item{diseño}{Objeto de la clase \link{Diseño} (o \link{DiseñoINE}).}
+}
+\value{
+Un objeto \code{ggplot}.
 }
 \description{
-Title
+Genera una gráfica que muestra, por nivel, la variable de muestreo, su llave
+y su descripción. Útil para revisar la estructura del diseño.
 }

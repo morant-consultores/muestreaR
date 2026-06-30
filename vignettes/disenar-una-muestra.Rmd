@@ -1,0 +1,172 @@
+---
+title: "Diseñar una muestra paso a paso"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Diseñar una muestra paso a paso}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+Este tutorial recorre el flujo completo para diseñar una muestra polietápica con
+`muestreaR`, equivalente al que se usa en producción (p. ej. las encuestas
+estatales de Edomex). Para que el documento sea **reproducible y autocontenido**,
+trabaja sobre un **marco muestral sintético**: en un proyecto real, el marco lo
+construye `PoblacionINE$new()` a partir de la lista nominal y los shapefiles del
+INE.
+
+```{r setup}
+library(muestreaR)
+library(dplyr)
+```
+
+## 1. Marco muestral
+
+Cada fila del marco es una manzana (la unidad mínima). El marco replica las
+columnas que el muestreo consume: `region` (estrato), `SECCION` (conglomerado),
+`lista_nominal` (tamaño) y el desglose por edad y sexo (`LN22_*`).
+
+```{r marco}
+set.seed(2025)
+marco <- tidyr::expand_grid(
+  region    = c("Region 1", "Region 2"),
+  seccion_n = 1:6,
+  manzana_n = 1:4
+) |>
+  mutate(
+    reg_id        = as.integer(factor(region)),
+    MUNICIPIO     = sprintf("MUN_%d_%d", reg_id, ceiling(seccion_n / 3)),
+    NOMBRE_MUN    = paste("Municipio", MUNICIPIO),
+    SECCION       = as.character(reg_id * 100 + seccion_n + 1000),
+    id            = as.character(row_number()),
+    lista_nominal = 80 + (row_number() * 7) %% 120,
+    LN22_18A24_F  = round(lista_nominal * 0.13), LN22_18A24_M  = round(lista_nominal * 0.12),
+    LN22_25A39_F  = round(lista_nominal * 0.16), LN22_25A39_M  = round(lista_nominal * 0.15),
+    LN22_40A59_F  = round(lista_nominal * 0.15), LN22_40A59_M  = round(lista_nominal * 0.14),
+    LN22_60YMAS_F = round(lista_nominal * 0.08), LN22_60YMAS_M = round(lista_nominal * 0.07)
+  ) |>
+  select(id, region, MUNICIPIO, NOMBRE_MUN, SECCION, lista_nominal, starts_with("LN22_"))
+
+# Objeto población mínimo (en producción: PoblacionINE$new(...))
+poblacion <- new.env()
+poblacion$nombre <- "Tutorial"
+poblacion$marco_muestral <- marco
+
+nrow(marco)
+```
+
+## 2. Crear el diseño y definir los niveles
+
+Se crea el diseño con la semilla para que sea **reproducible**, y se agregan los
+niveles: `region` como estrato y `SECCION` como conglomerado.
+
+```{r diseno}
+diseno <- DiseñoINE$new(
+  poblacion            = poblacion,
+  n                    = 240,
+  n_0                  = 5,
+  variable_poblacional = "lista_nominal",
+  unidad_muestreo      = "Manzanas",
+  id_unidad_muestreo   = "id",
+  llave_muestreo       = "Man",
+  semilla              = 123
+)
+diseno$agregar_nivel("region",  tipo = "strata",  descripcion = "Regiones",              llave = "region")
+diseno$agregar_nivel("SECCION", tipo = "cluster", descripcion = "Secciones electorales", llave = "SECCION")
+diseno$niveles
+```
+
+## 3. Plan de muestra y factores de corrección
+
+```{r plan}
+diseno$plan_muestra(nivel = 1, criterio = "peso", unidades_nivel = 8)
+diseno$plan_muestra(nivel = 2)   # último nivel
+
+diseno$fpc(nivel = 2)
+diseno$fpc(nivel = 0)
+```
+
+## 4. Extraer la muestra
+
+Como el diseño tiene semilla, el sorteo es reproducible.
+
+```{r extraer}
+diseno$extraer_muestra(nivel = 1)
+diseno$extraer_muestra(nivel = 2)
+
+diseno$muestra |>
+  purrr::pluck(length(diseno$muestra)) |>
+  tidyr::unnest(data) |>
+  distinct(region, NOMBRE_MUN, SECCION) |>
+  arrange(region, SECCION)
+```
+
+## 5. Cuotas de edad y sexo
+
+```{r cuotas}
+diseno$calcular_cuotas(ajustar = TRUE)
+diseno$cuotas |> count(rango, sexo, wt = n)
+```
+
+El total de entrevistas en las cuotas coincide con el objetivo del diseño:
+
+```{r total}
+sum(diseno$cuotas$n)
+```
+
+## Forma declarativa (una sola llamada)
+
+Todo lo anterior —definir niveles, plan, fpc en el orden correcto, extraer y
+cuotas— se puede hacer con una sola función declarativa, `disenar_muestra_ine()`,
+que recibe los objetivos por estrato como una **tabla** y los parámetros del
+modelo operativo (entrevistas por manzana, manzanas por sección, tasa de
+rechazo). Es la forma pensada para automatizarse desde una skill o una interfaz.
+
+```{r declarativa}
+estratos <- data.frame(
+  estrato     = c("Region 1", "Region 2"),
+  entrevistas = c(50, 40)          # entrevistas efectivas objetivo por estrato
+)
+
+diseno2 <- disenar_muestra_ine(
+  poblacion            = poblacion,
+  estratos             = estratos,
+  n_0                  = 5,
+  manzanas_por_seccion = 2,
+  tasa_rechazo         = 0,        # p. ej. 0.5 para 50% de rechazo sin sustitución
+  semilla              = 123
+)
+
+# Objetivo vs realizado por estrato
+resumen_diseno(diseno2)
+```
+
+Para **asignación desproporcionada** (sobremuestreo), basta poner distinto número
+de entrevistas por estrato (p. ej. 30 municipios a 300 y "Resto" a 900); y para
+absorber el rechazo se ajusta `tasa_rechazo` (y `modo_rechazo`, que por defecto
+infla las manzanas por sección sin dispersar la muestra). `validar_estratos()`
+permite revisar la especificación **antes** de correr el muestreo.
+
+## En producción
+
+En un proyecto real, los pasos 1 y 2 se reemplazan por:
+
+```{r prod, eval = FALSE}
+poblacion <- PoblacionINE$new(
+  nombre   = "Estado de México",
+  ln       = lista_nominal_ine,
+  electoral = datos_electorales,
+  shp_mza  = shp_manzanas,
+  shp_loc  = shp_localidades,
+  shp_mun  = shp_municipios
+)
+```
+
+y, tras extraer la muestra, se exportan los insumos de campo con
+`diseno$exportar(cartografia, carpeta = "Insumos")`.

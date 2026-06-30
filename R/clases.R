@@ -1,3 +1,14 @@
+#' Diseño muestral polietápico (marco censal INEGI)
+#'
+#' Clase R6 que representa un diseño de muestra polietápico sobre el marco
+#' censal del INEGI. Acumula los niveles (estratos y conglomerados), calcula el
+#' plan de muestra y los factores de corrección poblacional, extrae la muestra y
+#' calcula las cuotas de edad y sexo.
+#'
+#' @param semilla Valor numérico opcional. Si se proporciona, el diseño es
+#'   reproducible: cada etapa estocástica fija una sub-semilla derivada de
+#'   `semilla`. Si es `NULL` (por defecto), el comportamiento es el histórico.
+#'
 #' @export
 #' @import tibble dplyr
 Diseño <- R6::R6Class("Diseño",
@@ -19,18 +30,21 @@ Diseño <- R6::R6Class("Diseño",
                         cuotas = NULL,
                         n_sustitucion = 0,
                         dir.exportar = NULL,
+                        semilla = NULL,
                         initialize = function(poblacion,
                                               n,
                                               n_0,
                                               variable_poblacional,
                                               unidad_muestreo,
                                               id_unidad_muestreo,
-                                              llave_muestreo){
+                                              llave_muestreo,
+                                              semilla = NULL){
                           self$poblacion=poblacion
                           self$n=n
                           private$unidad_muestreo=unidad_muestreo
                           self$n_0=n_0
                           self$variable_poblacional=variable_poblacional
+                          self$semilla=semilla
                           self$niveles=self$agregar_nivel(variable=id_unidad_muestreo,
                                                           tipo="cluster",
                                                           descripcion = unidad_muestreo,
@@ -59,7 +73,7 @@ Diseño <- R6::R6Class("Diseño",
                             {if(self$ultimo_nivel!=0) agrupar_nivel(., nivel=self$ultimo_nivel)
                               else .
                             } %>%
-                            group_by(!!sym(variable), add=T) %>%
+                            group_by(!!sym(variable), .add = TRUE) %>%
                             mutate("{tipo}_{self$ultimo_nivel}":= cur_group_id()) %>%
                             ungroup()
                           # Modificar sel niveles
@@ -135,6 +149,8 @@ Diseño <- R6::R6Class("Diseño",
                           self$poblacion$marco_muestral <- calcular_fpc(self, nivel = nivel)
                         },
                         extraer_muestra = function(nivel){
+                          # Reproducibilidad: sub-semilla por nivel (ver campo `semilla`).
+                          if(!is.null(self$semilla)) set.seed(self$semilla + nivel)
                           m <- muestrear(self, nivel = nivel)
                           aux <- m %>% purrr::pluck(length(m))
                           if(nivel == self$ultimo_nivel){
@@ -153,6 +169,7 @@ Diseño <- R6::R6Class("Diseño",
                           self$muestra <- m
                         },
                         calcular_cuotas = function(){
+                          if(!is.null(self$semilla)) set.seed(self$semilla + 1000)
                           self$cuotas <- cuotas(self)
                         },
                         revisar_muestra = function(prop_vars, var_extra){
@@ -165,17 +182,19 @@ Diseño <- R6::R6Class("Diseño",
                           return(list(a,b,c))
 
                         },
-                        exportar = function(shp, zoom = 16, carpeta = "Insumos"){
+                        exportar = function(shp, zoom = 16, carpeta = "Insumos", mapas = TRUE){
                           self$dir.exportar <- carpeta
                           if(!file.exists(carpeta)) dir.create(carpeta)
-                          if(!file.exists(glue::glue("{carpeta}/Mapas"))) dir.create(glue::glue("{carpeta}/Mapas"))
-
-                          shp$crear_mapas(diseño = self, zoom = zoom, dir = glue::glue("{carpeta}/Mapas"))
-                          self$cuotas %>% readr::write_excel_csv(glue::glue("{carpeta}/cuotas.csv"))
+                          if(mapas){
+                            if(!file.exists(glue::glue("{carpeta}/Mapas"))) dir.create(glue::glue("{carpeta}/Mapas"))
+                            shp$crear_mapas(diseño = self, zoom = zoom, dir = glue::glue("{carpeta}/Mapas"))
+                          }
+                          if(!is.null(self$cuotas)) self$cuotas %>% readr::write_excel_csv(glue::glue("{carpeta}/cuotas.csv"))
                           readr::write_rds(self, glue::glue("{carpeta}/diseño.rda"))
                           shp %>% readr::write_rds(glue::glue("{carpeta}/shp.rda"))
                         },
                         sustituir_muestra = function(shp, id, zoom = 16){
+                          if(!is.null(self$semilla)) set.seed(self$semilla + 2000 + self$n_sustitucion)
                           self <- sustituir_muestra(self, shp, id, zoom, dir = glue::glue("{self$dir.exportar}/Mapas"))
                           file.rename(glue::glue("{self$dir.exportar}/Mapas/{id}.png"),
                                       glue::glue("{self$dir.exportar}/Mapas/{id} eliminada.png"))
@@ -189,8 +208,12 @@ Diseño <- R6::R6Class("Diseño",
                       )
 )
 
+#' Población y marco muestral (marco censal INEGI)
+#'
+#' Clase R6 que construye y almacena el marco muestral a partir de las bases del
+#' censo y la cartografía, y permite clasificar las unidades en regiones.
+#'
 #' @export
-
 Poblacion <- R6::R6Class("Poblacion",
                          public = list(
                            nombre = NULL,
@@ -219,8 +242,12 @@ Poblacion <- R6::R6Class("Poblacion",
                          )
 )
 
+#' Cartografía del diseño (marco censal INEGI)
+#'
+#' Clase R6 que almacena las cartografías del diseño y provee métodos para
+#' graficar mapas de la población y de la muestra, y exportar los mapas de campo.
+#'
 #' @export
-
 Cartografia <- R6::R6Class("Cartografia",
                            public = list(
                              shp = NULL,

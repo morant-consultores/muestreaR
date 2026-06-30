@@ -1,13 +1,15 @@
-#' Title
+#' Formatear una clave a un ancho fijo
 #'
-#' @param var
-#' @param tama
-#' @param bandera
+#' Convierte un valor a caracter rellenándolo hasta un ancho fijo, útil para
+#' normalizar claves geoestadísticas (entidad, municipio, localidad, etc.).
 #'
-#' @return
+#' @param var Valor o vector a formatear.
+#' @param tamaño Entero con el ancho deseado de la cadena resultante.
+#' @param bandera Bandera de `formatC()` para el relleno (por defecto `0`,
+#'   que rellena con ceros a la izquierda).
+#'
+#' @return Vector de caracteres con el ancho fijo indicado.
 #' @export
-#'
-#' @examples
 formato <- function(var, tamaño, bandera = 0){
 
   readr::parse_character(
@@ -15,22 +17,24 @@ formato <- function(var, tamaño, bandera = 0){
   )
 }
 
-#' Title
+#' Construir el marco muestral (marco censal INEGI)
 #'
-#' @param a
-#' @param b
-#' @param cd
+#' Arma el marco muestral a nivel manzana a partir de las bases de población del
+#' censo (manzana y localidad) y la cartografía, normalizando las claves
+#' geoestadísticas y uniendo localidades amanzanadas y puntuales rurales.
 #'
-#' @return
+#' @param mza Base de población por manzana (censo INEGI).
+#' @param loc Base de población por localidad (censo INEGI).
+#' @param loc_shp Cartografía de localidades (objeto `sf`).
+#' @param lpr_shp Cartografía de localidades puntuales rurales (objeto `sf`).
+#'
+#' @return `tibble` del marco muestral con una fila por manzana y las claves
+#'   geoestadísticas normalizadas.
 #' @export
-#'
-#' @examples
 crear_mm <- function(mza,
                      loc,
                      loc_shp,
                      lpr_shp){
-  # print(mza)
-  # poblacion <- read_csv(mza,na = "*")
   poblacion <- mza
   parseN <- poblacion %>% select(POBTOT:last_col()) %>% select(where(is.character)) %>% names
   poblacion <- poblacion %>% mutate(across(all_of(parseN), ~readr::parse_double(.x,na = c("","NA","*","N/A"))))
@@ -44,7 +48,6 @@ crear_mm <- function(mza,
     LOC = formato(LOC, tamaño = 4)
   )
 
-  # loc_shp <- readOGR(dsn=loc_shp,encoding = "CP1252") %>% spTransform(CRS("+init=epsg:4326")) %>% st_as_sf()
   murb <- murb %>% left_join(loc_shp %>% as_tibble() %>%
                                transmute(ENTIDAD = formato(CVE_ENT, tamaño = 2),
                                          MUN =formato(CVE_MUN, tamaño = 3),
@@ -53,16 +56,11 @@ crear_mm <- function(mza,
   murb <- murb %>% mutate(tipo_localidad = "Localidad amanzanada",
                           ARLU = if_else(AMBITO == "Urbana", glue::glue("{ENTIDAD}{MUN}{LOC}-LOC-{AMBITO}"), glue::glue("{ENTIDAD}{MUN}{AGEB}-AGEB-{AMBITO}")),
                           AULR = if_else(AMBITO == "Urbana", glue::glue("{ENTIDAD}{MUN}{LOC}{AGEB}-AGEB-{AMBITO}"), glue::glue("{ENTIDAD}{MUN}{LOC}{AGEB}800-LOC-{AMBITO}")),
-                          # ARLU = if_else(AMBITO == "Urbana", "LU", "AR"),
-                          # AULR = if_else(AMBITO == "Urbana", "AU", "LR"),
                           tipo = "Localidad amanzanada")
 
 
 
-  # localidad <- read_csv(loc,na = "*")
   localidad <- loc
-  # ageb_shp <- st_read(ageb_shp)%>%
-  #   st_transform(4326)
 
   loc_no_murb <- localidad %>% filter(!grepl("Total de|Localidades",NOM_LOC)) %>%
     mutate(
@@ -76,15 +74,9 @@ crear_mm <- function(mza,
   loc_no_murb <- loc_no_murb %>%
     select(-(LONGITUD:ALTITUD)) %>%
     mutate(
-      # LONGITUD=map_dbl(LONGITUD,~as.numeric(char2dms(.x,"°","'"))),
-      # LATITUD =map_dbl(LATITUD,~as.numeric(char2dms(.x,"°","'"))),
-      # ALTITUD = as.numeric(ALTITUD),
       across(all_of(parseN2), ~readr::parse_double(.x, na = c("","NA","*","N/A")))
     )
 
-  # loc <- loc_no_murb %>% st_as_sf(coords = c("LONGITUD","LATITUD"), crs = 4326) %>%
-  #   sf::st_join(ageb_shp %>% mutate(valid = sf::st_is_valid(geometry)) %>% filter(valid)) %>% as_tibble %>%
-  #   select(MUN,LOC,AGEB = CVE_AGEB)
 
   loc_no_murb <- loc_no_murb %>% left_join(
     lpr_shp %>%
@@ -99,8 +91,6 @@ crear_mm <- function(mza,
 
   loc_no_murb <- loc_no_murb %>% mutate(ARLU = glue::glue("{ENTIDAD}{MUN}{AGEB}-AGEB-Rural"),
                                         AULR = glue::glue("{ENTIDAD}{MUN}{LOC}{AGEB}800-LOC-Rural"),
-                                        # ARLU = "AR",
-                                        # AULR = "LR",
                                         tipo = "Localidad puntual rural")
 
 
@@ -117,31 +107,26 @@ crear_mm <- function(mza,
     tibble::rownames_to_column("id")
 
 
-  # yo <- yo %>% summarise(sum(POBTOT)) %>% pull(1)
-  # urb <- localidad %>% slice(1) %>% pull(POBTOT)
-  # list(
-  #   identical(yo,urb),
-  #   yo-urb,
-  #   .x
-  # )
 
   return(final)
 }
 
 
-#' Title
+#' Construir la lista de cartografías (marco censal INEGI)
 #'
-#' @param mun
-#' @param locU
-#' @param agebR
-#' @param agebU
-#' @param locR
-#' @param mza
+#' Normaliza y agrupa los distintos shapefiles (municipio, localidad urbana y
+#' rural, AGEB rural y urbana, manzana) en una lista lista para graficar mapas y
+#' generar insumos de campo.
 #'
-#' @return
+#' @param mun Shapefile de municipios (`sf`).
+#' @param locU Shapefile de localidades urbanas (`sf`).
+#' @param agebR Shapefile de AGEB rurales (`sf`).
+#' @param agebU Shapefile de AGEB urbanas (`sf`).
+#' @param locR Shapefile de localidades rurales (`sf`).
+#' @param mza Shapefile de manzanas (`sf`).
+#'
+#' @return Lista nombrada de cartografías (`MUN`, `ARLU`, `AULR`, `AGEB`, `MZA`).
 #' @export
-#'
-#' @examples
 crear_shp <- function(mun, locU, agebR, agebU, locR, mza){
   mun <- mun %>% transmute(MUN = CVEGEO, NOM_MUN = NOMGEO)
 
@@ -166,21 +151,25 @@ crear_shp <- function(mun, locU, agebR, agebU, locR, mza){
 }
 
 
-#' Title
+#' Construir el marco muestral (marco electoral INE)
 #'
-#' @param ln
-#' @param shp_mza
-#' @param shp_loc
-#' @param shp_mun
+#' Arma el marco muestral a nivel manzana a partir de la lista nominal del INE y
+#' la cartografía electoral (manzanas, localidades y municipios). Reparte la
+#' lista nominal por sección entre sus manzanas y clasifica el desglose por
+#' rango de edad y sexo (`LN22_*`).
 #'
-#' @return
+#' @param ln Lista nominal del INE con columnas `SECCION`, los conteos por edad
+#'   y sexo (`LISTA_*`) y `LISTA NOMINAL`.
+#' @param shp_mza Shapefile de manzanas (`sf`), con columna `STATUS`.
+#' @param shp_loc Shapefile de localidades (`sf`).
+#' @param shp_mun Shapefile de municipios (`sf`).
+#'
+#' @return `tibble` del marco muestral con una fila por manzana, `lista_nominal`
+#'   y el desglose `LN22_*` por edad y sexo.
 #' @export
-#'
-#' @examples
-#'
 crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
-  shp_mza <- shp_mza %>% filter(st_is_valid(.), STATUS == 1)
-  aux <- st_join(shp_loc, shp_mza %>% select(MANZANA))
+  shp_mza <- shp_mza %>% filter(sf::st_is_valid(.), STATUS == 1)
+  aux <- sf::st_join(shp_loc, shp_mza %>% select(MANZANA))
   shp_lpr <- aux %>% filter(is.na(MANZANA)) %>% select(-MANZANA)
 
   if("LISTA" %in% colnames(shp_lpr)){
@@ -203,21 +192,20 @@ crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
 
   shp_mza <- shp_mza %>% bind_rows(shp_lpr) %>% arrange(as.numeric(SECCION))
 
-  ln <- ln %>% select(SECCION, contains("LISTA_")) %>% pivot_longer(-SECCION, names_to = "sector",
+  ln <- ln %>% select(SECCION, contains("LISTA_")) %>% tidyr::pivot_longer(-SECCION, names_to = "sector",
                                                                     values_to = "n") %>%
     mutate(sector = gsub(pattern = "_18_",replacement =  "_18_18_",x =  sector),
            sector = gsub(pattern = "_19_",replacement =  "_19_19_",x =  sector),
            sector = gsub(pattern = "_Y_",replacement =  "_",x =  sector),
     ) %>%
-    separate(sector, into = c("lista","ini","fin","sexo")) %>%
-    # mutate(across(ini:fin, parse_number)) %>%
+    tidyr::separate(sector, into = c("lista","ini","fin","sexo")) %>%
     mutate(fin = as.numeric(fin),
            fin = if_else(is.na(fin),200,fin),
            rango = cut(as.numeric(fin), c(17,24,39,59,Inf),
                        labels = paste0("LN22_",c("18A24","25A39","40A59","60YMAS")))) %>%
     count(SECCION,rango,sexo, wt = n) %>% mutate(sexo = if_else(sexo == "HOMBRES","M","F")) %>%
-    unite(rango_sexo, rango:sexo) %>%
-    pivot_wider(SECCION,names_from = rango_sexo,values_from = n) %>%
+    tidyr::unite(rango_sexo, rango:sexo) %>%
+    tidyr::pivot_wider(id_cols = SECCION, names_from = rango_sexo, values_from = n) %>%
     left_join(ln %>% select(SECCION, `LISTA NOMINAL`)) %>%
     mutate(SECCION = as.character(SECCION)) %>% rename(lista_nominal = `LISTA NOMINAL`)
 
@@ -226,18 +214,6 @@ crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
       shp_mza %>% count(SECCION, name = "n_mza")
     ) %>% mutate(across(2:lista_nominal, ~.x/n_mza)) %>% select(-n_mza)
 
-  # ln_mza <- ln %>% #filter(SECCION == 3) %>%
-  #   left_join(
-  #     shp_mza %>% count(SECCION,SECCION2, name = "n_mza") %>%
-  #       count(SECCION2), by = c("SECCION" = "SECCION2")
-  #   ) %>% mutate(across(2:lista_nominal, ~.x/n)) %>% select(-n) %>%
-  #   left_join(
-  #     shp_mza %>% distinct(SECCION, SECCION2), by = c("SECCION" = "SECCION2")
-  #   ) %>% select(-SECCION) %>% relocate(SECCION = SECCION.y) %>%
-  #   left_join(
-  #     shp_mza %>% count(SECCION, name = "n_mza")
-  #   ) %>% mutate(across(2:lista_nominal, ~.x/n_mza)) %>% select(-n_mza) %>%
-  #   filter(!is.na(SECCION))
 
   mza <- shp_mza %>% left_join(shp_mun) %>%
     left_join(ln_mza, by = "SECCION") %>%
@@ -250,18 +226,18 @@ crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
       filter(lista_nominal > 0) |>
       select(-LISTA)
 
-    pct_general <- mza |> pivot_longer(starts_with("LN22")) |>
+    pct_general <- mza |> tidyr::pivot_longer(starts_with("LN22")) |>
       filter(value != 0) |>
       count(name, wt = value) |>
       mutate(pct = n/sum(n)) |>
       select(-n)
 
     mza <- mza |>
-      pivot_longer(starts_with("LN22")) |>
+      tidyr::pivot_longer(starts_with("LN22")) |>
       left_join(pct_general, join_by(name)) |>
       mutate(value = if_else(value == 0, lista_nominal*pct, value)) |>
       select(-pct) |>
-      pivot_wider(names_from = name, values_from = value)
+      tidyr::pivot_wider(names_from = name, values_from = value)
 
   }
 
@@ -270,37 +246,42 @@ crear_mm_ine <- function(ln, shp_mza, shp_loc, shp_mun){
 
 
 
-#' Title
+#' Construir la lista de cartografías (marco electoral INE)
 #'
-#' @param df
-#' @param dl
-#' @param mun
-#' @param loc
-#' @param secc
-#' @param mza
+#' Normaliza y agrupa los shapefiles electorales (distrito federal y local,
+#' municipio, sección y manzana) en una lista lista para graficar mapas y
+#' generar insumos de campo.
 #'
-#' @return
+#' @param df Shapefile de distritos federales (`sf`).
+#' @param dl Shapefile de distritos locales (`sf`).
+#' @param mun Shapefile de municipios (`sf`).
+#' @param loc Shapefile de localidades (`sf`).
+#' @param secc Shapefile de secciones electorales (`sf`).
+#' @param mza Shapefile de manzanas (`sf`), con columna `STATUS`.
+#'
+#' @return Lista nombrada de cartografías (`DISTRITO_F`, `DISTRITO_L`,
+#'   `MUNICIPIO`, `SECCION`, `MANZANA`).
 #' @export
-#'
-#' @examples
-crear_shp_ine <- function(df, dl, mun, loc, secc, mza){
-  df <- df %>% transmute(across(c(ENTIDAD,DISTRITO_F), ~as.character(.x))) %>% st_make_valid()
+crear_shp_ine <- function(df = NULL, dl = NULL, mun, loc, secc, mza){
+  # Los distritos son opcionales: solo se necesitan si se estratifica/visualiza por
+  # distrito. Si no se proporcionan, quedan como NULL en la lista de cartografías.
+  df <- if (is.null(df)) NULL else df %>% transmute(across(c(ENTIDAD,DISTRITO_F), ~as.character(.x))) %>% sf::st_make_valid()
 
-  dl <- dl %>% transmute(across(c(ENTIDAD,DISTRITO_L), ~as.character(.x))) %>% st_make_valid()
+  dl <- if (is.null(dl)) NULL else dl %>% transmute(across(c(ENTIDAD,DISTRITO_L), ~as.character(.x))) %>% sf::st_make_valid()
 
   mun <- mun %>% rename(NOMBRE_MUN = NOMBRE) %>%
-    mutate(across(ENTIDAD:MUNICIPIO, ~as.character(.x))) %>% select(ENTIDAD:NOMBRE_MUN) %>% st_make_valid()
+    mutate(across(ENTIDAD:MUNICIPIO, ~as.character(.x))) %>% select(ENTIDAD:NOMBRE_MUN) %>% sf::st_make_valid()
 
   loc <- loc %>% rename(MANZANA = NOMBRE) %>%
     mutate(across(ENTIDAD:LOCALIDAD, ~as.character(.x))) %>%
-    select(ENTIDAD:MANZANA) %>% st_make_valid()
+    select(ENTIDAD:MANZANA) %>% sf::st_make_valid()
 
   secc <- secc %>% rename(DISTRITO_F = DISTRITO) %>%
     mutate(across(ENTIDAD:SECCION, ~as.character(.x))) %>%
-    select(ENTIDAD:SECCION) %>% st_make_valid()
+    select(ENTIDAD:SECCION) %>% sf::st_make_valid()
 
-  mza <- mza %>% filter(st_is_valid(.), STATUS == 1) %>% select(ENTIDAD:MANZANA) %>%
-    mutate(across(ENTIDAD:MANZANA, ~as.character(.x))) %>% st_make_valid()
+  mza <- mza %>% filter(sf::st_is_valid(.), STATUS == 1) %>% select(ENTIDAD:MANZANA) %>%
+    mutate(across(ENTIDAD:MANZANA, ~as.character(.x))) %>% sf::st_make_valid()
 
   mza <- bind_rows(mza, loc) %>% arrange(as.numeric(SECCION))
 

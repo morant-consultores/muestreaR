@@ -1,46 +1,41 @@
 
 
-#' Title
+#' Etiquetar un nivel de muestreo en el marco
 #'
-#' @param bd
-#' @param grupo
-#' @param tipo
-#' @param i
+#' Agrupa el marco muestral por una variable y crea una columna identificadora
+#' del conglomerado o estrato para ese nivel, con nombre `{tipo}_{i}`.
 #'
-#' @return
+#' @param bd `tibble` del marco muestral.
+#' @param grupo Variable por la que se agrupa el nivel (sin comillas).
+#' @param tipo Tipo de nivel: `"cluster"` o `"strata"`.
+#' @param i Entero con el número de nivel.
+#'
+#' @return El marco muestral con una columna nueva `{tipo}_{i}` que identifica al grupo.
 #' @export
 #' @import dplyr ggplot2
-#' @examples
 agregar_nivel <- function(bd, grupo, tipo, i){
   bd %>% group_by({{grupo}}, .add = T) %>%
     mutate(!!glue::glue("{tipo}_{i}"):= cur_group_id()) %>% ungroup
 }
 
-#' Title
+#' Calcular el factor de corrección poblacional (fpc) de un nivel
 #'
-#' @param bd
+#' Calcula las probabilidades de inclusión de primer orden para el nivel
+#' indicado y las agrega al marco muestral como columna `fpc_{nivel}`. Estas
+#' probabilidades alimentan el diseño `survey` (muestreo proporcional al tamaño).
 #'
-#' @return
+#' @param diseño Objeto de la clase [Diseño] (o [DiseñoINE]).
+#' @param nivel Entero con el nivel para el que se calcula el fpc. El nivel 0
+#'   corresponde a la unidad mínima (manzana).
+#'
+#' @return El marco muestral del diseño con la columna `fpc_{nivel}` añadida.
 #' @export
-#'
-#' @examples
-
 calcular_fpc <- function(diseño, nivel = 1){
   nombres <- names(diseño$poblacion$marco_muestral)
   nivel_anterior <- diseño$niveles %>% filter(nivel == (!!nivel - 1))
   nivel_principal <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel}"),
                           value = T )
   if(length(nivel_principal)!=1) stop("El nivel seleccionado no se encuestra en el marco muestral")
-  # if(nivel_principal=="cluster_0") stop("Hay que arreglar esto")
-  # if(nivel == diseño$ultimo_nivel) nivel_secundario <- "cluster_0"
-  # else{
-  #   nivel_secundario <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel+1}"),
-  #                            value = T )
-  #   if(length(nivel_secundario)==0) {
-  #     warning("El nivel posterior no se encuentra en el marco muestral, se utiliza en cambio el último nivel")
-  #     nivel_secundario <- "cluster_0"
-  #   }
-  # }
 
   aux <- if(nivel == 0){
     nivel_principal <- diseño$niveles %>% filter(nivel == max(nivel)) %>% pull(nivel)
@@ -69,16 +64,20 @@ calcular_fpc <- function(diseño, nivel = 1){
 }
 
 
-#' Title
+#' Asignar regiones (estratos) al marco muestral
 #'
-#' @param bd
-#' @param id
-#' @param regiones
+#' Clasifica las unidades del marco muestral en regiones a partir de una lista
+#' que asocia cada región con un conjunto de valores de la variable `id`. Avisa
+#' si quedan unidades sin clasificar o si la lista incluye valores inexistentes.
 #'
-#' @return
+#' @param bd `tibble` del marco muestral.
+#' @param id Nombre (caracter) de la variable que identifica a cada unidad
+#'   (p. ej. `"SECCION"`).
+#' @param regiones Lista nombrada: cada elemento es una región y contiene el
+#'   vector de valores de `id` que la componen.
+#'
+#' @return El marco muestral con una columna `region` al inicio.
 #' @export
-#'
-#' @examples
 regiones <- function(bd, id, regiones){
   aux <- regiones %>% tibble::enframe(name = "region", value = id) %>% tidyr::unnest(all_of(id))
   faltan <- bd %>% anti_join(aux) %>% distinct(!!sym(id)) %>% pull(1) %>% paste(collapse = ", ")
@@ -95,331 +94,6 @@ regiones <- function(bd, id, regiones){
     aux
   ) %>% select(region, everything())
 }
-
-nivel <- function(aux, nivel, grupo, tipo, n, peso_tamaño, criterio_n){
-  aux <- etiquetar(aux, grupo, tipo, nivel)
-
-  nivel <- aux %>% ungroup %>% select(last_col()) %>% names
-  if(!grepl("strata",nivel)){
-    nivel_anterior <- aux %>% ungroup %>% select(last_col()-1) %>% names
-    if(grepl("fpc",nivel_anterior)) nivel_anterior <- aux %>% ungroup() %>% select(last_col()-2) %>% names
-    base_n <- criterio_N(base = aux %>% ungroup, variable_estrato = !!sym(nivel_anterior),
-                         variable_estudio = {{peso_tamaño}},num = n, tipo = criterio_n)
-
-  } else{
-    base_n <- NULL
-  }
-
-  aux <- aux %>% calcular_fpc(n_grupo = base_n$n, peso_tamaño = {{peso_tamaño}})
-  return(aux)
-}
-#' #' Title
-#' #'
-#' #' @param bd
-#' #' @param grupo
-#' #' @param tipo
-#' #' @param peso
-#' #' @param metodo
-#' #'
-#' #' @return
-#' #' @export
-#' #'
-#' #' @examples
-#' empaquetar <- function(bd, grupo, tipo, n, peso_tamaño, criterio_n = "peso"){
-#'   aux <- bd
-#'   for(i in seq_along(tipo)){
-#'
-#'     aux <- nivel(aux, i, grupo[i], tipo[i], n[i], peso_tamaño, criterio_n = "peso")
-#'
-#'   }
-#'
-#'   return(aux %>% ungroup)
-#' }
-#'
-
-#' #' Title
-#' #'
-#' #' @param base
-#' #' @param variable_estrato
-#' #' @param variable_estudio
-#' #' @param estimador
-#' #' @param n_k
-#' #' @param base_n
-#' #'
-#' #' @return
-#' #' @export
-#' #'
-#' #' @examples
-#' calcular_varianza_estratificada <- function(base, variable_estrato, variable_estudio,estimador=NULL, n_k=NULL, base_n=NULL) {
-#'   if(is.null(estimador)) {
-#'
-#'     bd <- base %>%
-#'       group_by({{variable_estrato}}) %>%
-#'       summarise(varianza=var({{variable_estudio}}, na.rm=T)) %>%
-#'       summarise(suma_varianza=sum(varianza, na.rm=T)) %>%
-#'       pull(suma_varianza)
-#'
-#'   }
-#'
-#'   else {
-#'
-#'     if(estimador=="t") {
-#'       bd <- base %>%
-#'         filter(!is.na({{variable_estudio}})) %>%
-#'         group_by({{variable_estrato}}) %>%
-#'         summarise(varianza=var({{variable_estudio}}, na.rm=T),
-#'                   N=n()) %>%
-#'         left_join(base_n) %>%
-#'         mutate(
-#'           varianza=((varianza*(N^2))/n)*(1-n/N)) %>%
-#'         summarise(suma_varianza=sum(varianza, na.rm=T)) %>%
-#'         pull(suma_varianza)
-#'
-#'     }
-#'
-#'   }
-#'   return(bd)
-#'
-#'
-#' }
-#'
-#'
-
-#' #' Title
-#' #'
-#' #' @param base
-#' #' @param n
-#' #' @param variable_estudio
-#' #'
-#' #' @return
-#' #' @export
-#' #'
-#' #' @examples
-#' calcular_varianza_mas <- function(base, n, variable_estudio) {
-#'   bd <- base %>%
-#'     filter(!is.na({{variable_estudio}})) %>%
-#'     summarise(N=n(),
-#'               varianza=var({{variable_estudio}}, na.rm=T)) %>%
-#'     mutate(varianza_t=((N^2)*(1-n/N)*varianza)/n) %>%
-#'     pull(varianza_t)
-#'
-#'   return(bd)
-#'
-#' }
-#'
-
-
-#' #' Title
-#' #'
-#' #' @param base
-#' #' @param variable_estrato
-#' #' @param variable_estudio
-#' #' @param num
-#' #' @param tipo
-#' #' @param variable_peso
-#' #'
-#' #' @return
-#' #' @export
-#' #'
-#' #' @examples
-#' #'
-#' criterio_N <- function(base,
-#'                        nivel,
-#'                        variable_estudio=NULL,
-#'                        num,
-#'                        criterio = "unidades",
-#'                        ultimo_nivel=F) {
-#'   nombres <- names(base)
-#'   nivel_principal <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel}"),
-#'                           value = T )
-#'   if(length(nivel_principal)!=1) stop("El nivel seleccionado no se encuestra en el marco muestral")
-#'   if(nivel_principal=="cluster_0") stop("Hay que arreglar esto")
-#'   if(ultimo_nivel) nivel_secundario <- "cluster_0"
-#'   else{
-#'     nivel_secundario <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel+1}"),
-#'                              value = T )
-#'     if(length(nivel_secundario)==0) {
-#'       warning("El nivel posterior no se encuentra en el marco muestral, se utiliza en cambio el último nivel")
-#'       nivel_secundario <- "cluster_0"
-#'     }
-#'   }
-#'   base <- base %>%
-#'     agrupar_nivel(nivel=nivel)
-#'   if(criterio == "unidades"){
-#'     res <- base %>%
-#'       filter(!is.na(!!sym(variable_estudio))) %>%
-#'       summarise(N=n_distinct(!!sym(nivel_secundario))) %>%
-#'       mutate(n = ceiling(num*N/sum(N))) %>% select(-N)
-#'   }
-#'
-#'   if(criterio == "peso"){
-#'
-#'     res <- base %>%
-#'       filter(!is.na(!!sym(variable_estudio))) %>%
-#'       summarise(N=sum(!!sym(variable_estudio))) %>%
-#'       mutate(n = min(c(round(num*N/sum(N))),N)) %>% select(-N)
-#'   }
-#'
-#'   if(criterio == "uniforme"){
-#'     res <- base %>%
-#'       summarise(N=n_distinct(!!sym(nivel_secundario))) %>%
-#'       mutate(n = min(c(num, N)))
-#'   }
-#'
-#'   return(res)
-#' }
-#
-# criterio_m <- function(base,    nivel,
-#                        criterio = "unidades",
-#                        variable_tamaño=NULL,
-#                        num,
-#                        ultimo_nivel=F) {
-#
-#   nombres <- names(base)
-#   nivel_principal <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel}"),
-#                           value = T )
-#   if(length(nivel_principal)!=1) stop("El nivel seleccionado no se encuestra en el marco muestral")
-#   if(nivel_principal=="cluster_0") stop("Hay que arreglar esto")
-#   if(ultimo_nivel) nivel_secundario <- "cluster_0"
-#   else{
-#     nivel_secundario <- grep(nombres,pattern = glue::glue("(strata|cluster)_{nivel+1}"),
-#                              value = T )
-#     if(length(nivel_secundario)==0) {
-#       warning("El nivel posterior no se encuentra en el marco muestral, se utiliza en cambio el último nivel")
-#       nivel_secundario <- "cluster_0"
-#     }
-#   }
-#   base <- base %>%
-#     agrupar_nivel(nivel=nivel)
-#   if(criterio == "unidades"){
-#     res <- base %>%
-#       filter(!is.na(!!variable_tamaño)) %>%
-#       summarise(N=n_distinct(!!sym(nivel_secundario))) %>%
-#       mutate(n = ceiling(m_i*N/sum(N))) %>%
-#       select(-N)
-#   }
-#
-#   if(criterio == "peso"){
-#
-#     res <- base %>%
-#       filter(!is.na(!!variable_estudio)) %>%
-#       summarise(N=sum(!!variable_estudio)) %>%
-#       mutate(n = min(c(round(num*N/sum(N))),N)) %>%
-#       select(-N)
-#   }
-#
-#   if(criterio == "uniforme"){
-#     res <- base %>%
-#       summarise(N=n_distinct(!!sym(nivel_secundario))) %>%
-#       mutate(n = min(c(num, N)))
-#   }
-#
-#   return(res)
-# }
-#
-# criterio_n <- function(plan_muestreo,
-#                        nivel,
-#                        variable_tamaño,
-#                        marco_muestral,
-#                        n,
-#                        m_i,
-#                        n_0) {
-#   if(nivel==0){
-#     res <- marco_muestral %>%
-#       group_by(cluster_0) %>%
-#       summarise(n_0=n_0) %>%
-#       mutate(m_0=ceiling(n/n_0))
-#     res <- list(cluster_0=res)
-#   }
-#   if(nivel!=ultimo_nivel){
-#     if(nivel==1){
-#       clase <- "strata"
-#       print("Clase fija, cuidado")
-#       if(clase=="strata"){
-#         ve <- "POBTOT"
-#         print("Un monton de cosas fijas! CUIDADO")
-#         res_2 <- criterio_N(base = marco_muestral,
-#                             nivel = nivel,
-#                             variable_estudio = sym(ve),
-#                             num = m_i, criterio = "unidades",
-#                             ultimo_nivel = F) %>%
-#           rename("m_{nivel}":=n)
-#         # Para n
-#         res <- marco_muestral %>%
-#           agrupar_nivel(nivel=nivel) %>%
-#           summarise(nn:=sum({{variable_tamaño}})) %>%
-#           mutate("n_{nivel}":=round(n*nn/sum(nn))) %>%
-#           select(-nn)
-#         res <- inner_join(res, res_2)
-#
-#       }
-#
-# Para m
-
-#   nombre <- grep(pattern = glue::glue("(cluster|strata)_{nivel}"),
-#                  x = names(res),value = T)
-#   # Falta la m=peso, uniforme, unidades
-#
-#   res <- set_names(list(res), nombre)
-# }
-# if(nivel>1){
-#
-#   pp <- plan_muestreo[grep(pattern = glue::glue("(cluster|strata)_{nivel-1}"),
-#                            names(plan_muestreo))]
-#   nivel_secundario <- plan_muestreo[grep(pattern = glue::glue("(cluster|strata)_{nivel+1}"),
-#                                          names(plan_muestreo))]
-#   if(length(nivel_secundario)==0) nivel_secundario="cluster_0"
-#   marco_agrupado <- agrupar_nivel(marco_muestral, nivel = nivel)
-#   marco_agrupado <- marco_agrupado %>% nest()%>%
-#     left_join(pp[[1]])
-# res2 <- map(marco_agrupado$data,
-#             ~criterio_N(base = .x,
-#                         nivel = nivel,
-#                         variable_estudio = sym(ve),
-#                         num = 5,
-#                         criterio = "unidades",
-#                         ultimo_nivel = F) %>%
-#               rename("m_{nivel}":=n))
-#       res_2 <- criterio_N(base = marco_muestral,
-#                           nivel = nivel,
-#                           variable_estudio = sym(ve),
-#                           num = 5,
-#                           criterio = "uniforme",
-#                           ultimo_nivel = F) %>%
-#         rename("m_{nivel}":=n) %>% select(-N)
-#
-#       res <- marco_muestral %>%
-#         agrupar_nivel(nivel=nivel) %>%
-#         summarise() %>%
-#         left_join(pp[[1]]) %>%
-#         mutate("n_{nivel}":=round(!!sym(glue::glue("n_{nivel-1}"))/
-#                                     !!sym(glue::glue("m_{nivel-1}")))) %>%
-#         agrupar_nivel(nivel = nivel) %>%
-#         select(matches(glue::glue("n_{nivel}")))
-#       res <- inner_join(res, res_2)
-#
-#       nombre <- grep(pattern = glue::glue("(cluster|strata)_{nivel}"),
-#                      x = names(res),value = T)
-#       # Falta la m=peso, uniforme, unidades
-#
-#       res <- set_names(list(res), nombre)
-#
-#
-#     }
-#   }
-#   else{
-#     plan_muestreo["cluster_0"]
-#     res <- marco_muestral %>%
-#       agrupar_nivel(nivel)
-#     mutate()
-#     res <- list(cluster_0=res)
-#
-#   }
-#
-#
-#   return(c(plan_muestreo,res))
-# }
-#
 
 asignar_m <- function(diseño, criterio, unidades_nivel, manual){
   # Se elige la unidad de muestreo
@@ -543,17 +217,21 @@ asignar_n <- function(diseño){
 
 
 
-#' Title
+#' Sortear la muestra de un nivel
 #'
-#' @param base
-#' @param nivel
-#' @param variable_estudio
-#' @param bd_n
+#' Extrae aleatoriamente las unidades del nivel indicado dentro de cada unidad
+#' del nivel anterior, con probabilidad proporcional al tamaño (variable
+#' poblacional) salvo en el último nivel, donde el sorteo es equiprobable.
+#' Para reproducibilidad, fija la semilla del diseño antes de llamar a esta
+#' función (ver el campo `semilla` de [DiseñoINE]).
 #'
-#' @return
+#' @param diseño Objeto de la clase [Diseño] (o [DiseñoINE]) con el plan de
+#'   muestra ya calculado.
+#' @param nivel Entero con el nivel a sortear.
+#'
+#' @return Lista con la muestra acumulada hasta el nivel indicado; el último
+#'   elemento contiene las unidades recién sorteadas (anidadas en `data`).
 #' @export
-#'
-#' @examples
 muestrear <- function(diseño, nivel){
 
   nombres <- names(diseño$poblacion$marco_muestral)
@@ -631,15 +309,17 @@ muestrear <- function(diseño, nivel){
 
 }
 
-#' Title
+#' Calcular cuotas de edad y sexo (marco censal INEGI)
 #'
-#' @param dise
+#' Reparte las entrevistas asignadas a cada conglomerado de la muestra en celdas
+#' de rango de edad y sexo, proporcionalmente a la población del censo, y ajusta
+#' al entero más cercano cuadrando el total por conglomerado.
 #'
-#' @return
+#' @param diseño Objeto de la clase [Diseño] con la muestra ya extraída.
+#'
+#' @return `tibble` con las cuotas por conglomerado, rango de edad y sexo
+#'   (columna `n` con el número de entrevistas).
 #' @export
-#'
-#' @examples
-#'
 cuotas <- function(diseño){
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
@@ -657,7 +337,7 @@ cuotas <- function(diseño){
                              P_25A59_M = P_18YMAS_M - P_18A24_M - P_60YMAS_M,
                              P_60YMAS_F,P_60YMAS_M) %>%
     group_by(Municipio, Localidad,!!rlang::sym(u_cluster)) %>%
-    summarise(across(everything(),.fns = sum, na.rm = T),.groups =  "drop") %>%
+    summarise(across(everything(), \(x) sum(x, na.rm = TRUE)),.groups =  "drop") %>%
     tidyr::pivot_longer(c(-Municipio,-Localidad,-!!sym(u_cluster)), names_to = "edad", values_to = "cantidad") %>%
     tidyr::separate(edad, c("basura","rango","sexo")) %>% select(-basura) %>%
     group_by(!!rlang::sym(u_cluster)) %>% mutate(pct = cantidad/sum(cantidad)) %>% ungroup %>%
@@ -687,14 +367,17 @@ cuotas <- function(diseño){
   return(c %>% select(-cantidad,-pct,-entrevistas))
 }
 
-#' Title
+#' Calcular cuotas de edad y sexo (marco electoral INE)
 #'
-#' @param dise
+#' Versión para el marco del INE: reparte las entrevistas de cada conglomerado
+#' en celdas de rango de edad y sexo según la lista nominal (`LN22_*`).
 #'
-#' @return
+#' @param diseño Objeto de la clase [DiseñoINE] con la muestra ya extraída.
+#' @param ajustar `logical`. Si es `TRUE`, ajusta ±1 las cuotas redondeadas para
+#'   cuadrar exactamente las entrevistas por conglomerado.
+#'
+#' @return `tibble` con las cuotas por conglomerado, rango de edad y sexo.
 #' @export
-#'
-#' @examples
 cuotas_ine <- function(diseño, ajustar){
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
@@ -709,7 +392,7 @@ cuotas_ine <- function(diseño, ajustar){
                           !!rlang::sym(u_cluster),
                           contains("LN22")) %>%
     group_by(Municipio, Seccion,!!rlang::sym(u_cluster)) %>%
-    summarise(across(everything(),.fns = sum, na.rm = T),.groups =  "drop") %>%
+    summarise(across(everything(), \(x) sum(x, na.rm = TRUE)),.groups =  "drop") %>%
     tidyr::pivot_longer(c(-Municipio, -Seccion,-!!sym(u_cluster)), names_to = "edad", values_to = "cantidad") %>%
     tidyr::separate(edad, c("basura","rango","sexo")) %>% select(-basura) %>%
     group_by(!!rlang::sym(u_cluster)) %>% mutate(pct = cantidad/sum(cantidad)) %>% ungroup %>%

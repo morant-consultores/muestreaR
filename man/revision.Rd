@@ -2,13 +2,22 @@
 % Please edit documentation in R/revisar_muestra.R
 \name{revision}
 \alias{revision}
-\title{Title}
+\title{Revisar la muestra contra el marco (marco censal INEGI)}
 \usage{
 revision(self, prop_vars = c("POCUPADA"), var_extra = NULL)
 }
 \arguments{
-\item{var_extra}{}
+\item{self}{Objeto de la clase \link{Diseño} con la muestra y el diseño \code{survey}.}
+
+\item{prop_vars}{Vector de variables para estimar como proporción.}
+
+\item{var_extra}{Vector de variables adicionales para estimar como total.}
+}
+\value{
+Un objeto \code{ggplot} (o una composición \code{cowplot}) con la comparación.
 }
 \description{
-Title
+Estima totales y proporciones de variables de interés a partir del diseño
+\code{survey} y los compara contra los valores del marco muestral, mostrando si el
+valor real cae dentro del intervalo de confianza estimado.
 }

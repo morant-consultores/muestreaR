@@ -37,19 +37,26 @@ df_shp <- rgdal::readOGR(dsn=glue::glue("{wd}/SHP/2021/15-MEXICO/DISTRITO_FEDERA
 
 # Población ---------------------------------------------------------------
 devtools::load_all(path = "~/Documents/Git/muestreaR")
+# `electoral` es la base electoral por sección (resultados/padrón) que la clase
+# usa para construir `informacion_electoral` y revisar la muestra. En producción
+# proviene del paquete de datos electorales, p. ej.:
+#   electoral_edomex <- Electoral$new(eleccion = "gb_23", entidad = "mex")$bd
 edomex <- PoblacionINE$new(nombre = "Estado de México",
                            ln = ln_edomex,
+                           electoral = electoral_edomex,
                            shp_mza = mza_shp,
                            shp_loc = loc_shp,
                            shp_mun = mun_shp)
 
+# `semilla` hace el diseño reproducible (mismo sorteo en cada corrida).
 diseño_edomex <- DiseñoINE$new(poblacion=edomex,
                                n=1620,
                                n_0=8,
                                variable_poblacional="lista_nominal",
                                unidad_muestreo="Manzanas",
                                id_unidad_muestreo="id",
-                               llave_muestreo="Man")
+                               llave_muestreo="Man",
+                               semilla=123)
 
 shp_edomex <- CartografiaINE$new(df_shp, dl_shp, mun_shp, loc_shp, sec_shp, mza_shp)
 
@@ -68,15 +75,9 @@ diseño_edomex$agregar_nivel("region",
                             llave="region")
 (uno <- shp_edomex$graficar_mapa(bd = diseño_edomex$poblacion$marco_muestral, nivel = "MUNICIPIO"))
 
-# Municipios --------------------------------------------------------------
-
-diseño_edomex$agregar_nivel("MUNICIPIO",
-                            tipo="cluster",
-                            descripcion= "Municipios",
-                            llave="Mun")
-
-
 # Secciones ---------------------------------------------------------------
+# Topología de 2 niveles igual que en producción: region (estrato) + SECCION
+# (conglomerado); las manzanas son el nivel 0, definido al crear el diseño.
 
 diseño_edomex$agregar_nivel("SECCION",
                             tipo="cluster",
@@ -84,22 +85,20 @@ diseño_edomex$agregar_nivel("SECCION",
                             llave="SECCION")
 
 # Plan de muestra ---------------------------------------------------------
-diseño_edomex$plan_muestra(nivel=1,criterio = "peso", unidades_nivel = 10)
-diseño_edomex$plan_muestra(nivel=2,criterio = "uniforme", unidades_nivel = 42)
-diseño_edomex$plan_muestra(nivel=3)
+diseño_edomex$plan_muestra(nivel=1,criterio = "peso", unidades_nivel = 200)
+diseño_edomex$plan_muestra(nivel=2)   # último nivel (manzanas por sección)
 
 
 # FPC ---------------------------------------------------------------------
-
+# Orden requerido: el último nivel cluster (2) y luego el 0; los estratos no
+# llevan fpc.
 diseño_edomex$fpc(nivel = 2)
-diseño_edomex$fpc(nivel = 3)
 diseño_edomex$fpc(nivel = 0)
 
 # Muestra -----------------------------------------------------------------
 diseño_edomex$extraer_muestra(nivel = 1)
 diseño_edomex$extraer_muestra(nivel = 2)
-uno %>% shp_edomex$graficar_mapa(bd = diseño_edomex$muestra, nivel = "MUNICIPIO")
-diseño_edomex$extraer_muestra(nivel = 3)
+uno %>% shp_edomex$graficar_mapa(bd = diseño_edomex$muestra, nivel = "SECCION")
 # diseño_edomex$poblacion$marco_muestral %>%
 #   semi_join(diseño_edomex$muestra$SECCION) %>%
 #   anti_join(mza_shp %>% as_tibble %>% select(-ENTIDAD,-DISTRITO_F,-DISTRITO_L,-LOCALIDAD) %>%

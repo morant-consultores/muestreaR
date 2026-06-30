@@ -2,13 +2,23 @@
 % Please edit documentation in R/diseno.R
 \name{agregar_nivel}
 \alias{agregar_nivel}
-\title{Title}
+\title{Etiquetar un nivel de muestreo en el marco}
 \usage{
 agregar_nivel(bd, grupo, tipo, i)
 }
 \arguments{
-\item{i}{}
+\item{bd}{\code{tibble} del marco muestral.}
+
+\item{grupo}{Variable por la que se agrupa el nivel (sin comillas).}
+
+\item{tipo}{Tipo de nivel: \code{"cluster"} o \code{"strata"}.}
+
+\item{i}{Entero con el número de nivel.}
+}
+\value{
+El marco muestral con una columna nueva \verb{\{tipo\}_\{i\}} que identifica al grupo.
 }
 \description{
-Title
+Agrupa el marco muestral por una variable y crea una columna identificadora
+del conglomerado o estrato para ese nivel, con nombre \verb{\{tipo\}_\{i\}}.
 }

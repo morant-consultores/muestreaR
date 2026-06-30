@@ -1,0 +1,333 @@
+---
+title: "El flujo completo y sus funciones"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{El flujo completo y sus funciones}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+Esta viñeta documenta **cada función** que interviene en el diseño de una muestra
+polietápica con `muestreaR`, en el orden en que se usan. Primero se arma la
+muestra **a mano**, llamando una por una a las funciones (para entender qué hace
+cada paso), y al final se muestra cómo una **sola función**,
+`disenar_muestra_ine()`, ejecuta todo ese flujo por ti.
+
+El flujo tiene tres bloques:
+
+1. **Preprocesamiento** — construir la *población* (marco muestral) a partir de
+   los insumos crudos del INE.
+2. **Diseño manual** — definir niveles, plan, factores de corrección, extraer la
+   muestra.
+3. **Forma declarativa** — la misma receta en una llamada.
+
+```{r setup}
+library(muestreaR)
+library(dplyr)
+```
+
+# Bloque 1 — Preprocesamiento (de insumos del INE a población)
+
+Estas funciones leen los archivos crudos del INE y los convierten en el marco
+muestral. Requieren shapefiles y lista nominal reales, así que aquí se muestran
+con `eval = FALSE`; en la siguiente sección trabajamos sobre un marco sintético
+para que la viñeta sea reproducible.
+
+### `leer_cartografia_ine()` — cargar los shapefiles
+
+Lee la cartografía del INE con `sf` (CRS 4326). Siempre carga manzanas (`mza`),
+localidades (`loc`), municipios (`mun`) y secciones (`sec`). El distrito es
+**opcional** y excluyente: se estratifica por distrito **local** *o* **federal**,
+no ambos. Nunca carga `MANCHA_URBANA` (no se necesita).
+
+```{r leer-cartografia, eval = FALSE}
+cart <- leer_cartografia_ine(
+  carpeta  = "datos/cartografia_ine",
+  distrito = "ninguno",     # "local" o "federal" si se estratifica por distrito
+  encoding = "UTF8"         # con UTF8 los shapefiles traen la "ñ" correcta
+)
+# cart$mza, cart$loc, cart$mun, cart$sec
+```
+
+### `leer_lista_nominal_ine()` — leer la lista nominal
+
+Lee el `.xlsx` de lista nominal y conserva una entidad (por defecto 15, Estado de
+México).
+
+```{r leer-ln, eval = FALSE}
+ln <- leer_lista_nominal_ine(ruta = "datos/lista_nominal.xlsx", entidad = 15)
+```
+
+### `corregir_lista_nominal()` — reescalar la lista nominal
+
+Reescala los conteos por edad y sexo de cada sección para que cuadren con los
+totales por sexo de una base de referencia del INE (`base_ine`). Reproduce la
+lógica de producción. Si un sexo suma cero en una sección, conserva el original
+(evita la división por cero); por el redondeo, la suma por sexo puede variar ±1.
+
+```{r corregir-ln, eval = FALSE}
+ln_corr <- corregir_lista_nominal(ln, base_ine = base_localidad_ine)
+```
+
+### `construir_poblacion_ine()` — ensamblar la población
+
+Junta lista nominal corregida + información electoral + cartografía y devuelve un
+objeto `PoblacionINE`, cuyo `$marco_muestral` es **una fila por manzana** con todo
+lo que el muestreo consume.
+
+```{r construir-pob, eval = FALSE}
+poblacion <- construir_poblacion_ine(
+  ln          = ln_corr,
+  electoral   = datos_electorales,   # base electoral por sección
+  cartografia = cart,
+  nombre      = "Estado de México"
+)
+```
+
+> En resumen, el bloque 1 es: `leer_cartografia_ine()` + `leer_lista_nominal_ine()`
+> → `corregir_lista_nominal()` → `construir_poblacion_ine()` ⟶ **población**.
+
+# Bloque 2 — Diseñar la muestra a mano
+
+Para que todo corra de forma reproducible, fabricamos un **marco sintético** con
+las mismas columnas que produciría `construir_poblacion_ine()`: una fila por
+manzana, con `region` (estrato), `SECCION` (conglomerado), `lista_nominal`
+(tamaño) y el desglose por edad y sexo (`LN22_*`).
+
+```{r marco}
+set.seed(2025)
+marco <- tidyr::expand_grid(
+  region    = c("Region 1", "Region 2"),
+  seccion_n = 1:6,
+  manzana_n = 1:4
+) |>
+  mutate(
+    reg_id        = as.integer(factor(region)),
+    MUNICIPIO     = sprintf("MUN_%d_%d", reg_id, ceiling(seccion_n / 3)),
+    NOMBRE_MUN    = paste("Municipio", MUNICIPIO),
+    SECCION       = as.character(reg_id * 100 + seccion_n + 1000),
+    id            = as.character(row_number()),
+    lista_nominal = 80 + (row_number() * 7) %% 120,
+    LN22_18A24_F  = round(lista_nominal * 0.13), LN22_18A24_M  = round(lista_nominal * 0.12),
+    LN22_25A39_F  = round(lista_nominal * 0.16), LN22_25A39_M  = round(lista_nominal * 0.15),
+    LN22_40A59_F  = round(lista_nominal * 0.15), LN22_40A59_M  = round(lista_nominal * 0.14),
+    LN22_60YMAS_F = round(lista_nominal * 0.08), LN22_60YMAS_M = round(lista_nominal * 0.07)
+  ) |>
+  select(id, region, MUNICIPIO, NOMBRE_MUN, SECCION, lista_nominal, starts_with("LN22_"))
+
+# Objeto población mínimo (en producción lo crea construir_poblacion_ine())
+poblacion <- new.env()
+poblacion$nombre <- "Tutorial"
+poblacion$marco_muestral <- marco
+
+c(manzanas = nrow(marco), secciones = dplyr::n_distinct(marco$SECCION))
+```
+
+### `DiseñoINE$new()` — crear el objeto de diseño
+
+Crea el diseño y registra el **nivel 0** (la manzana, unidad mínima). Parámetros
+clave: `n` (tamaño total de la muestra), `n_0` (entrevistas por manzana),
+`variable_poblacional` (tamaño para el muestreo proporcional, PPS) y `semilla`
+(reproducibilidad).
+
+```{r diseno}
+diseno <- DiseñoINE$new(
+  poblacion            = poblacion,
+  n                    = 240,
+  n_0                  = 5,
+  variable_poblacional = "lista_nominal",
+  unidad_muestreo      = "Manzanas",
+  id_unidad_muestreo   = "id",
+  llave_muestreo       = "Man",
+  semilla              = 123
+)
+```
+
+### `agregar_nivel()` — definir estratos y conglomerados
+
+Cada llamada agrega una etapa de muestreo. Aquí `region` es el **estrato**
+(`strata`) y `SECCION` el **conglomerado** (`cluster`). El orden importa: define la
+jerarquía estrato → conglomerado → manzana.
+
+```{r niveles}
+diseno$agregar_nivel("region",  tipo = "strata",  descripcion = "Regiones",              llave = "region")
+diseno$agregar_nivel("SECCION", tipo = "cluster", descripcion = "Secciones electorales", llave = "SECCION")
+diseno$niveles
+```
+
+### `plan_muestra()` — repartir la muestra entre niveles
+
+Calcula cuántas unidades se sortean en cada nivel. En el **nivel 1** (estrato) se
+decide cuántas secciones por estrato; con `criterio = "peso"` se reparten
+proporcional al tamaño. El **nivel 2** (último) deriva las manzanas por sección a
+partir de `n` y `n_0`.
+
+```{r plan}
+diseno$plan_muestra(nivel = 1, criterio = "peso", unidades_nivel = 8)
+diseno$plan_muestra(nivel = 2)   # último nivel: deriva las manzanas
+```
+
+> **Asignación desproporcionada (sobremuestreo).** Si en vez de repartir
+> proporcionalmente quieres fijar un objetivo de entrevistas por estrato, se usa
+> `criterio = "manual"` con el número de secciones, y se sobrescribe `n_1` con las
+> entrevistas objetivo. Eso es justo lo que automatiza `disenar_muestra_ine()`
+> (Bloque 3); a mano se vería así:
+>
+> ```r
+> diseno$plan_muestra(nivel = 1, criterio = "manual", manual = c(5, 4))
+> diseno$n_i$strata_1$n_1 <- c(50, 40)   # entrevistas objetivo por estrato
+> ```
+
+### `fpc()` — factores de corrección poblacional
+
+Calcula el *finite population correction* de cada nivel, necesario para que los
+pesos expandan correctamente. Se calcula para el último nivel (2) y para el nivel
+0 (manzana).
+
+```{r fpc}
+diseno$fpc(nivel = 2)
+diseno$fpc(nivel = 0)
+```
+
+### `extraer_muestra()` — sortear la muestra (¡en dos pasos!)
+
+El muestreo es polietápico, así que se sortea en **dos etapas**: primero las
+**secciones** (nivel 1) y *después*, dentro de las secciones seleccionadas, las
+**manzanas** (nivel 2). Hay que llamar a ambas. Con la semilla del diseño, el
+sorteo es reproducible.
+
+```{r extraer}
+diseno$extraer_muestra(nivel = 1)   # crea  diseno$muestra$SECCION
+diseno$extraer_muestra(nivel = 2)   # crea  diseno$muestra$MZA
+
+names(diseno$muestra)
+```
+
+`muestra$SECCION` son las secciones sorteadas; `muestra$MZA` son las manzanas
+sorteadas dentro de ellas (con `n_0` entrevistas cada una):
+
+```{r muestra}
+diseno$muestra$MZA |>
+  tidyr::unnest(data) |>
+  distinct(region, NOMBRE_MUN, SECCION) |>
+  arrange(region, SECCION)
+```
+
+### `calcular_cuotas()` — *(opcional, legado)*
+
+Reparte las entrevistas de cada conglomerado en celdas de edad y sexo. Morant
+**ya no usa cuotas** (la no respuesta se maneja por sobremuestreo, no por cuotas
+ni sustituciones, que sesgan), por eso es opcional.
+
+```{r cuotas}
+diseno$calcular_cuotas(ajustar = TRUE)
+sum(diseno$cuotas$n)   # coincide con el objetivo del diseño
+```
+
+### `exportar()` — insumos de campo
+
+Guarda el diseño y la cartografía. `mapas = FALSE` **omite** la creación de mapas
+de Google Maps (para no gastar en la API):
+
+```{r exportar, eval = FALSE}
+shp <- CartografiaINE$new(mun_shp = cart$mun, loc_shp = cart$loc,
+                          secc_shp = cart$sec, mza_shp = cart$mza)
+diseno$exportar(shp, carpeta = "Insumos", mapas = FALSE)
+```
+
+# Bloque 3 — La función global: `disenar_muestra_ine()`
+
+Todo el Bloque 2 —niveles, plan, override de objetivos, fpc, las dos extracciones
+y (opcional) cuotas— en **una sola llamada**, en el orden correcto. Recibe los
+objetivos por estrato como una **tabla** y los parámetros del modelo operativo.
+
+Antes de verla, dos funciones de apoyo que usa por dentro.
+
+### `calcular_asignacion()` — del modelo operativo a las unidades
+
+Traduce las *entrevistas objetivo* por estrato a **secciones**, **manzanas por
+sección** y **entrevistas a levantar**, aplicando el modelo operativo (5
+entrevistas/manzana, 2 manzanas/sección ⟶ 10 efectivas/sección) y el **ajuste por
+rechazo** (`factor = 1/(1 − tasa_rechazo)`).
+
+```{r asignacion}
+estratos <- data.frame(
+  estrato     = c("Region 1", "Region 2"),
+  entrevistas = c(50, 40)            # entrevistas efectivas objetivo
+)
+
+# Sin rechazo
+calcular_asignacion(estratos)
+
+# Con 50% de rechazo, inflando manzanas por sección (no dispersa la muestra)
+calcular_asignacion(estratos, tasa_rechazo = 0.5, modo_rechazo = "manzanas")
+```
+
+Con `modo_rechazo = "manzanas"` se duplican las manzanas/sección y las secciones
+quedan fijas; con `"secciones"` se duplican las secciones (útil en estratos
+chicos). La tasa puede ser global o por estrato (columna `tasa_rechazo`).
+
+### `validar_estratos()` — revisar la especificación antes de muestrear
+
+Acumula **todos** los problemas de la especificación (estratos inexistentes,
+cobertura parcial del marco, objetivos tan chicos que dan 0 secciones,
+`manzanas_por_seccion < 1`) y los devuelve como texto. Vacío = todo bien.
+
+```{r validar}
+validar_estratos(poblacion, estratos)                       # ok -> character(0)
+validar_estratos(poblacion, data.frame(estrato = "Region 9",
+                                       entrevistas = 50))    # estrato inexistente + cobertura
+```
+
+### `disenar_muestra_ine()` — todo el flujo en una llamada
+
+```{r declarativa}
+diseno2 <- disenar_muestra_ine(
+  poblacion            = poblacion,
+  estratos             = estratos,
+  variable_estrato     = "region",
+  variable_cluster     = "SECCION",
+  variable_poblacional = "lista_nominal",
+  n_0                  = 5,
+  manzanas_por_seccion = 2,
+  tasa_rechazo         = 0,     # p. ej. 0.5 para 50% de rechazo sin sustitución
+  semilla              = 123,
+  calcular_cuotas      = FALSE  # por defecto: ya no se usan cuotas
+)
+```
+
+Internamente hace exactamente lo del Bloque 2: valida → `calcular_asignacion()` →
+`DiseñoINE$new()` → `agregar_nivel()` ×2 → `plan_muestra()` (manual, con override
+de objetivos) → `fpc()` → `extraer_muestra()` ×2 → cuotas (si se piden).
+
+### `resumen_diseno()` — objetivo vs realizado
+
+Devuelve, por estrato, lo planeado contra lo que realmente se sorteó.
+
+```{r resumen}
+resumen_diseno(diseno2)
+```
+
+# Recapitulación
+
+| Paso | Función | Qué hace |
+|------|---------|----------|
+| Preproc. | `leer_cartografia_ine()` | carga shapefiles del INE (sf) |
+| Preproc. | `leer_lista_nominal_ine()` | lee la lista nominal (.xlsx) |
+| Preproc. | `corregir_lista_nominal()` | reescala LN por sexo a la base |
+| Preproc. | `construir_poblacion_ine()` | ensambla la **población** |
+| Diseño | `DiseñoINE$new()` | crea el diseño (nivel 0 = manzana) |
+| Diseño | `agregar_nivel()` | define estrato y conglomerado |
+| Diseño | `plan_muestra()` | reparte la muestra entre niveles |
+| Diseño | `fpc()` | factores de corrección poblacional |
+| Diseño | `extraer_muestra()` | sortea secciones (1) y manzanas (2) |
+| Diseño | `calcular_cuotas()` | *(opcional)* cuotas edad/sexo |
+| Diseño | `exportar()` | insumos de campo |
+| Global | `calcular_asignacion()` | modelo operativo → unidades |
+| Global | `validar_estratos()` | revisa la especificación |
+| Global | `disenar_muestra_ine()` | **todo el flujo en una llamada** |
+| Global | `resumen_diseno()` | objetivo vs realizado |

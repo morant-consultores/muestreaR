@@ -1,14 +1,16 @@
-#' Title
+#' Mapa de la población por nivel
 #'
-#' @param bd
-#' @param shp
-#' @param nivel
-#' @param variable
+#' Dibuja un mapa interactivo (`leaflet`) coloreando las unidades del nivel
+#' indicado según una variable poblacional.
 #'
-#' @return
+#' @param bd Marco muestral o `tibble` con la geometría a graficar.
+#' @param shp Lista de cartografías del diseño.
+#' @param nivel Nivel geográfico a graficar (p. ej. `"MUNICIPIO"`, `"SECCION"`).
+#' @param variable Variable poblacional usada para colorear el mapa.
+#'
+#' @return Un objeto `leaflet`.
 #' @export
 #' @import leaflet
-#' @examples
 graficar_mapa_poblacion <- function(bd, shp, nivel, variable){
   aux <- shp %>% purrr::pluck(nivel) %>%
     inner_join(
@@ -30,17 +32,18 @@ graficar_mapa_poblacion <- function(bd, shp, nivel, variable){
 
 }
 
-#' Title
+#' Mapa de la muestra por nivel (marco censal INEGI)
 #'
-#' @param lflt
-#' @param muestra
-#' @param shp
-#' @param nivel
+#' Dibuja un mapa interactivo (`leaflet`) resaltando las unidades seleccionadas
+#' en la muestra para el nivel indicado.
 #'
-#' @return
+#' @param lflt Objeto `leaflet` base sobre el que dibujar (opcional).
+#' @param muestra Muestra extraída del diseño (lista por nivel o `data.frame`).
+#' @param shp Lista de cartografías del diseño.
+#' @param nivel Nivel geográfico a graficar.
+#'
+#' @return Un objeto `leaflet`.
 #' @export
-#'
-#' @examples
 graficar_mapa_muestra <- function(lflt = NULL, muestra, shp, nivel){
   pal <- if(nivel == "MUN"){
     colorFactor(topo.colors(n_distinct(muestra$strata_1)), domain = unique(muestra$strata_1))
@@ -90,17 +93,18 @@ graficar_mapa_muestra <- function(lflt = NULL, muestra, shp, nivel){
   return(mapa)
 }
 
-#' Title
+#' Mapa de la muestra por nivel (marco electoral INE)
 #'
-#' @param lflt
-#' @param muestra
-#' @param shp
-#' @param nivel
+#' Versión para el marco del INE: dibuja un mapa interactivo (`leaflet`)
+#' resaltando las unidades seleccionadas en la muestra para el nivel indicado.
 #'
-#' @return
+#' @param lflt Objeto `leaflet` base sobre el que dibujar (opcional).
+#' @param muestra Muestra extraída del diseño (lista por nivel o `data.frame`).
+#' @param shp Lista de cartografías electorales del diseño.
+#' @param nivel Nivel geográfico a graficar.
+#'
+#' @return Un objeto `leaflet`.
 #' @export
-#'
-#' @examples
 graficar_mapa_muestra_ine <- function(lflt = NULL, muestra, shp, nivel){
   pal <- if(nivel == "MUNICIPIO"){
     colorFactor(topo.colors(n_distinct(muestra$strata_1)), domain = unique(muestra$strata_1))
@@ -151,16 +155,18 @@ graficar_mapa_muestra_ine <- function(lflt = NULL, muestra, shp, nivel){
   return(mapa)
 }
 
-#' Title
+#' Exportar mapas de campo con Google Maps (marco censal INEGI)
 #'
-#' @param dise
-#' @param shp
-#' @param zoom
+#' Genera y guarda en disco un mapa por unidad mínima de la muestra usando
+#' imágenes de Google Maps, para el trabajo de campo.
 #'
-#' @return
+#' @param diseño Objeto de la clase [Diseño] con la muestra extraída.
+#' @param shp Lista de cartografías del diseño.
+#' @param zoom Nivel de zoom de Google Maps.
+#' @param dir Carpeta de destino de los mapas (por defecto `"Mapas"`).
+#'
+#' @return Invisible. Se ejecuta por su efecto secundario (escribe los mapas).
 #' @export
-#'
-#' @examples
 google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
 
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
@@ -212,16 +218,21 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
 
 }
 
-#' Title
+#' Exportar mapas de campo con Google Maps (marco electoral INE)
 #'
-#' @param dise
-#' @param shp
-#' @param zoom
+#' Versión para el marco del INE: genera y guarda en disco un mapa por unidad
+#' mínima de la muestra usando imágenes de Google Maps.
 #'
-#' @return
+#' @param diseño Objeto de la clase [DiseñoINE] con la muestra extraída.
+#' @param shp Lista de cartografías electorales del diseño.
+#' @param zoom Nivel de zoom de Google Maps.
+#' @param dir Carpeta de destino de los mapas (por defecto `"Mapas"`).
+#' @param exportar `logical`. Si es `TRUE`, escribe los mapas en disco.
+#' @param cluster Identificador opcional de un conglomerado para limitar la
+#'   generación de mapas a ese conglomerado.
+#'
+#' @return Invisible. Se ejecuta por su efecto secundario (escribe los mapas).
 #' @export
-#'
-#' @examples
 google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, cluster = NULL){
 
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)

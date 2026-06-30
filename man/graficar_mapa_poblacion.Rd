@@ -2,13 +2,23 @@
 % Please edit documentation in R/mapas.R
 \name{graficar_mapa_poblacion}
 \alias{graficar_mapa_poblacion}
-\title{Title}
+\title{Mapa de la población por nivel}
 \usage{
 graficar_mapa_poblacion(bd, shp, nivel, variable)
 }
 \arguments{
-\item{variable}{}
+\item{bd}{Marco muestral o \code{tibble} con la geometría a graficar.}
+
+\item{shp}{Lista de cartografías del diseño.}
+
+\item{nivel}{Nivel geográfico a graficar (p. ej. \code{"MUNICIPIO"}, \code{"SECCION"}).}
+
+\item{variable}{Variable poblacional usada para colorear el mapa.}
+}
+\value{
+Un objeto \code{leaflet}.
 }
 \description{
-Title
+Dibuja un mapa interactivo (\code{leaflet}) coloreando las unidades del nivel
+indicado según una variable poblacional.
 }

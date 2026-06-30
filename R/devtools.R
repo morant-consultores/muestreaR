@@ -6,14 +6,19 @@ agrupar_nivel <- function(bd, nivel){
   return(bd)
 }
 
-#' Title
+#' Repartir un total entero por el método del mayor residuo
 #'
-#' @param n
-#' @param x
+#' Redondea un vector de asignaciones reales a enteros que suman exactamente `n`,
+#' asignando las unidades sobrantes a los mayores residuos fraccionarios (método
+#' de Hamilton / mayor residuo).
 #'
-#' @return
+#' @param n Entero con el total a repartir.
+#' @param x Vector numérico de asignaciones reales (suma aproximadamente `n`).
+#'
+#' @return Vector de enteros, de la misma longitud que `x`, que suma `n`.
 #' @export
 #' @examples
+#' repartir_cociente(10, c(2.4, 3.3, 4.3))
 repartir_cociente <- function(n, x){
   if(sum(x)+length(x)-1<=n) stop("No es válido el vector propuesto")
   else{

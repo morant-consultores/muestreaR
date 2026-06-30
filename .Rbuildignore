@@ -1,2 +1,8 @@
 ^muestreaR\.Rproj$
 ^\.Rproj\.user$
+^\.github$
+^docs$
+^cobertura\.xml$
+^codecov\.yml$
+^graphify-out$
+^LICENSE\.md$

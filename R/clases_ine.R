@@ -1,4 +1,16 @@
 # Diseño ------------------------------------------------------------------
+#' Diseño muestral polietápico (marco electoral INE)
+#'
+#' Clase R6 que representa un diseño de muestra polietápico sobre el marco
+#' electoral del INE (lista nominal y cartografía electoral). Acumula los
+#' niveles (estratos y conglomerados), calcula el plan de muestra y los factores
+#' de corrección poblacional, extrae la muestra, calcula las cuotas de edad y
+#' sexo, y gestiona sustituciones y sobremuestra.
+#'
+#' @param semilla Valor numérico opcional. Si se proporciona, el diseño es
+#'   reproducible: cada etapa estocástica fija una sub-semilla derivada de
+#'   `semilla`. Si es `NULL` (por defecto), el comportamiento es el histórico.
+#'
 #' @export
 DiseñoINE <- R6::R6Class(
   "Diseño",
@@ -23,6 +35,11 @@ DiseñoINE <- R6::R6Class(
     n_sustitucion = 0,
     dir.exportar = NULL,
     sobre_muestra = NULL,
+    semilla = NULL,
+    #' @param semilla Valor numérico opcional. Si se proporciona, el diseño es
+    #'   reproducible: cada etapa estocástica (extraer_muestra, calcular_cuotas,
+    #'   sustituir_muestra) fija una sub-semilla derivada de `semilla`. Si es NULL
+    #'   (por defecto) el comportamiento es idéntico al histórico (sin set.seed).
     initialize = function(
       poblacion,
       n,
@@ -30,13 +47,15 @@ DiseñoINE <- R6::R6Class(
       variable_poblacional,
       unidad_muestreo,
       id_unidad_muestreo,
-      llave_muestreo
+      llave_muestreo,
+      semilla = NULL
     ) {
       self$poblacion = poblacion
       self$n = n
       private$unidad_muestreo = unidad_muestreo
       self$n_0 = n_0
       self$variable_poblacional = variable_poblacional
+      self$semilla = semilla
       self$niveles = self$agregar_nivel(
         variable = id_unidad_muestreo,
         tipo = "cluster",
@@ -72,7 +91,7 @@ DiseñoINE <- R6::R6Class(
             .
           }
         } %>%
-        group_by(!!sym(variable), add = T) %>%
+        group_by(!!sym(variable), .add = TRUE) %>%
         mutate("{tipo}_{self$ultimo_nivel}" := cur_group_id()) %>%
         ungroup()
       # Modificar sel niveles
@@ -256,6 +275,9 @@ DiseñoINE <- R6::R6Class(
       self$poblacion$marco_muestral <- calcular_fpc(self, nivel = nivel)
     },
     extraer_muestra = function(nivel) {
+      # Reproducibilidad: sub-semilla por nivel para que las etapas no compartan
+      # el estado del generador (ver campo `semilla`).
+      if (!is.null(self$semilla)) set.seed(self$semilla + nivel)
       m <- muestrear(self, nivel = nivel)
       aux <- m %>% purrr::pluck(length(m))
       if (nivel == self$ultimo_nivel) {
@@ -288,6 +310,7 @@ DiseñoINE <- R6::R6Class(
       self$muestra <- m
     },
     calcular_cuotas = function(ajustar = T) {
+      if (!is.null(self$semilla)) set.seed(self$semilla + 1000)
       self$cuotas <- cuotas_ine(self, ajustar = ajustar)
     },
     revisar_muestra = function(prop_vars, var_extra) {
@@ -303,21 +326,27 @@ DiseñoINE <- R6::R6Class(
 
       return(list(a, b, c))
     },
-    exportar = function(shp, zoom = 16, carpeta = "Insumos") {
+    #' @param mapas `logical`. Si es `TRUE` (por defecto) genera los mapas de
+    #'   campo con Google Maps (consume el API de Google). Ponlo en `FALSE` para
+    #'   exportar solo el diseño, la cartografía y las cuotas, sin generar mapas.
+    exportar = function(shp, zoom = 16, carpeta = "Insumos", mapas = TRUE) {
       self$dir.exportar <- carpeta
       if (!file.exists(carpeta)) {
         dir.create(carpeta)
       }
-      if (!file.exists(glue::glue("{carpeta}/Mapas"))) {
-        dir.create(glue::glue("{carpeta}/Mapas"))
+      if (mapas) {
+        if (!file.exists(glue::glue("{carpeta}/Mapas"))) {
+          dir.create(glue::glue("{carpeta}/Mapas"))
+        }
+        shp$crear_mapas(
+          diseño = self,
+          zoom = zoom,
+          dir = glue::glue("{carpeta}/Mapas")
+        )
       }
-
-      shp$crear_mapas(
-        diseño = self,
-        zoom = zoom,
-        dir = glue::glue("{carpeta}/Mapas")
-      )
-      self$cuotas %>% readr::write_excel_csv(glue::glue("{carpeta}/cuotas.csv"))
+      if (!is.null(self$cuotas)) {
+        self$cuotas %>% readr::write_excel_csv(glue::glue("{carpeta}/cuotas.csv"))
+      }
       readr::write_rds(self, glue::glue("{carpeta}/diseño.rda"))
       shp %>% readr::write_rds(glue::glue("{carpeta}/shp.rda"))
     },
@@ -328,6 +357,7 @@ DiseñoINE <- R6::R6Class(
       ajustar_cuotas = T,
       crear_mapa = T
     ) {
+      if (!is.null(self$semilla)) set.seed(self$semilla + 2000 + self$n_sustitucion)
       self <- sustituir_muestra_ine(
         self,
         shp,
@@ -369,6 +399,12 @@ DiseñoINE <- R6::R6Class(
 
 # Población ---------------------------------------------------------------
 
+#' Población y marco muestral (marco electoral INE)
+#'
+#' Clase R6 que construye el marco muestral a partir de la lista nominal del INE
+#' y la cartografía electoral, almacena la información electoral por sección y
+#' permite clasificar las unidades en regiones.
+#'
 #' @export
 PoblacionINE <- R6::R6Class(
   "Poblacion",
@@ -409,8 +445,12 @@ PoblacionINE <- R6::R6Class(
   )
 )
 
+#' Cartografía del diseño (marco electoral INE)
+#'
+#' Clase R6 que almacena las cartografías electorales del diseño y provee
+#' métodos para graficar mapas de la muestra y exportar los mapas de campo.
+#'
 #' @export
-
 CartografiaINE <- R6::R6Class(
   "Cartografia",
   public = list(
