@@ -99,8 +99,22 @@ diseno <- disenar_muestra_ine(
 resumen_diseno(diseno)                  # objetivo vs realizado por estrato
 ```
 
-Para un recorrido completo y ejecutable sobre datos sintéticos, consulta la
-viñeta *"Diseñar una muestra paso a paso"* o el script
+## Documentación (viñetas)
+
+Dos recorridos ejecutables sobre datos sintéticos:
+
+- **[Diseñar una muestra paso a paso](vignettes/disenar-una-muestra.Rmd)** —
+  tutorial rápido del flujo de diseño, de principio a fin.
+- **[El flujo completo y sus funciones](vignettes/flujo-y-funciones.Rmd)** —
+  referencia detallada **función por función**: preprocesamiento (insumos del
+  INE → población), diseño manual (cada método explicado) y la función global
+  `disenar_muestra_ine()` que ejecuta todo en una llamada.
+
+```r
+browseVignettes("muestreaR")
+```
+
+También está el script
 [`inst/ejemplos/disenar_muestra_demo.R`](inst/ejemplos/disenar_muestra_demo.R).
 
 ## Licencia
