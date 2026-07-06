@@ -64,7 +64,7 @@ revision <- function(self, prop_vars = c("POCUPADA"), var_extra = NULL){
                               ids = survey::make.formula(clusters),
                               strata = survey::make.formula(strata),
                               fpc = survey::make.formula(fpc), pps = "brewer")
-  options(survey.lonely.psu="remove")
+  options(survey.lonely.psu = "adjust")
 
   tb <- c(self$variable_poblacional,var_extra) %>% purrr::map_df(~{
     puntual <- survey::svytotal(survey::make.formula(.x), design = diseño, na.rm = T)
@@ -159,7 +159,7 @@ revision_ine <- function(self, prop_vars = NULL, var_extra = NULL){
                               ids = survey::make.formula(clusters),
                               strata = survey::make.formula(strata),
                               fpc = survey::make.formula(fpc), pps = "brewer")
-  options(survey.lonely.psu="remove")
+  options(survey.lonely.psu = "adjust")
 
   tb <- c(self$variable_poblacional,var_extra) %>% purrr::map_df(~{
     puntual <- survey::svytotal(survey::make.formula(.x), design = diseño, na.rm = T, deff = T)
