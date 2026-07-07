@@ -89,3 +89,15 @@ test_that("acepta otra columna de tamaño", {
   sel <- seleccionar_pps(bd, n = 2, variable_tamano = "LN")
   expect_true(1 %in% sel$id)
 })
+
+test_that("n no entero es error explícito (nunca n±1 silencioso)", {
+  bd <- tibble::tibble(id = 1:10, total = 1:10 * 5)
+  expect_error(seleccionar_pps(bd, n = 2.5), regexp = "entero")
+  expect_error(seleccionar_pps(bd, n = NA_real_), regexp = "entero")
+  expect_error(seleccionar_pps(bd, n = c(2, 3)), regexp = "entero")
+})
+
+test_that("todo tamaño NA es error con mensaje que menciona NA", {
+  bd <- tibble::tibble(id = 1:3, total = c(NA_real_, NA_real_, NA_real_))
+  expect_error(seleccionar_pps(bd, n = 2), regexp = "NA")
+})

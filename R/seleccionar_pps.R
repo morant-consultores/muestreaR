@@ -24,6 +24,13 @@
 #' @return Las filas de `bd` seleccionadas (todas si `n >= nrow(bd)`).
 #' @export
 seleccionar_pps <- function(bd, n, variable_tamano = "total") {
+  # con n no entero, sum(pik) no es entero y el sistemático devolvería
+  # floor(n) o ceiling(n) al azar: la garantía "exactamente n" se
+  # rompería en silencio (alcanzable vía criterio = "manual" o tablas de
+  # sobremuestra sin redondear)
+  if (length(n) != 1 || is.na(n) || n != round(n)) {
+    stop("`n` debe ser un entero (recibido: ", paste(n, collapse = ", "), ").")
+  }
   if (n <= 0) {
     return(bd[0, , drop = FALSE])
   }
@@ -35,7 +42,10 @@ seleccionar_pps <- function(bd, n, variable_tamano = "total") {
     stop("No existe la columna de tamaño `", variable_tamano, "` en el marco.")
   }
   if (all(tamano <= 0, na.rm = TRUE)) {
-    stop("Todas las unidades tienen tamaño 0: no hay nada que sortear con PPS.")
+    stop(
+      "Todas las unidades tienen tamaño 0 o NA en `", variable_tamano,
+      "`: no hay nada que sortear con PPS."
+    )
   }
   tamano[is.na(tamano)] <- 0
 
