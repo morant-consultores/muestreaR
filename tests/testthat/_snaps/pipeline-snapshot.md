@@ -9,9 +9,9 @@
       3 Region 1   MUN_1_2    1104        4
       4 Region 1   MUN_1_2    1105        4
       5 Region 2   MUN_2_1    1201        4
-      6 Region 2   MUN_2_1    1203        4
-      7 Region 2   MUN_2_2    1205        4
-      8 Region 2   MUN_2_2    1206        4
+      6 Region 2   MUN_2_1    1202        4
+      7 Region 2   MUN_2_2    1204        4
+      8 Region 2   MUN_2_2    1205        4
 
 # las cuotas del pipeline son estables (semilla = 123)
 
@@ -59,28 +59,28 @@
       38 Municipio MUN_2_1         7  40A59    M 4
       39 Municipio MUN_2_1         7 60YMAS    F 2
       40 Municipio MUN_2_1         7 60YMAS    M 3
-      41 Municipio MUN_2_1         9  18A24    F 5
-      42 Municipio MUN_2_1         9  18A24    M 4
-      43 Municipio MUN_2_1         9  25A39    F 6
-      44 Municipio MUN_2_1         9  25A39    M 5
-      45 Municipio MUN_2_1         9  40A59    F 5
-      46 Municipio MUN_2_1         9  40A59    M 5
-      47 Municipio MUN_2_1         9 60YMAS    F 3
-      48 Municipio MUN_2_1         9 60YMAS    M 2
-      49 Municipio MUN_2_2        11  18A24    F 3
-      50 Municipio MUN_2_2        11  18A24    M 3
-      51 Municipio MUN_2_2        11  25A39    F 4
-      52 Municipio MUN_2_2        11  25A39    M 4
-      53 Municipio MUN_2_2        11  40A59    F 4
-      54 Municipio MUN_2_2        11  40A59    M 4
-      55 Municipio MUN_2_2        11 60YMAS    F 2
-      56 Municipio MUN_2_2        11 60YMAS    M 2
-      57 Municipio MUN_2_2        12  18A24    F 3
-      58 Municipio MUN_2_2        12  18A24    M 3
-      59 Municipio MUN_2_2        12  25A39    F 4
-      60 Municipio MUN_2_2        12  25A39    M 4
-      61 Municipio MUN_2_2        12  40A59    F 4
-      62 Municipio MUN_2_2        12  40A59    M 4
-      63 Municipio MUN_2_2        12 60YMAS    F 2
-      64 Municipio MUN_2_2        12 60YMAS    M 2
+      41 Municipio MUN_2_1         8  18A24    F 5
+      42 Municipio MUN_2_1         8  18A24    M 4
+      43 Municipio MUN_2_1         8  25A39    F 6
+      44 Municipio MUN_2_1         8  25A39    M 5
+      45 Municipio MUN_2_1         8  40A59    F 5
+      46 Municipio MUN_2_1         8  40A59    M 5
+      47 Municipio MUN_2_1         8 60YMAS    F 3
+      48 Municipio MUN_2_1         8 60YMAS    M 2
+      49 Municipio MUN_2_2        10  18A24    F 3
+      50 Municipio MUN_2_2        10  18A24    M 3
+      51 Municipio MUN_2_2        10  25A39    F 4
+      52 Municipio MUN_2_2        10  25A39    M 4
+      53 Municipio MUN_2_2        10  40A59    F 4
+      54 Municipio MUN_2_2        10  40A59    M 4
+      55 Municipio MUN_2_2        10 60YMAS    F 2
+      56 Municipio MUN_2_2        10 60YMAS    M 2
+      57 Municipio MUN_2_2        11  18A24    F 3
+      58 Municipio MUN_2_2        11  18A24    M 3
+      59 Municipio MUN_2_2        11  25A39    F 4
+      60 Municipio MUN_2_2        11  25A39    M 4
+      61 Municipio MUN_2_2        11  40A59    F 4
+      62 Municipio MUN_2_2        11  40A59    M 4
+      63 Municipio MUN_2_2        11 60YMAS    F 2
+      64 Municipio MUN_2_2        11 60YMAS    M 2
 

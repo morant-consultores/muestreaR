@@ -32,7 +32,9 @@ nuevo <- diseño$poblacion$marco_muestral %>%
   group_by(total, .add = T) %>%
   tidyr::nest() %>%
   ungroup %>%
-  slice_sample(n = 1, weight_by = total)
+  # mismo mecanismo PPS que muestrear(); para n = 1 el sorteo sucesivo
+  # era equivalente en distribución, se unifica por consistencia
+  seleccionar_pps(n = 1)
 
 # nuevo$data %>% pluck(1,"NOM_MUN")
 ####podría haber un error aquí#######
@@ -109,7 +111,8 @@ sustituir_muestra_ine <- function(diseño, shp, id, zoom, dir, ajustar_cuotas, c
     group_by(total, .add = T) %>%
     tidyr::nest() %>%
     ungroup %>%
-    slice_sample(n = 1, weight_by = total)
+    # mismo mecanismo PPS que muestrear() (ver seleccionar_pps)
+    seleccionar_pps(n = 1)
 
   # nuevo$data %>% pluck(1,"NOM_MUN")
   ####podría haber un error aquí#######

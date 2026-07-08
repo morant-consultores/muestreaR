@@ -271,10 +271,13 @@ muestrear <- function(diseño, nivel){
         }
 
         if(no_necesita_sm){
-          sorteado <-  .x %>% slice_sample(weight_by = total,n = n_nivel)
+          # PPS con pi de inclusión exactamente iguales a las declaradas
+          # por calcular_fpc() (antes: slice_sample(weight_by=), muestreo
+          # sucesivo cuyas pi NO son n*p_i — ver seleccionar_pps)
+          sorteado <-  seleccionar_pps(.x, n = n_nivel)
         } else{
           n_nivel_original <- diseño$sobre_muestra %>% semi_join(.x) %>% pull(m_1_vieja)
-          sorteo_normal <- .x %>% slice_sample(weight_by = total,n = n_nivel_original)
+          sorteo_normal <- seleccionar_pps(.x, n = n_nivel_original)
 
           ya <- sorteo_normal %>% semi_join(
             diseño$poblacion$marco_muestral %>% semi_join(diseño$sobre_muestra)
@@ -288,8 +291,7 @@ muestrear <- function(diseño, nivel){
             anti_join(sorteo_normal)
 
           if(nrow(sorteo_sm) > n_nivel_sm) {
-           sorteo_sm <- sorteo_sm %>%
-             slice_sample(weight_by = total,n = n_nivel_sm)
+           sorteo_sm <- seleccionar_pps(sorteo_sm, n = n_nivel_sm)
           }
 
           sorteado <- bind_rows(sorteo_normal, sorteo_sm)
