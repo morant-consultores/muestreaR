@@ -37,6 +37,19 @@ validar_censo <- function(censo) {
   invisible(censo)
 }
 
+# una clave más ancha que su campo (LOC de 5, MUN de 4, ...) produciría
+# llaves que no empatan con los CVEGEO de los shapefiles: se detiene
+validar_ancho_llave <- function(llave, ancho, nombre) {
+  mal <- nchar(llave) != ancho
+  if (any(mal)) {
+    stop(sum(mal), " llave(s) de ", nombre, " no miden ", ancho,
+         " caracteres (p. ej. ", llave[which(mal)[1]],
+         "): revisa los anchos de ENTIDAD/MUN/LOC/AGEB/MZA en el insumo.",
+         call. = FALSE)
+  }
+  invisible(llave)
+}
+
 #' Construir el marco muestral por AGEB (censo INEGI)
 #'
 #' Deriva el marco de AGEBs urbanas del dataset "ageb_mza_urbana" del
@@ -79,6 +92,7 @@ construir_marco_ageb <- function(censo) {
     ) |>
     dplyr::relocate(ageb)
 
+  validar_ancho_llave(marco$ageb, 13, "AGEB")
   if (anyDuplicated(marco$ageb) > 0) {
     stop("Hay llaves de AGEB duplicadas en el censo (",
          sum(duplicated(marco$ageb)), "): revisa el insumo.", call. = FALSE)
@@ -132,6 +146,7 @@ construir_marco_manzanas <- function(censo) {
     dplyr::relocate(manzana, ageb) |>
     dplyr::select(-entidad)
 
+  validar_ancho_llave(marco$manzana, 16, "manzana")
   if (anyDuplicated(marco$manzana) > 0) {
     stop("Hay llaves de manzana duplicadas en el censo (",
          sum(duplicated(marco$manzana)), "): revisa el insumo.",

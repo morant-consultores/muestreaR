@@ -72,6 +72,13 @@ test_that("los marcos censales validan columnas y llaves duplicadas", {
     dplyr::bind_rows(censo_prueba(), censo_prueba()[5, ])), "duplicad")
 })
 
+test_that("los marcos censales detienen si una clave rebasa su ancho", {
+  censo_ancho <- censo_prueba()
+  censo_ancho$LOC[censo_ancho$AGEB == "0010"] <- "00001"   # LOC de 5: llave de 14
+  expect_error(construir_marco_ageb(censo_ancho), "13")
+  expect_error(construir_marco_manzanas(censo_ancho), "16")
+})
+
 test_that("construir_marco_ageb avisa por AGEBs sin población sorteable", {
   censo <- censo_prueba()
   censo$P_18YMAS[censo$AGEB == "0048" & censo$MZA == "0"] <- "*"
