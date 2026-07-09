@@ -32,6 +32,8 @@ manzanas × 5 viviendas, el modelo operativo).}
 \item{dominio}{Columna del dominio de interés (default \code{"region"}). \code{NULL}
 aplica la potencia directamente sobre los estratos.}
 
+\item{variable_estrato}{Columna del estrato.}
+
 \item{variable_tamano}{Medida de tamaño para el PPS (default \code{"pob18"}).}
 
 \item{llave_ageb}{Columna del marco que identifica el AGEB (default

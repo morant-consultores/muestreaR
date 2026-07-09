@@ -164,6 +164,7 @@ planear_muestra_upm <- function(marco, n_total, m_por_upm,
 #' @param llave_ageb Columna del marco que identifica el AGEB (default
 #'   `"ageb"`, la llave CVEGEO de 13 caracteres de
 #'   [construir_marco_ageb()]).
+#' @param variable_estrato Columna del estrato.
 #' @param variable_tamano Medida de tamaño para el PPS (default `"pob18"`).
 #' @param lista_negra Lista opcional `list(agebs =, municipios =)` que se
 #'   aplica con [aplicar_lista_negra()] antes del sorteo.
