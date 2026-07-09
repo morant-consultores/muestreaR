@@ -112,6 +112,24 @@ test_that("disenar_muestra_ageb ejecuta el pipeline de la clase de punta a punta
                     dplyr::pull(n) == 20))
 })
 
+test_that("disenar_muestra_ageb valida el bloque demográfico antes de cuotas", {
+  censo_sin_demo <- censo_clase_prueba() |>
+    dplyr::select(-dplyr::starts_with("P_18A24"), -dplyr::starts_with("P_60YMAS"),
+                  -P_18YMAS_F, -P_18YMAS_M)
+  pob <- PoblacionAGEB$new("Sin demograficos", censo_sin_demo)
+  pob$marco_muestral <- pob$marco_muestral |> dplyr::mutate(region = NOM_MUN)
+  estratos <- tibble::tibble(estrato = c("Nezahualcóyotl", "Toluca"),
+                             entrevistas = c(20, 20))
+  expect_error(
+    suppressWarnings(disenar_muestra_ageb(pob, estratos, semilla = 1)),
+    "demográfico"
+  )
+  # sin cuotas no hay problema: el bloque no se necesita
+  diseno <- suppressWarnings(disenar_muestra_ageb(pob, estratos, semilla = 1,
+                                                  calcular_cuotas = FALSE))
+  expect_null(diseno$cuotas)
+})
+
 # ---- exportar(): diseño.rda + shp.rda + cuotas.csv (el insumo del equipo) ----
 
 cartografia_ageb_prueba <- function(marco) {

@@ -49,28 +49,35 @@ funciones del paquete parsean lo numérico:
 # censo <- readr::read_csv("conjunto_de_datos_ageb_urbana_15_cpv2020.csv",
 #                          col_types = readr::cols(.default = "c"))
 # Aquí, un censo sintético con la misma forma (totales + manzanas):
+# el desglose por edad y sexo (P_18A24_*, P_18YMAS_*, P_60YMAS_*) alimenta
+# las cuotas de la clase y el rake "inegi" de encuestar
+demograficos <- function(bd, pob) {
+  bd |>
+    mutate(
+      POBTOT = as.character(round(pob * 1.4)),
+      P_18YMAS = as.character(pob),
+      P_18YMAS_F = as.character(round(pob * 0.52)),
+      P_18YMAS_M = as.character(pob - round(pob * 0.52)),
+      P_18A24_F = as.character(round(pob * 0.10)),
+      P_18A24_M = as.character(round(pob * 0.09)),
+      P_60YMAS_F = as.character(round(pob * 0.08)),
+      P_60YMAS_M = as.character(round(pob * 0.07)),
+      VIVPAR_HAB = as.character(round(pob / 3))
+    )
+}
+geo <- tidyr::expand_grid(
+  ENTIDAD = "15", NOM_ENT = "México",
+  tibble(MUN = c("058", "106"),
+         NOM_MUN = c("Nezahualcóyotl", "Toluca")),
+  LOC = "0001", AGEB = c("0010", "025A", "0033")
+)
+totales <- geo |> mutate(NOM_LOC = "Total AGEB urbana", MZA = "000")
+manzanas <- geo |>
+  tidyr::expand_grid(MZA = sprintf("%03d", 1:6)) |>
+  mutate(NOM_LOC = "Localidad ejemplo")
 censo <- bind_rows(
-  tidyr::expand_grid(
-    ENTIDAD = "15", NOM_ENT = "México",
-    tibble(MUN = c("058", "106"),
-           NOM_MUN = c("Nezahualcóyotl", "Toluca")),
-    LOC = "0001", AGEB = c("0010", "025A", "0033")
-  ) |>
-    mutate(NOM_LOC = "Total AGEB urbana", MZA = "000",
-           POBTOT = as.character(2000 + row_number() * 500),
-           P_18YMAS = as.character(1400 + row_number() * 350),
-           VIVPAR_HAB = as.character(600 + row_number() * 150)),
-  tidyr::expand_grid(
-    ENTIDAD = "15", NOM_ENT = "México",
-    tibble(MUN = c("058", "106"),
-           NOM_MUN = c("Nezahualcóyotl", "Toluca")),
-    LOC = "0001", AGEB = c("0010", "025A", "0033"),
-    MZA = sprintf("%03d", 1:6)
-  ) |>
-    mutate(NOM_LOC = "Localidad ejemplo",
-           POBTOT = as.character(80 + as.integer(MZA) * 30),
-           P_18YMAS = as.character(60 + as.integer(MZA) * 20),
-           VIVPAR_HAB = "35")
+  totales |> demograficos(pob = 1400 + seq_len(nrow(totales)) * 350),
+  manzanas |> demograficos(pob = 60 + as.integer(manzanas$MZA) * 20)
 )
 
 marco_agebs <- construir_marco_ageb(censo)

@@ -63,6 +63,21 @@ disenar_muestra_ageb <- function(poblacion, estratos,
   # AGEBs a sortear y `manzanas_por_seccion` las manzanas por AGEB
   modo_interno <- if (identical(modo_rechazo, "agebs")) "secciones" else "manzanas"
 
+  if (calcular_cuotas) {
+    # cuotas() truena críptico ("object 'P_18A24_F' not found") si el marco
+    # no trae el desglose censal; se valida aquí con un error accionable
+    demograficas <- c("P_18A24_F", "P_18A24_M", "P_18YMAS_F", "P_18YMAS_M",
+                      "P_60YMAS_F", "P_60YMAS_M")
+    faltan_demo <- setdiff(demograficas, names(poblacion$marco_muestral))
+    if (length(faltan_demo) > 0) {
+      stop("El marco no trae el bloque demográfico del censo para las ",
+           "cuotas (faltan: ", paste(faltan_demo, collapse = ", "), "). ",
+           "Construye la población con crear_mm_ageb() desde el dataset ",
+           "ageb_mza_urbana completo o usa calcular_cuotas = FALSE.",
+           call. = FALSE)
+    }
+  }
+
   if (validar) {
     problemas <- validar_estratos(poblacion, estratos, variable_estrato,
                                   variable_cluster, n_0, manzanas_por_ageb,
