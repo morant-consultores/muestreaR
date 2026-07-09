@@ -11,23 +11,34 @@ aplicar_lista_negra(
   variable_municipio = "municipio_cod",
   llave_seccion = "seccion",
   variable_estrato = "estrato",
-  min_secciones = 2
+  min_secciones = 2,
+  variable_tamano = "lista_nominal",
+  unidad = "seccion"
 )
 }
 \arguments{
-\item{marco}{Marco seccional.}
+\item{marco}{Marco de UPMs (seccional o censal).}
 
-\item{secciones}{Vector de llaves de sección a excluir (opcional).}
+\item{secciones}{Vector de llaves de UPM a excluir (opcional). El nombre
+del parámetro es histórico: acepta llaves de la unidad que sea
+(secciones, AGEBs, ...).}
 
 \item{municipios}{Vector de claves de municipio a excluir (opcional).}
 
 \item{variable_municipio, llave_seccion, variable_estrato}{Nombres de columna.}
 
-\item{min_secciones}{Umbral para avisar si un estrato queda corto.}
+\item{min_secciones}{Umbral para avisar si un estrato queda corto (en UPMs).}
+
+\item{variable_tamano}{Columna del tamaño con que se documenta y reporta
+el porcentaje excluido (default \code{"lista_nominal"}; en marcos censales,
+p. ej. \code{"pob18"}).}
+
+\item{unidad}{Nombre de la UPM para la columna llave del documento y los
+mensajes (default \code{"seccion"}).}
 }
 \value{
 El marco filtrado, con el atributo \code{"lista_negra"}: tibble de las
-secciones excluidas (\code{seccion}, \code{estrato}, \code{lista_nominal}, \code{motivo}).
+UPMs excluidas (\verb{<unidad>}, \code{estrato}, \verb{<variable_tamano>}, \code{motivo}).
 }
 \description{
 Excluye del marco las secciones o municipios estructuralmente inoperables

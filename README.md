@@ -99,9 +99,42 @@ diseno <- disenar_muestra_ine(
 resumen_diseno(diseno)                  # objetivo vs realizado por estrato
 ```
 
+## Plan muestral versionado por UPM (secciones o AGEBs)
+
+El flujo moderno de pesos por capas (contrato con
+`encuestar::construir_diseno_capas()`) sortea **UPMs con PPS por estrato** y
+entrega un plan versionable. La UPM puede ser la **sección electoral**
+(`planear_muestra_seccional()`) o el **AGEB urbano** del censo INEGI
+(`planear_muestra_ageb()`); ambos delegan en el motor genérico
+`planear_muestra_upm()`.
+
+```r
+# marco censal desde el dataset "ageb_mza_urbana" del Censo 2020
+censo <- readr::read_csv("conjunto_de_datos_ageb_urbana_15_cpv2020.csv",
+                         col_types = readr::cols(.default = "c"))
+marco  <- construir_marco_ageb(censo)      |> dplyr::mutate(estrato = ...)
+mzas   <- construir_marco_manzanas(censo)
+
+# Etapa I: AGEBs con PPT y plan versionado (guardarlo ANTES de campo)
+plan <- planear_muestra_ageb(marco, n_total = 1200, m_por_ageb = 10,
+                             tasa_rechazo = 0.5, semilla = 2026)
+
+# Etapa II: manzanas con PPT dentro de cada AGEB (listado de campo)
+listado <- seleccionar_manzanas(plan, mzas, manzanas_por_upm = 2,
+                                semilla = 2026)
+
+# puente al contrato seccional de encuestar y olas consecuentes
+plan_capas <- plan_para_capas(plan)
+plan_ola2  <- planear_siguiente_ola(marco, plan, registro_contactos,
+                                    variable_tamano = "pob18")
+```
+
+Del flujo seccional comparte `estratificar_electoral()`, `asignar_potencia()`,
+`aplicar_lista_negra()` y `seleccionar_pps()`.
+
 ## Documentación (viñetas)
 
-Dos recorridos ejecutables sobre datos sintéticos:
+Tres recorridos ejecutables sobre datos sintéticos:
 
 - **[Diseñar una muestra paso a paso](vignettes/disenar-una-muestra.Rmd)** —
   tutorial rápido del flujo de diseño, de principio a fin.
@@ -109,6 +142,9 @@ Dos recorridos ejecutables sobre datos sintéticos:
   referencia detallada **función por función**: preprocesamiento (insumos del
   INE → población), diseño manual (cada método explicado) y la función global
   `disenar_muestra_ine()` que ejecuta todo en una llamada.
+- **[Muestra por AGEB](vignettes/muestra-por-ageb.Rmd)** — el plan versionado
+  sobre el marco censal: marco por AGEB/manzana, Etapas I y II, puente a las
+  capas de pesos y olas consecuentes.
 
 ```r
 browseVignettes("muestreaR")
