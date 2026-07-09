@@ -214,6 +214,20 @@ diseno$exportar(cartografia, zoom = 16, carpeta = "Insumos",
                 mapas = ggmap::has_google_key())
 ```
 
+> **Solo se muestrea lo mapeable.** El censo y los shapefiles no coinciden
+> 1 a 1 (el INEGI fusiona/divide AGEBs entre años). Un AGEB o manzana sin
+> polígono no se puede localizar en campo, así que se **excluye del marco
+> antes del sorteo** con `reconciliar_marco_cartografia()` (la exclusión se
+> declara como cobertura, no se sustituye): así todo lo sorteado tiene con
+> qué levantarse.
+>
+> ```r
+> pob$marco_muestral <- reconciliar_marco_cartografia(pob$marco_muestral,
+>                                                     cartografia)
+> attr(pob$marco_muestral, "cobertura")   # lo excluido, para la nota
+> # ...y luego disenar_muestra_ageb(pob, ...) sobre el marco reconciliado
+> ```
+
 El puente al plan versionado sale del MISMO sorteo de la clase (las
 `pi_ageb` son el `fpc` del nivel AGEB):
 

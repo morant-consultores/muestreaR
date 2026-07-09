@@ -155,6 +155,81 @@ construir_marco_manzanas <- function(censo) {
   marco
 }
 
+#' Reconciliar el marco censal con la cartografía (excluir lo no mapeable)
+#'
+#' Deja en el marco SOLO las manzanas con información **completa**: censo
+#' (ya lo trae [crear_mm_ageb()]) más **polígono de manzana** y **polígono
+#' de su AGEB** en la cartografía. Una manzana o un AGEB sin polígono no se
+#' puede localizar ni mapear en campo, así que **no debe ser muestreable**:
+#' se excluye del marco ANTES del sorteo (mismo principio que
+#' [aplicar_lista_negra()] — la exclusión se declara, no se resuelve en
+#' silencio). Es la garantía de que todo lo que se sortea tiene con qué
+#' levantarse.
+#'
+#' El desajuste típico: el censo (2020) y el marco geoestadístico de
+#' shapefiles (p. ej. 2025) no coinciden 1 a 1 porque el INEGI fusiona y
+#' divide AGEBs entre años; los AGEBs del censo sin polígono vigente quedan
+#' fuera y se reportan como cobertura.
+#'
+#' @param marco Marco por manzana de [crear_mm_ageb()] (con `AULR` y `MZA`).
+#' @param cartografia Objeto [Cartografia] (o su lista `$shp`) con las capas
+#'   `AGEB` (polígonos de AGEB urbana, llave `AULR`) y `MZA` (polígonos de
+#'   manzana, llave `MZA`).
+#' @param llave_ageb,llave_manzana Columnas llave de AGEB y manzana.
+#' @param variable_tamano Medida de tamaño para reportar el % de cobertura
+#'   excluido (default `"P_18YMAS"`).
+#'
+#' @return El marco filtrado, con el atributo `"cobertura"`: tibble de las
+#'   manzanas excluidas (`MZA`, `AGEB`, `motivo` — `"AGEB sin polígono"` o
+#'   `"manzana sin polígono"`).
+#' @seealso [crear_mm_ageb()], [disenar_muestra_ageb()]
+#' @export
+reconciliar_marco_cartografia <- function(marco, cartografia,
+                                          llave_ageb = "AULR",
+                                          llave_manzana = "MZA",
+                                          variable_tamano = "P_18YMAS") {
+  shp <- if (inherits(cartografia, "Cartografia")) cartografia$shp else cartografia
+  for (capa in c("AGEB", "MZA")) {
+    if (is.null(shp[[capa]])) {
+      stop("A la cartografía le falta la capa `", capa, "`.", call. = FALSE)
+    }
+  }
+  agebs_poly <- unique(as.character(shp$AGEB[[llave_ageb]]))
+  mzas_poly  <- unique(as.character(shp$MZA[[llave_manzana]]))
+
+  tiene_ageb <- as.character(marco[[llave_ageb]]) %in% agebs_poly
+  tiene_mza  <- as.character(marco[[llave_manzana]]) %in% mzas_poly
+  completo   <- tiene_ageb & tiene_mza
+
+  fuera <- !completo
+  doc <- tibble::tibble(
+    MZA = marco[[llave_manzana]][fuera],
+    AGEB = if ("AGEB" %in% names(marco)) marco[["AGEB"]][fuera]
+           else marco[[llave_ageb]][fuera],
+    # el AGEB sin polígono manda: sus manzanas se van por el AGEB aunque la
+    # manzana tuviera polígono
+    motivo = ifelse(!tiene_ageb[fuera], "AGEB sin polígono",
+                    "manzana sin polígono")
+  )
+  res <- marco[completo, , drop = FALSE]
+
+  if (nrow(doc) > 0) {
+    pct <- if (variable_tamano %in% names(marco)) {
+      sum(marco[[variable_tamano]][fuera], na.rm = TRUE) /
+        sum(marco[[variable_tamano]], na.rm = TRUE)
+    } else NA_real_
+    message(nrow(doc), " manzana(s) sin cartografía completa excluidas del ",
+            "marco (", sum(doc$motivo == "AGEB sin polígono"), " por AGEB, ",
+            sum(doc$motivo == "manzana sin polígono"), " por manzana",
+            if (!is.na(pct)) paste0("; ", round(100 * pct, 1), "% de ",
+                                    variable_tamano) else "",
+            "). Declararlo como cobertura en la nota metodológica.")
+  }
+
+  attr(res, "cobertura") <- doc
+  res
+}
+
 #' Construir el marco muestral censal AGEB para la clase [Diseño]
 #'
 #' Versión del marco por manzana COMPATIBLE CON LA CLASE del equipo
