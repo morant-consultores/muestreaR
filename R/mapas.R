@@ -167,6 +167,9 @@ graficar_mapa_muestra_ine <- function(lflt = NULL, muestra, shp, nivel){
 # Tasa de rechazo declarada en la asignación del diseño (si existe): sirve
 # para pasar de contactos (a levantar) a entrevistas efectivas planeadas. Sin
 # asignación (diseño hecho a mano) se asume 0: no hay sobremuestra declarada.
+# NOTA: si el rechazo varía por estrato se usa el promedio (exacto en el caso
+# uniforme, el habitual); es una guía de planeación para el mapa — el número
+# exacto por conglomerado vive en el plan versionado (`plan_ageb$n_plan`).
 resolver_tasa_rechazo <- function(diseño){
   asig <- attr(diseño, "asignacion")
   if(is.null(asig) || is.null(asig[["tasa_rechazo"]])) return(0)

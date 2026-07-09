@@ -17,7 +17,7 @@ Imports:
     dplyr,
     ggfittext,
     ggmap,
-    ggplot2,
+    ggplot2 (>= 3.4.0),
     ggrepel,
     glue,
     ineq,
