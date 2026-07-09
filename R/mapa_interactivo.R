@@ -51,6 +51,35 @@ capas_leaflet_ageb <- function(diseño, cartografia) {
       "<br>Entrevistas efectivas: ", entrevistas
     ))
 
+  # capa municipal: TODOS los municipios de la cartografía, marcados según
+  # tengan o no AGEBs en la muestra, con el total de contactos y entrevistas
+  # planeadas (para que campo vea la cobertura y reparta la carga por municipio)
+  mun_agg <- bd %>%
+    dplyr::distinct(dplyr::across(dplyr::all_of(u_cluster)), MUN) %>%
+    dplyr::left_join(resumen, by = u_cluster) %>%
+    dplyr::group_by(MUN) %>%
+    dplyr::summarise(agebs = dplyr::n(),
+                     contactos = sum(contactos),
+                     entrevistas = sum(entrevistas),
+                     .groups = "drop")
+
+  municipios <- shp %>%
+    purrr::pluck("MUN") %>%
+    dplyr::left_join(mun_agg, by = "MUN") %>%
+    dplyr::mutate(
+      en_muestra  = !is.na(agebs),
+      agebs       = dplyr::coalesce(agebs, 0L),
+      contactos   = dplyr::coalesce(contactos, 0),
+      entrevistas = dplyr::coalesce(entrevistas, 0),
+      popup = paste0(
+        "<b>", NOM_MUN, "</b><br>",
+        ifelse(en_muestra, "EN MUESTRA", "Sin muestra"),
+        "<br>AGEBs en muestra: ", agebs,
+        "<br>Contactos planeados: ", contactos,
+        "<br>Entrevistas planeadas: ", entrevistas
+      )
+    )
+
   # manzanas sorteadas cuyo AGEB no tiene polígono (se dibujarían sin su
   # contorno): sólo ocurre si el marco no se reconcilió con la cartografía
   huerfanas <- setdiff(unique(manzanas$AGEB), unique(agebs$AGEB))
@@ -63,7 +92,7 @@ capas_leaflet_ageb <- function(diseño, cartografia) {
             call. = FALSE)
   }
 
-  list(agebs = agebs, manzanas = manzanas)
+  list(municipios = municipios, agebs = agebs, manzanas = manzanas)
 }
 
 #' Mapa interactivo de la muestra para planear rutas de campo (leaflet)
@@ -75,8 +104,13 @@ capas_leaflet_ageb <- function(diseño, cartografia) {
 #' visitan juntas) y cada una trae en su popup lo que hay que hacer
 #' (municipio, localidad, AGEB, manzana y viviendas a levantar); cada AGEB
 #' trae su resumen operativo y su número de mapa (para cruzarlo con los PNG
-#' impresos). Incluye capas base (calles y satélite), control de capas y una
-#' herramienta de medición de distancias para trazar recorridos.
+#' impresos). Sobre esas dos capas va la **capa municipal**: todos los
+#' municipios del estado, en verde si salieron en la muestra y gris si no,
+#' con el nombre y el total de contactos y entrevistas planeadas por
+#' municipio (para ver la cobertura y repartir la carga de campo). Incluye
+#' capas base (calles y satélite), control de capas (municipios / AGEBs /
+#' manzanas), leyenda de cobertura y una herramienta de medición de
+#' distancias para trazar recorridos.
 #'
 #' Complementa a [google_maps()] (un PNG por AGEB, para levantar en sitio):
 #' este es un solo HTML de planeación.
@@ -108,6 +142,25 @@ mapa_interactivo_ageb <- function(diseño, cartografia,
   ) %>%
     leaflet::addProviderTiles("CartoDB.Positron", group = "Calles") %>%
     leaflet::addProviderTiles("Esri.WorldImagery", group = "Satélite") %>%
+    # municipios: verde si salieron en la muestra, gris si no; el label trae
+    # el nombre y el total de contactos y entrevistas planeadas del municipio
+    leaflet::addPolygons(
+      data = capas$municipios,
+      group = "Municipios",
+      fillColor = ~ifelse(en_muestra, "#2a9d8f", "#adb5bd"),
+      fillOpacity = 0.2, color = "#495057", weight = 1, opacity = 0.6,
+      popup = ~popup,
+      label = ~lapply(paste0(
+        "<b>", NOM_MUN, "</b><br>",
+        ifelse(en_muestra,
+               paste0("Contactos: ", contactos,
+                      " · Entrevistas: ", entrevistas),
+               "Sin muestra")),
+        htmltools::HTML),
+      highlightOptions = leaflet::highlightOptions(
+        weight = 2, color = "#000000", fillOpacity = 0.35, bringToFront = FALSE
+      )
+    ) %>%
     # contorno de los AGEBs (contexto y resumen operativo)
     leaflet::addPolygons(
       data = capas$agebs,
@@ -132,8 +185,15 @@ mapa_interactivo_ageb <- function(diseño, cartografia,
     ) %>%
     leaflet::addLayersControl(
       baseGroups = c("Calles", "Satélite"),
-      overlayGroups = c("AGEBs", "Manzanas a levantar"),
+      overlayGroups = c("Municipios", "AGEBs", "Manzanas a levantar"),
       options = leaflet::layersControlOptions(collapsed = FALSE)
+    ) %>%
+    # leyenda de la cobertura municipal
+    leaflet::addLegend(
+      position = "bottomright",
+      colors = c("#2a9d8f", "#adb5bd"),
+      labels = c("Municipio en muestra", "Municipio sin muestra"),
+      title = "Cobertura", opacity = 0.7
     ) %>%
     # herramienta de medición para trazar recorridos
     leaflet::addMeasure(

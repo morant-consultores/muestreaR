@@ -34,8 +34,13 @@ manzanas se colorean por AGEB (las de un mismo AGEB comparten color, se
 visitan juntas) y cada una trae en su popup lo que hay que hacer
 (municipio, localidad, AGEB, manzana y viviendas a levantar); cada AGEB
 trae su resumen operativo y su número de mapa (para cruzarlo con los PNG
-impresos). Incluye capas base (calles y satélite), control de capas y una
-herramienta de medición de distancias para trazar recorridos.
+impresos). Sobre esas dos capas va la \strong{capa municipal}: todos los
+municipios del estado, en verde si salieron en la muestra y gris si no,
+con el nombre y el total de contactos y entrevistas planeadas por
+municipio (para ver la cobertura y repartir la carga de campo). Incluye
+capas base (calles y satélite), control de capas (municipios / AGEBs /
+manzanas), leyenda de cobertura y una herramienta de medición de
+distancias para trazar recorridos.
 }
 \details{
 Complementa a \code{\link[=google_maps]{google_maps()}} (un PNG por AGEB, para levantar en sitio):

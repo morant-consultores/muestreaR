@@ -1,14 +1,14 @@
 # Mapa interactivo (leaflet) de la muestra para planear rutas de campo.
-# El helper capas_leaflet_ageb() arma las dos capas sf (AGEBs y manzanas
-# sorteadas) con las columnas de popup; mapa_interactivo_ageb() las envuelve
-# en un widget leaflet exportable a HTML. Fixtures en helper-fixture.R.
+# El helper capas_leaflet_ageb() arma las capas sf (municipios, AGEBs y
+# manzanas sorteadas) con las columnas de popup; mapa_interactivo_ageb() las
+# envuelve en un widget leaflet exportable a HTML. Fixtures en helper-fixture.R.
 
 test_that("capas_leaflet_ageb arma manzanas y AGEBs con la info operativa", {
   diseno <- diseno_ageb_con_muestra()
   cart <- cartografia_ageb_prueba(diseno$poblacion$marco_muestral)
   capas <- capas_leaflet_ageb(diseno, cart)
 
-  expect_named(capas, c("agebs", "manzanas"))
+  expect_named(capas, c("municipios", "agebs", "manzanas"))
   expect_s3_class(capas$agebs, "sf")
   expect_s3_class(capas$manzanas, "sf")
 
@@ -29,6 +29,37 @@ test_that("capas_leaflet_ageb arma manzanas y AGEBs con la info operativa", {
   # el resumen del AGEB coincide con resumen_operativo
   res <- resumen_operativo(diseno)
   expect_equal(sort(capas$agebs$contactos), sort(res$contactos))
+})
+
+test_that("capas_leaflet_ageb agrega la capa municipal con totales y flag en_muestra", {
+  diseno <- diseno_ageb_con_muestra()
+  cart <- cartografia_ageb_prueba(diseno$poblacion$marco_muestral)
+  # un municipio EXTRA que NO sale en la muestra (para el caso sin cobertura)
+  extra <- cart$shp$MUN[1, ]
+  extra$MUN <- "15999"
+  extra$NOM_MUN <- "Fuera de muestra"
+  cart$shp$MUN <- rbind(cart$shp$MUN, extra)
+
+  capas <- capas_leaflet_ageb(diseno, cart)
+  expect_true("municipios" %in% names(capas))
+  mun <- capas$municipios
+  expect_s3_class(mun, "sf")
+  expect_true(all(c("NOM_MUN", "en_muestra", "agebs", "contactos", "entrevistas")
+                  %in% names(mun)))
+
+  bd <- diseno$muestra |> purrr::pluck(length(diseno$muestra)) |>
+    tidyr::unnest(data)
+  expect_setequal(mun$MUN[mun$en_muestra], unique(bd$MUN))
+
+  # los totales de la capa municipal cuadran con el resumen por AGEB
+  res <- resumen_operativo(diseno)
+  expect_equal(sum(mun$contactos), sum(res$contactos))
+  expect_equal(sum(mun$entrevistas), sum(res$entrevistas))
+
+  # el municipio fuera de muestra: flag FALSE y totales en cero
+  expect_false(mun$en_muestra[mun$MUN == "15999"])
+  expect_equal(mun$contactos[mun$MUN == "15999"], 0)
+  expect_equal(mun$agebs[mun$MUN == "15999"], 0)
 })
 
 test_that("capas_leaflet_ageb avisa cuando una manzana no tiene su AGEB dibujable", {
