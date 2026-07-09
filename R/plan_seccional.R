@@ -293,23 +293,26 @@ aplicar_lista_negra <- function(marco, secciones = NULL, municipios = NULL,
 #' calculan sobre el marco COMPLETO del estrato (no sobre las sorteadas):
 #' son las probabilidades del diseño, no una renormalización a posteriori.
 #'
+#' Es la cara seccional del motor genérico [planear_muestra_upm()] (la
+#' matemática vive ahí); para marcos censales por AGEB, ver
+#' [planear_muestra_ageb()].
+#'
 #' El plan debe guardarse en el repo de la ola ANTES de campo
 #' (`saveRDS(plan, "salidas/plan_ola1.rds")`): sin plan versionado la capa
 #' de ajuste por sección no puede reconstruir los pesos.
 #'
-#' @inheritParams asignar_potencia
+#' @inheritParams planear_muestra_upm
+#' @param m_por_seccion Entrevistas planeadas por sección (6–8 recomendado:
+#'   controla el deff de conglomerado `1 + (m-1)·rho`).
 #' @param llave_seccion Columna que identifica la sección.
-#' @param tasa_rechazo Tasa esperada de no respuesta en `[0, 1)`: infla los
-#'   `contactos` por sección (`n_plan / (1 - tasa)`), nunca el `n_plan`.
 #' @param lista_negra Lista opcional `list(secciones =, municipios =)` que se
 #'   aplica con [aplicar_lista_negra()] antes del sorteo.
-#' @param semilla Semilla para reproducibilidad del sorteo.
 #'
 #' @return `tibble` (una fila por sección sorteada) con `seccion`, el
 #'   dominio, `estrato`, `ln_seccion`, `pi_seccion`, `n_plan` (efectivas
 #'   planeadas) y `contactos` (viviendas a tocar). Atributos: `"asignacion"`
 #'   (tabla de [asignar_potencia()]), `"dominios"`, `"lista_negra"`,
-#'   `"parametros"`.
+#'   `"unidad"` y `"parametros"`.
 #' @export
 planear_muestra_seccional <- function(marco, n_total, m_por_seccion = 8,
                                       potencia = 0.5,
@@ -321,73 +324,18 @@ planear_muestra_seccional <- function(marco, n_total, m_por_seccion = 8,
                                       tasa_rechazo = 0,
                                       lista_negra = NULL,
                                       semilla = NULL) {
-  if (tasa_rechazo < 0 || tasa_rechazo >= 1) {
-    stop("`tasa_rechazo` debe estar en el intervalo [0, 1).", call. = FALSE)
-  }
-
-  doc_lista <- NULL
-  if (!is.null(lista_negra)) {
-    marco <- aplicar_lista_negra(
-      marco,
-      secciones = lista_negra$secciones,
-      municipios = lista_negra$municipios,
-      llave_seccion = llave_seccion,
-      variable_estrato = variable_estrato,
-      min_secciones = min_secciones
-    )
-    doc_lista <- attr(marco, "lista_negra")
-  }
-
-  sin_estrato <- is.na(marco[[variable_estrato]])
-  if (any(sin_estrato)) {
-    message(sum(sin_estrato), " sección(es) sin estrato fuera del sorteo.")
-    marco <- marco[!sin_estrato, , drop = FALSE]
-  }
-
-  # lista nominal NA = tamaño 0 (nunca sorteable), consistente con
-  # seleccionar_pps; sin sanear, inclusionprobabilities() muere críptico
-  tam_na <- is.na(marco[[variable_tamano]])
-  if (any(tam_na)) {
-    message(sum(tam_na), " sección(es) con lista nominal NA: se tratan ",
-            "como tamaño 0 (nunca sorteables).")
-    marco[[variable_tamano]][tam_na] <- 0
-  }
-
-  asig <- asignar_potencia(marco, n_total, m_por_seccion, potencia, dominio,
-                           variable_estrato, variable_tamano, min_secciones)
-
-  if (!is.null(semilla)) set.seed(semilla)
-  plan <- asig$estrato |>
-    lapply(function(h) {
-      secs_h <- marco[marco[[variable_estrato]] == h, , drop = FALSE]
-      n_h <- asig$secciones[asig$estrato == h]
-      # pi del diseño: sobre TODO el estrato, antes de sortear
-      secs_h$pi_seccion <- sampling::inclusionprobabilities(
-        secs_h[[variable_tamano]], n_h
-      )
-      seleccionar_pps(secs_h, n = n_h, variable_tamano = variable_tamano)
-    }) |>
-    dplyr::bind_rows()
-
-  cols_dom <- setdiff(if (is.null(dominio)) character(0) else dominio,
-                      variable_estrato)
-  plan <- plan |>
-    dplyr::transmute(
-      seccion = .data[[llave_seccion]],
-      dplyr::across(dplyr::all_of(cols_dom)),
-      estrato = .data[[variable_estrato]],
-      ln_seccion = .data[[variable_tamano]],
-      pi_seccion,
-      n_plan = m_por_seccion,
-      contactos = ceiling(m_por_seccion / (1 - tasa_rechazo))
-    )
-
-  attr(plan, "asignacion") <- asig
-  attr(plan, "dominios") <- attr(asig, "dominios")
-  attr(plan, "lista_negra") <- doc_lista
-  attr(plan, "parametros") <- list(
-    n_total = n_total, m_por_seccion = m_por_seccion, potencia = potencia,
-    tasa_rechazo = tasa_rechazo, semilla = semilla
+  planear_muestra_upm(
+    marco, n_total,
+    m_por_upm = m_por_seccion,
+    potencia = potencia,
+    dominio = dominio,
+    variable_estrato = variable_estrato,
+    variable_tamano = variable_tamano,
+    llave_upm = llave_seccion,
+    unidad = "seccion",
+    min_secciones = min_secciones,
+    tasa_rechazo = tasa_rechazo,
+    lista_negra = lista_negra,
+    semilla = semilla
   )
-  plan
 }
