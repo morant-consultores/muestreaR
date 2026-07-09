@@ -70,3 +70,73 @@ test_that("Diseño censal acepta plan manual por estrato (paridad INE)", {
   # manzanas por AGEB = (n_1 / m_1) / n_0 = (20/2)/5 = 2
   expect_true(all(diseno$n_i$cluster_2$m_2 == 2))
 })
+
+# ---- disenar_muestra_ageb (declarativa de la clase) ----
+
+poblacion_ageb_prueba <- function() {
+  pob <- PoblacionAGEB$new("Fixture AGEB", censo_clase_prueba())
+  pob$marco_muestral <- pob$marco_muestral |> dplyr::mutate(region = NOM_MUN)
+  pob
+}
+
+test_that("disenar_muestra_ageb ejecuta el pipeline de la clase de punta a punta", {
+  diseno <- suppressWarnings(disenar_muestra_ageb(
+    poblacion_ageb_prueba(),
+    estratos = tibble::tibble(estrato = c("Nezahualcóyotl", "Toluca"),
+                              entrevistas = c(20, 20)),
+    n_0 = 5, manzanas_por_ageb = 2,
+    tasa_rechazo = 0.5, modo_rechazo = "manzanas",
+    semilla = 7
+  ))
+
+  # asignación del modelo operativo: 2 AGEBs/estrato, 2->4 manzanas (rechazo 2x)
+  asig <- attr(diseno, "asignacion")
+  expect_equal(asig$secciones, c(2, 2))
+  expect_equal(asig$manzanas_por_seccion, c(4, 4))
+  expect_equal(asig$entrevistas_a_levantar, c(40, 40))
+
+  # muestra extraída: 4 AGEBs con 4 manzanas cada uno; n_0 = 5 por manzana
+  ult <- diseno$muestra |> purrr::pluck(length(diseno$muestra)) |>
+    tidyr::unnest(data)
+  expect_equal(dplyr::n_distinct(ult$AGEB), 4)
+  expect_equal(nrow(ult), 16)
+
+  # la población vive dentro de la clase, con los fpc en el marco
+  expect_true(all(c("fpc_2", "fpc_0") %in%
+                    names(diseno$poblacion$marco_muestral)))
+
+  # cuotas censales (las instrucciones por AGEB de los mapas de campo)
+  expect_s3_class(diseno$cuotas, "data.frame")
+  expect_true(all(c("rango", "sexo", "n") %in% names(diseno$cuotas)))
+  expect_true(all(diseno$cuotas |> dplyr::count(cluster_2, wt = n) |>
+                    dplyr::pull(n) == 20))
+})
+
+test_that("derivar_plan_ageb reconstruye el plan versionado desde la clase", {
+  diseno <- suppressWarnings(disenar_muestra_ageb(
+    poblacion_ageb_prueba(),
+    estratos = tibble::tibble(estrato = c("Nezahualcóyotl", "Toluca"),
+                              entrevistas = c(20, 20)),
+    n_0 = 5, manzanas_por_ageb = 2,
+    tasa_rechazo = 0.5, modo_rechazo = "manzanas",
+    semilla = 7
+  ))
+  plan <- attr(diseno, "plan_ageb")
+
+  expect_true(all(c("ageb", "estrato", "ln_ageb", "pi_ageb", "n_plan",
+                    "contactos") %in% names(plan)))
+  expect_equal(attr(plan, "unidad"), "ageb")
+  expect_equal(nrow(plan), 4)
+  expect_equal(sum(plan$contactos), 80)   # a levantar (20 por AGEB)
+  expect_equal(sum(plan$n_plan), 40)      # efectivas objetivo (tasa 0.5)
+
+  # pi exactas del sorteo: el fpc del nivel AGEB sobre el marco completo
+  marco <- diseno$poblacion$marco_muestral
+  esperado <- marco |> dplyr::distinct(AGEB, fpc_2)
+  expect_equal(plan$pi_ageb, esperado$fpc_2[match(plan$ageb, esperado$AGEB)])
+
+  # un solo sorteo: mismo puente a encuestar que el flujo ligero
+  capas <- plan_para_capas(plan)
+  expect_true(all(c("seccion", "pi_seccion", "ln_seccion", "n_plan")
+                  %in% names(capas)))
+})
