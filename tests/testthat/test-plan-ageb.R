@@ -82,6 +82,29 @@ test_that("el motor UPM acepta lista negra con llave genérica 'upms' o por unid
   expect_equal(plan2$ageb, plan$ageb)
 })
 
+# ---- planear_muestra_ageb ----
+
+test_that("planear_muestra_ageb es el espejo del flujo seccional con defaults censales", {
+  plan <- planear_muestra_ageb(marco_ageb_prueba(), n_total = 200,
+                               m_por_ageb = 10, dominio = "region",
+                               tasa_rechazo = 0.5, semilla = 8)
+  expect_true(all(c("ageb", "ln_ageb", "pi_ageb", "n_plan", "contactos")
+                  %in% names(plan)))
+  expect_equal(attr(plan, "unidad"), "ageb")
+  expect_true(all(plan$contactos == 20))
+  expect_equal(sum(plan$n_plan), sum(attr(plan, "asignacion")$entrevistas_plan))
+})
+
+test_that("planear_muestra_ageb acepta lista negra de agebs y municipios", {
+  marco <- marco_ageb_prueba()
+  plan <- planear_muestra_ageb(
+    marco, 100, 10, dominio = "region", semilla = 2,
+    lista_negra = list(agebs = marco$ageb[1:2], municipios = "15058")
+  )
+  expect_false(any(plan$ageb %in% marco$ageb[1:2]))
+  expect_false(any(plan$ageb %in% marco$ageb[marco$municipio_cod == "15058"]))
+})
+
 test_that("planear_muestra_seccional conserva su contrato exacto (delegación)", {
   marco <- tibble::tibble(
     seccion = sprintf("15_%04d", 1:20),

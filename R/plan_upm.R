@@ -141,3 +141,58 @@ planear_muestra_upm <- function(marco, n_total, m_por_upm,
   )
   plan
 }
+
+#' Planear una muestra por AGEB: PPS por estrato con plan versionado
+#'
+#' Cara censal de [planear_muestra_upm()]: la UPM es el **AGEB urbano** del
+#' Censo de Población y Vivienda (INEGI) y la medida de tamaño default es
+#' la población de 18 años y más (`pob18`, ver [construir_marco_ageb()]).
+#' Emite el plan versionable con columnas `ageb`, `ln_ageb`, `pi_ageb`,
+#' `n_plan` y `contactos`; antes de alimentar
+#' `encuestar::construir_diseno_capas()` pásalo por [plan_para_capas()].
+#'
+#' Es el diseño de la Etapa I de los estudios por conglomerados censales
+#' (p. ej. el espejo de la nota metodológica de Enkoll para Edomex 2026:
+#' AGEBs con PPT). La Etapa II (manzanas dentro de cada AGEB sorteado) se
+#' resuelve con [seleccionar_manzanas()]; la Etapa III (viviendas por
+#' manzana, sistemático con arranque aleatorio) es operación de campo y
+#' queda dimensionada por `n_plan` y `contactos`.
+#'
+#' @inheritParams planear_muestra_upm
+#' @param m_por_ageb Entrevistas planeadas por AGEB (default 10 = 2
+#'   manzanas × 5 viviendas, el modelo operativo).
+#' @param llave_ageb Columna del marco que identifica el AGEB (default
+#'   `"ageb"`, la llave CVEGEO de 13 caracteres de
+#'   [construir_marco_ageb()]).
+#' @param variable_tamano Medida de tamaño para el PPS (default `"pob18"`).
+#' @param lista_negra Lista opcional `list(agebs =, municipios =)` que se
+#'   aplica con [aplicar_lista_negra()] antes del sorteo.
+#'
+#' @return Plan muestral por AGEB (mismo esquema que
+#'   [planear_muestra_upm()], con `unidad = "ageb"`).
+#' @export
+planear_muestra_ageb <- function(marco, n_total, m_por_ageb = 10,
+                                 potencia = 0.5,
+                                 dominio = "region",
+                                 variable_estrato = "estrato",
+                                 variable_tamano = "pob18",
+                                 llave_ageb = "ageb",
+                                 min_secciones = 2,
+                                 tasa_rechazo = 0,
+                                 lista_negra = NULL,
+                                 semilla = NULL) {
+  planear_muestra_upm(
+    marco, n_total,
+    m_por_upm = m_por_ageb,
+    potencia = potencia,
+    dominio = dominio,
+    variable_estrato = variable_estrato,
+    variable_tamano = variable_tamano,
+    llave_upm = llave_ageb,
+    unidad = "ageb",
+    min_secciones = min_secciones,
+    tasa_rechazo = tasa_rechazo,
+    lista_negra = lista_negra,
+    semilla = semilla
+  )
+}
