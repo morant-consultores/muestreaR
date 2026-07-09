@@ -20,14 +20,16 @@ agrupar_nivel <- function(bd, nivel){
 #' @examples
 #' repartir_cociente(10, c(2.4, 3.3, 4.3))
 repartir_cociente <- function(n, x){
-  if(sum(x)+length(x)-1<=n) stop("No es válido el vector propuesto")
-  else{
-    piso <- floor(x)
-    dif= n-sum(piso)
-
-    residuo <- x- piso
-
-    nueva <- (order(residuo, decreasing = T)<=dif)+piso
+  piso <- floor(x)
+  dif <- n - sum(piso)
+  # a lo más se puede sumar +1 por unidad: si el vector propuesto queda a más
+  # de eso del total (o lo excede), no es un redondeo válido
+  if (is.na(dif) || dif < 0 || dif > length(x)) {
+    stop("No es válido el vector propuesto")
   }
-  return(nueva)
+  residuo <- x - piso
+  # los `dif` mayores residuos reciben la unidad extra. OJO: rank, no order —
+  # `order(residuo) <= dif` marca posiciones equivocadas con vectores
+  # desordenados (bug corregido: el sobrante se iba a residuos chicos)
+  piso + (rank(-residuo, ties.method = "first") <= dif)
 }
