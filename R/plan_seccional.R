@@ -201,20 +201,29 @@ asignar_potencia <- function(marco, n_total, m_por_seccion,
 #' metodológica. Es el reemplazo de la sustitución en campo: lo que no se
 #' puede levantar se declara, no se cambia en silencio por otra sección.
 #'
-#' @param marco Marco seccional.
-#' @param secciones Vector de llaves de sección a excluir (opcional).
+#' @param marco Marco de UPMs (seccional o censal).
+#' @param secciones Vector de llaves de UPM a excluir (opcional). El nombre
+#'   del parámetro es histórico: acepta llaves de la unidad que sea
+#'   (secciones, AGEBs, ...).
 #' @param municipios Vector de claves de municipio a excluir (opcional).
 #' @param variable_municipio,llave_seccion,variable_estrato Nombres de columna.
-#' @param min_secciones Umbral para avisar si un estrato queda corto.
+#' @param min_secciones Umbral para avisar si un estrato queda corto (en UPMs).
+#' @param variable_tamano Columna del tamaño con que se documenta y reporta
+#'   el porcentaje excluido (default `"lista_nominal"`; en marcos censales,
+#'   p. ej. `"pob18"`).
+#' @param unidad Nombre de la UPM para la columna llave del documento y los
+#'   mensajes (default `"seccion"`).
 #'
 #' @return El marco filtrado, con el atributo `"lista_negra"`: tibble de las
-#'   secciones excluidas (`seccion`, `estrato`, `lista_nominal`, `motivo`).
+#'   UPMs excluidas (`<unidad>`, `estrato`, `<variable_tamano>`, `motivo`).
 #' @export
 aplicar_lista_negra <- function(marco, secciones = NULL, municipios = NULL,
                                 variable_municipio = "municipio_cod",
                                 llave_seccion = "seccion",
                                 variable_estrato = "estrato",
-                                min_secciones = 2) {
+                                min_secciones = 2,
+                                variable_tamano = "lista_nominal",
+                                unidad = "seccion") {
   fuera_mun <- if (!is.null(municipios)) {
     marco[[variable_municipio]] %in% municipios
   } else {
@@ -226,7 +235,11 @@ aplicar_lista_negra <- function(marco, secciones = NULL, municipios = NULL,
     rep(FALSE, nrow(marco))
   }
 
-  ln <- if ("lista_nominal" %in% names(marco)) marco$lista_nominal else NA_real_
+  tam <- if (variable_tamano %in% names(marco)) {
+    marco[[variable_tamano]]
+  } else {
+    NA_real_
+  }
   # el marco puede venir sin estratificar (excluir antes de estratificar es
   # un orden válido); la documentación registra NA en ese caso
   est <- if (variable_estrato %in% names(marco)) {
@@ -234,22 +247,23 @@ aplicar_lista_negra <- function(marco, secciones = NULL, municipios = NULL,
   } else {
     rep(NA_character_, nrow(marco))
   }
+  etiqueta <- if (identical(unidad, "seccion")) "sección" else unidad
   doc <- tibble::tibble(
-    seccion = marco[[llave_seccion]][fuera_mun | fuera_sec],
+    "{unidad}" := marco[[llave_seccion]][fuera_mun | fuera_sec],
     estrato = est[fuera_mun | fuera_sec],
-    lista_nominal = ln[fuera_mun | fuera_sec],
+    "{variable_tamano}" := tam[fuera_mun | fuera_sec],
     motivo = dplyr::case_when(
       fuera_mun[fuera_mun | fuera_sec] ~ "municipio en lista negra",
-      TRUE ~ "sección en lista negra"
+      TRUE ~ paste(etiqueta, "en lista negra")
     )
   )
   res <- marco[!(fuera_mun | fuera_sec), , drop = FALSE]
 
   if (nrow(doc) > 0) {
-    pct <- sum(doc$lista_nominal, na.rm = TRUE) /
-      sum(marco$lista_nominal, na.rm = TRUE)
-    message("Lista negra: ", nrow(doc), " sección(es) excluidas (",
-            round(100 * pct, 1), "% de la lista nominal). ",
+    pct <- sum(doc[[variable_tamano]], na.rm = TRUE) /
+      sum(marco[[variable_tamano]], na.rm = TRUE)
+    message("Lista negra: ", nrow(doc), " ", etiqueta, "(es) excluidas (",
+            round(100 * pct, 1), "% de `", variable_tamano, "`). ",
             "Declararlo en la nota metodológica.")
   }
 
@@ -260,7 +274,8 @@ aplicar_lista_negra <- function(marco, secciones = NULL, municipios = NULL,
     cortos <- restantes[[2]] < min_secciones
     if (any(cortos)) {
       warning("La lista negra dejó estrato(s) con menos de ", min_secciones,
-              " secciones: ", paste(restantes[[1]][cortos], collapse = ", "),
+              " ", plural_unidad(unidad), ": ",
+              paste(restantes[[1]][cortos], collapse = ", "),
               call. = FALSE)
     }
   }
