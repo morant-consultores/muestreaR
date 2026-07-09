@@ -142,3 +142,42 @@ test_that("planear_muestra_seccional conserva su contrato exacto (delegación)",
   expect_equal(attr(plan, "unidad"), "seccion")
   expect_true("secciones" %in% names(attr(plan, "asignacion")))
 })
+
+# ---- planear_siguiente_ola por unidad ----
+
+test_that("planear_siguiente_ola opera sobre planes AGEB (registro por ageb)", {
+  marco <- marco_ageb_prueba()
+  plan1 <- planear_muestra_ageb(marco, 200, 10, dominio = "region",
+                                tasa_rechazo = 0.5, semilla = 4)
+  registro <- plan1 |>
+    dplyr::transmute(ageb, contactos = 20,
+                     efectivas = rep(c(10, 5), length.out = dplyr::n()))
+
+  plan2 <- planear_siguiente_ola(marco, plan1, registro,
+                                 metodo = "resortear", dominio = "region",
+                                 variable_tamano = "pob18", semilla = 9)
+  expect_true(all(c("ageb", "pi_ageb", "n_plan", "contactos")
+                  %in% names(plan2)))
+  expect_equal(attr(plan2, "unidad"), "ageb")
+  expect_s3_class(attr(plan2, "tasas"), "tbl_df")
+  expect_equal(attr(plan2, "metodo"), "resortear")
+
+  # panel conserva agebs, pi y re-dosifica contactos
+  plan2p <- planear_siguiente_ola(marco, plan1, registro, metodo = "panel")
+  expect_equal(plan2p$ageb, plan1$ageb)
+  expect_equal(plan2p$pi_ageb, plan1$pi_ageb)
+  # tasa 50% (10/20) y 25%->tope 3x: contactos re-dosificados por ageb
+  expect_true(all(plan2p$contactos >= plan1$n_plan))
+})
+
+test_that("planear_siguiente_ola valida el registro con la llave de la unidad", {
+  marco <- marco_ageb_prueba()
+  plan1 <- planear_muestra_ageb(marco, 200, 10, dominio = "region",
+                                semilla = 4)
+  registro_mal <- tibble::tibble(seccion = plan1$ageb, contactos = 20,
+                                 efectivas = 10)
+  expect_error(
+    planear_siguiente_ola(marco, plan1, registro_mal, metodo = "panel"),
+    "ageb"
+  )
+})
