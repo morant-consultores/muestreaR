@@ -156,3 +156,18 @@ generar_diseno_ine <- function(n = 240, n_0 = 5, semilla = 123, unidades_nivel =
 
   diseno
 }
+
+# -------------------------------------------------------------------------------------
+# Marco censal AGEB sintético (estilo construir_marco_ageb): una fila por AGEB
+# urbana con llave de 13 caracteres y población 18+ como medida de tamaño.
+# Lo comparten test-plan-ageb.R y test-seleccionar-manzanas.R.
+marco_ageb_prueba <- function() {
+  tibble::tibble(
+    ageb = sprintf("15121%04d%04d", rep(1:4, each = 10), 1:10),
+    municipio_cod = rep(c("15121", "15121", "15058", "15058"), each = 10),
+    region = rep(c("Metropolitana", "Metropolitana", "Resto", "Resto"), each = 10),
+    pob18 = rep(c(1500, 2500, 700, 1100), each = 10) +
+      rep(seq(0, 900, by = 100), 4),
+    estrato = rep(c("Metropolitana", "Metropolitana", "Resto", "Resto"), each = 10)
+  )
+}

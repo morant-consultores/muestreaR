@@ -5,6 +5,18 @@
 # n_plan, contactos) que es el contrato con encuestar::construir_diseno_capas
 # (capa 1 = selección planeada). La no respuesta NO se resuelve sustituyendo:
 # se dimensiona con sobremuestra (contactos) y se corrige en las capas.
+#
+# La sección es UNA unidad primaria de muestreo (UPM) posible; el mismo flujo
+# opera con AGEBs del marco censal INEGI (ver planear_muestra_upm() y
+# planear_muestra_ageb() en R/plan_upm.R). El parámetro `unidad` de las
+# funciones de este archivo solo controla cómo se NOMBRAN columnas y
+# mensajes; la matemática es idéntica.
+
+# plural de la unidad para nombrar columnas de conteo ("seccion" es el único
+# plural irregular que manejamos; el resto agrega "s": ageb -> agebs)
+plural_unidad <- function(unidad) {
+  if (identical(unidad, "seccion")) "secciones" else paste0(unidad, "s")
+}
 
 #' Estratificar secciones por tipo electoral y región
 #'
@@ -93,21 +105,26 @@ estratificar_electoral <- function(marco,
 #' @param dominio Columna del dominio de interés (default `"region"`). `NULL`
 #'   aplica la potencia directamente sobre los estratos.
 #' @param variable_estrato,variable_tamano Columnas del estrato y del tamaño
-#'   (lista nominal).
-#' @param min_secciones Mínimo de secciones por estrato (default 2: con una
-#'   sola sección la varianza del estrato no es estimable).
+#'   (lista nominal en marcos electorales; población adulta en censales).
+#' @param min_secciones Mínimo de UPMs por estrato (default 2: con una
+#'   sola la varianza del estrato no es estimable).
+#' @param unidad Nombre de la UPM, solo para nombrar las columnas de conteo
+#'   y los mensajes: `"seccion"` (default) produce `secciones` y
+#'   `secciones_disponibles`; `"ageb"` produce `agebs` y `agebs_disponibles`.
 #'
 #' @return `tibble` con una fila por estrato: dominio, `estrato`,
-#'   `ln_estrato`, `secciones_disponibles`, `entrevistas_obj`, `secciones`,
-#'   `entrevistas_plan` (= `secciones * m_por_seccion`). La asignación por
-#'   dominio va en el atributo `"dominios"`.
+#'   `ln_estrato`, `<unidad en plural>_disponibles`, `entrevistas_obj`,
+#'   `<unidad en plural>` (UPMs a sortear), `entrevistas_plan`
+#'   (= `UPMs * m_por_seccion`). La asignación por dominio va en el
+#'   atributo `"dominios"`.
 #' @export
 asignar_potencia <- function(marco, n_total, m_por_seccion,
                              potencia = 0.5,
                              dominio = "region",
                              variable_estrato = "estrato",
                              variable_tamano = "lista_nominal",
-                             min_secciones = 2) {
+                             min_secciones = 2,
+                             unidad = "seccion") {
   if (potencia < 0 || potencia > 1) {
     stop("`potencia` debe estar en [0, 1].", call. = FALSE)
   }
@@ -159,10 +176,17 @@ asignar_potencia <- function(marco, n_total, m_por_seccion,
                   entrevistas_plan) |>
     dplyr::rename(estrato = !!rlang::sym(variable_estrato))
 
-  cortos <- asig$secciones_disponibles < min_secciones
+  pl <- plural_unidad(unidad)
+  if (!identical(pl, "secciones")) {
+    asig <- asig |>
+      dplyr::rename("{pl}" := secciones,
+                    "{pl}_disponibles" := secciones_disponibles)
+  }
+
+  cortos <- asig[[paste0(pl, "_disponibles")]] < min_secciones
   if (any(cortos)) {
-    warning("Estrato(s) con menos de ", min_secciones, " secciones ",
-            "disponibles (la varianza no será estimable ahí): ",
+    warning("Estrato(s) con menos de ", min_secciones, " ", pl,
+            " disponibles (la varianza no será estimable ahí): ",
             paste(asig$estrato[cortos], collapse = ", "), call. = FALSE)
   }
 
