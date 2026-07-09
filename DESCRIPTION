@@ -20,6 +20,8 @@ Imports:
     ggplot2 (>= 3.4.0),
     ggrepel,
     glue,
+    htmltools,
+    htmlwidgets,
     ineq,
     leaflet,
     purrr,

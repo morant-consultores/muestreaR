@@ -5,19 +5,6 @@
 # planeadas. Aplica a los dos flujos: censal INEGI (google_maps) y electoral
 # INE (google_maps_ine), vía los helpers resumen_operativo()/etiqueta_mapa().
 
-diseno_ageb_con_muestra <- function() {
-  pob <- PoblacionAGEB$new("Fixture", censo_clase_prueba())
-  pob$marco_muestral <- pob$marco_muestral |> dplyr::mutate(region = NOM_MUN)
-  suppressWarnings(disenar_muestra_ageb(
-    pob,
-    estratos = tibble::tibble(estrato = c("Nezahualcóyotl", "Toluca"),
-                              entrevistas = c(20, 20)),
-    n_0 = 5, manzanas_por_ageb = 2,
-    tasa_rechazo = 0.5, modo_rechazo = "manzanas",
-    calcular_cuotas = FALSE, semilla = 7
-  ))
-}
-
 test_that("resumen_operativo da manzanas, contactos y entrevistas por conglomerado", {
   diseno <- diseno_ageb_con_muestra()
   res <- resumen_operativo(diseno)
@@ -30,6 +17,20 @@ test_that("resumen_operativo da manzanas, contactos y entrevistas por conglomera
   expect_true(all(res$contactos == 20))
   # tasa 0.5 (de la asignación) => 10 efectivas planeadas por AGEB
   expect_true(all(res$entrevistas == 10))
+})
+
+test_that("clusters_dibujables descarta los conglomerados sin polígono", {
+  # shp_mapa solo trae los conglomerados que sobreviven el join a la
+  # cartografía; los sorteados sin polígono (p. ej. AGEBs sin marco 2025)
+  # no deben entrar al loop de google_maps (centroide de geometría vacía).
+  shp_mapa <- tibble::tibble(cluster_2 = c(1L, 2L, 4L))
+  cluster <- c(1L, 2L, 3L, 4L)
+  expect_equal(clusters_dibujables(cluster, shp_mapa, "cluster_2"),
+               c(1L, 2L, 4L))
+  # conserva el orden de `cluster` y no inventa conglomerados
+  expect_equal(clusters_dibujables(c(4L, 1L), shp_mapa, "cluster_2"),
+               c(4L, 1L))
+  expect_length(clusters_dibujables(5L, shp_mapa, "cluster_2"), 0)
 })
 
 test_that("resumen_operativo numera los mapas (n de N) de forma estable", {

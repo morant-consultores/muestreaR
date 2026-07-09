@@ -125,6 +125,9 @@ cartografia <- Cartografia$new(mun_shp = cart$mun, loc_shp = cart$loc,
                                lpr_shp = cart$lpr, mza_shp = cart$mza)
 diseno$exportar(cartografia, carpeta = "Insumos",
                 mapas = ggmap::has_google_key())   # Mapas/ por AGEB (zoom, manzanas, contactos, entrevistas)
+
+# mapa interactivo (leaflet) de TODAS las manzanas para planear rutas de campo
+mapa_interactivo_ageb(diseno, cartografia, archivo = "salidas/rutas.html")
 ```
 
 ## Plan muestral versionado por UPM (secciones o AGEBs)

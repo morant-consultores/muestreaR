@@ -210,3 +210,46 @@ censo_clase_prueba <- function(n_manzanas = 6) {
     demograficos(escala = 1)
   dplyr::bind_rows(totales, manzanas)
 }
+
+# Diseño censal AGEB con muestra extraída (flujo de la clase), reproducible.
+diseno_ageb_con_muestra <- function() {
+  pob <- PoblacionAGEB$new("Fixture", censo_clase_prueba())
+  pob$marco_muestral <- pob$marco_muestral |> dplyr::mutate(region = NOM_MUN)
+  suppressWarnings(disenar_muestra_ageb(
+    pob,
+    estratos = tibble::tibble(estrato = c("Nezahualcóyotl", "Toluca"),
+                              entrevistas = c(20, 20)),
+    n_0 = 5, manzanas_por_ageb = 2,
+    tasa_rechazo = 0.5, modo_rechazo = "manzanas",
+    calcular_cuotas = FALSE, semilla = 7
+  ))
+}
+
+# Cartografía censal sintética (Cartografia) cuyos CVEGEO cruzan con el marco
+# de crear_mm_ageb: AGEBs urbanas (AULR) y manzanas (MZA) del diseño fixture.
+cartografia_ageb_prueba <- function(marco) {
+  sq <- function(x0, y0, s = 0.01) {
+    sf::st_polygon(list(matrix(c(x0, y0, x0 + s, y0, x0 + s, y0 + s,
+                                 x0, y0 + s, x0, y0), ncol = 2, byrow = TRUE)))
+  }
+  poligonos <- function(claves) {
+    sf::st_sfc(lapply(seq_along(claves), function(i) sq(i * 0.02, 0)),
+               crs = 4326)
+  }
+  agebs <- unique(substr(marco$AGEB, 1, 13))
+  Cartografia$new(
+    mun_shp   = sf::st_sf(CVEGEO = unique(marco$MUN), NOMGEO = "Mun",
+                          geometry = poligonos(unique(marco$MUN))),
+    loc_shp   = sf::st_sf(CVEGEO = unique(marco$LOC), NOMGEO = "Loc",
+                          AMBITO = "Urbana",
+                          geometry = poligonos(unique(marco$LOC))),
+    agebR_shp = sf::st_sf(CVEGEO = "1509900010001",
+                          geometry = poligonos("x")),
+    agebU_shp = sf::st_sf(CVEGEO = agebs, geometry = poligonos(agebs)),
+    lpr_shp   = sf::st_sf(CVEGEO = "150990002", NOMGEO = "Rancho",
+                          geometry = sf::st_sfc(sf::st_point(c(9, 9)),
+                                                crs = 4326)),
+    mza_shp   = sf::st_sf(CVEGEO = marco$MZA, TIPOMZA = "Típica",
+                          geometry = poligonos(marco$MZA))
+  )
+}

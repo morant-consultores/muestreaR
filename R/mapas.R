@@ -200,6 +200,14 @@ resumen_operativo <- function(diseño){
            mapa = row_number())
 }
 
+# Conglomerados con polígono en la cartografía (los que sobreviven el join):
+# los sorteados sin cartografía —p. ej. AGEBs sin marco geoestadístico 2025—
+# no se pueden mapear (su centroide sería una geometría vacía y get_map
+# fallaría), así que se excluyen del loop conservando el orden original.
+clusters_dibujables <- function(cluster, shp_mapa, u_cluster){
+  cluster[cluster %in% unique(shp_mapa[[u_cluster]])]
+}
+
 # Subtítulo del mapa a partir de una fila del resumen operativo y el zoom.
 etiqueta_mapa <- function(resumen_i, zoom){
   paste(
@@ -245,6 +253,15 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
   # subtítulo operativo por conglomerado (ya no cuotas): zoom, manzanas,
   # contactos y entrevistas efectivas planeadas
   resumen <- resumen_operativo(diseño)
+
+  # conglomerados sin polígono en la cartografía: se reportan y se saltan
+  sin_carto <- setdiff(cluster, clusters_dibujables(cluster, shp_mapa, u_cluster))
+  if(length(sin_carto) > 0){
+    warning(length(sin_carto), " conglomerado(s) sin cartografía se omiten ",
+            "del mapeo (georreferenciar aparte): ",
+            paste(utils::head(sin_carto, 10), collapse = ", "), call. = FALSE)
+  }
+  cluster <- clusters_dibujables(cluster, shp_mapa, u_cluster)
 
   for(i in cluster){
     resumen_i <- resumen %>% filter(!!rlang::sym(u_cluster) == i)
@@ -318,6 +335,15 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
   # subtítulo operativo por conglomerado (ya no cuotas): zoom, manzanas,
   # contactos y entrevistas efectivas planeadas
   resumen <- resumen_operativo(diseño)
+
+  # conglomerados sin polígono en la cartografía: se reportan y se saltan
+  sin_carto <- setdiff(cluster, clusters_dibujables(cluster, shp_mapa, u_cluster))
+  if(length(sin_carto) > 0){
+    warning(length(sin_carto), " conglomerado(s) sin cartografía se omiten ",
+            "del mapeo (georreferenciar aparte): ",
+            paste(utils::head(sin_carto, 10), collapse = ", "), call. = FALSE)
+  }
+  cluster <- clusters_dibujables(cluster, shp_mapa, u_cluster)
 
   for(i in cluster){
     resumen_i <- resumen %>% filter(!!rlang::sym(u_cluster) == i)

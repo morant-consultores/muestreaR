@@ -132,33 +132,6 @@ test_that("disenar_muestra_ageb valida el bloque demográfico antes de cuotas", 
 
 # ---- exportar(): diseño.rda + shp.rda + cuotas.csv (el insumo del equipo) ----
 
-cartografia_ageb_prueba <- function(marco) {
-  sq <- function(x0, y0, s = 0.01) {
-    sf::st_polygon(list(matrix(c(x0, y0, x0 + s, y0, x0 + s, y0 + s,
-                                 x0, y0 + s, x0, y0), ncol = 2, byrow = TRUE)))
-  }
-  poligonos <- function(claves) {
-    sf::st_sfc(lapply(seq_along(claves), function(i) sq(i * 0.02, 0)),
-               crs = 4326)
-  }
-  agebs <- unique(substr(marco$AGEB, 1, 13))
-  Cartografia$new(
-    mun_shp   = sf::st_sf(CVEGEO = unique(marco$MUN), NOMGEO = "Mun",
-                          geometry = poligonos(unique(marco$MUN))),
-    loc_shp   = sf::st_sf(CVEGEO = unique(marco$LOC), NOMGEO = "Loc",
-                          AMBITO = "Urbana",
-                          geometry = poligonos(unique(marco$LOC))),
-    agebR_shp = sf::st_sf(CVEGEO = "1509900010001",
-                          geometry = poligonos("x")),
-    agebU_shp = sf::st_sf(CVEGEO = agebs, geometry = poligonos(agebs)),
-    lpr_shp   = sf::st_sf(CVEGEO = "150990002", NOMGEO = "Rancho",
-                          geometry = sf::st_sfc(sf::st_point(c(9, 9)),
-                                                crs = 4326)),
-    mza_shp   = sf::st_sf(CVEGEO = marco$MZA, TIPOMZA = "Típica",
-                          geometry = poligonos(marco$MZA))
-  )
-}
-
 test_that("el diseño AGEB se exporta con la población y los shapefiles adentro", {
   skip_if_not_installed("sf")
   skip_if_not_installed("withr")
