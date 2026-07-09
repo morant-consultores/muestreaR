@@ -31,6 +31,22 @@ test_that("capas_leaflet_ageb arma manzanas y AGEBs con la info operativa", {
   expect_equal(sort(capas$agebs$contactos), sort(res$contactos))
 })
 
+test_that("capas_leaflet_ageb avisa cuando una manzana no tiene su AGEB dibujable", {
+  diseno <- diseno_ageb_con_muestra()
+  cart <- cartografia_ageb_prueba(diseno$poblacion$marco_muestral)
+  bd <- diseno$muestra |> purrr::pluck(length(diseno$muestra)) |>
+    tidyr::unnest(data)
+  # marco NO reconciliado: un AGEB sorteado pierde su polígono (sus manzanas
+  # sí tienen polígono, pero el contorno del AGEB no existe)
+  aul_out <- unique(bd$AULR)[1]
+  cart$shp$AGEB <- cart$shp$AGEB[cart$shp$AGEB$AULR != aul_out, ]
+
+  expect_warning(capas_leaflet_ageb(diseno, cart), "reconciliar")
+  # con cartografía completa NO avisa
+  cart_ok <- cartografia_ageb_prueba(diseno$poblacion$marco_muestral)
+  expect_no_warning(capas_leaflet_ageb(diseno, cart_ok))
+})
+
 test_that("mapa_interactivo_ageb devuelve un widget leaflet y exporta HTML", {
   skip_if_not_installed("leaflet")
   skip_if_not_installed("htmlwidgets")

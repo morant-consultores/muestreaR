@@ -51,6 +51,18 @@ capas_leaflet_ageb <- function(diseño, cartografia) {
       "<br>Entrevistas efectivas: ", entrevistas
     ))
 
+  # manzanas sorteadas cuyo AGEB no tiene polígono (se dibujarían sin su
+  # contorno): sólo ocurre si el marco no se reconcilió con la cartografía
+  huerfanas <- setdiff(unique(manzanas$AGEB), unique(agebs$AGEB))
+  if (length(huerfanas) > 0) {
+    warning(sum(manzanas$AGEB %in% huerfanas), " manzana(s) de ",
+            length(huerfanas), " AGEB(s) sin polígono de AGEB en la ",
+            "cartografía (saldrían sin su contorno). El marco no está ",
+            "reconciliado: usa reconciliar_marco_cartografia() antes del ",
+            "sorteo para que sólo sea muestreable lo mapeable.",
+            call. = FALSE)
+  }
+
   list(agebs = agebs, manzanas = manzanas)
 }
 
