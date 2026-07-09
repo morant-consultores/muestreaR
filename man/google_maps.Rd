@@ -20,5 +20,8 @@ Invisible. Se ejecuta por su efecto secundario (escribe los mapas).
 }
 \description{
 Genera y guarda en disco un mapa por unidad mínima de la muestra usando
-imágenes de Google Maps, para el trabajo de campo.
+imágenes de Google Maps, para el trabajo de campo. El subtítulo de cada
+mapa indica lo operativo del conglomerado (no cuotas): el zoom, las
+manzanas a visitar, los contactos (viviendas a levantar) y las entrevistas
+efectivas planeadas.
 }

@@ -196,13 +196,13 @@ diseno <- disenar_muestra_ageb(
   semilla           = 2026
 )
 resumen_diseno(diseno)
-head(diseno$cuotas)           # instrucciones por AGEB (rango x sexo)
 ```
 
 La exportación escribe el insumo completo; con la llave del API de
 Google, `mapas = TRUE` imprime en `Insumos/Mapas/` un PNG por AGEB
-(polígono del AGEB, manzanas sorteadas y las cuotas como instrucciones
-del encuestador):
+(polígono del AGEB y manzanas sorteadas, con el subtítulo operativo:
+zoom del mapa, manzanas a visitar, contactos —viviendas a levantar— y
+entrevistas efectivas planeadas):
 
 ```{r exportar, eval = FALSE}
 cart <- leer_cartografia_inegi("data-raw", patron = "2025_1_15")

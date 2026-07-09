@@ -155,10 +155,61 @@ graficar_mapa_muestra_ine <- function(lflt = NULL, muestra, shp, nivel){
   return(mapa)
 }
 
+# Anotación operativa de los mapas de campo -------------------------------
+#
+# El equipo ya no levanta por cuotas (la composición la corrige el rake), así
+# que el subtítulo de los mapas dejó de mostrar el desglose por rango/sexo y
+# ahora indica lo que el encuestador necesita saber del conglomerado: el zoom
+# del mapa, cuántas manzanas visitar, cuántos contactos (viviendas a
+# levantar) y cuántas entrevistas efectivas se planean. Es común a los dos
+# flujos (google_maps y google_maps_ine).
+
+# Tasa de rechazo declarada en la asignación del diseño (si existe): sirve
+# para pasar de contactos (a levantar) a entrevistas efectivas planeadas. Sin
+# asignación (diseño hecho a mano) se asume 0: no hay sobremuestra declarada.
+resolver_tasa_rechazo <- function(diseño){
+  asig <- attr(diseño, "asignacion")
+  if(is.null(asig) || is.null(asig[["tasa_rechazo"]])) return(0)
+  mean(asig[["tasa_rechazo"]], na.rm = TRUE)
+}
+
+# Resumen operativo por conglomerado (último nivel): manzanas de la muestra,
+# contactos (suma de n_0 = viviendas a levantar) y entrevistas efectivas
+# planeadas (contactos ajustados por la tasa de rechazo). Una fila por
+# conglomerado, con la columna del cluster de último nivel.
+resumen_operativo <- function(diseño){
+  u_cluster <- diseño$niveles %>%
+    filter(nivel == diseño$ultimo_nivel) %>%
+    transmute(paste(tipo, nivel, sep = "_")) %>%
+    pull(1)
+  muestra <- diseño$muestra %>% purrr::pluck(length(diseño$muestra))
+  tasa <- resolver_tasa_rechazo(diseño)
+
+  muestra %>%
+    left_join(diseño$n_i$cluster_0, by = "cluster_0") %>%
+    group_by(!!rlang::sym(u_cluster)) %>%
+    summarise(manzanas = n(), contactos = sum(n_0), .groups = "drop") %>%
+    mutate(entrevistas = round(contactos * (1 - tasa)))
+}
+
+# Subtítulo del mapa a partir de una fila del resumen operativo y el zoom.
+etiqueta_mapa <- function(resumen_i, zoom){
+  paste(
+    glue::glue("Zoom: {zoom}"),
+    glue::glue("Manzanas: {resumen_i$manzanas}"),
+    glue::glue("Contactos planeados: {resumen_i$contactos}"),
+    glue::glue("Entrevistas planeadas: {resumen_i$entrevistas}"),
+    sep = "\n"
+  )
+}
+
 #' Exportar mapas de campo con Google Maps (marco censal INEGI)
 #'
 #' Genera y guarda en disco un mapa por unidad mínima de la muestra usando
-#' imágenes de Google Maps, para el trabajo de campo.
+#' imágenes de Google Maps, para el trabajo de campo. El subtítulo de cada
+#' mapa indica lo operativo del conglomerado (no cuotas): el zoom, las
+#' manzanas a visitar, los contactos (viviendas a levantar) y las entrevistas
+#' efectivas planeadas.
 #'
 #' @param diseño Objeto de la clase [Diseño] con la muestra extraída.
 #' @param shp Lista de cartografías del diseño.
@@ -183,14 +234,12 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
   shp_mapa <- shp %>% purrr::pluck(u_nivel %>% pull(variable)) %>% inner_join(bd)
   man_shp <- shp %>% purrr::pluck("MZA") %>% inner_join(bd)
 
+  # subtítulo operativo por conglomerado (ya no cuotas): zoom, manzanas,
+  # contactos y entrevistas efectivas planeadas
+  resumen <- resumen_operativo(diseño)
 
   for(i in cluster){
-    aux_s <- diseño$cuotas %>% filter(!!rlang::sym(u_cluster) == i)
-    s <- aux_s %>%
-      mutate(n = glue::glue("{n} entrevistas")) %>%
-      tidyr::pivot_wider(names_from = c("rango", "sexo"),values_from = "n") %>% select(-1) %>%
-      mutate(Total = glue::glue("{sum(aux_s$n)} entrevistas")) %>% relocate(Total,.before = 1)
-    cuotas <- paste(s %>% names(), s, sep = ": ") %>% paste(collapse = "\n")
+    resumen_i <- resumen %>% filter(!!rlang::sym(u_cluster) == i)
     man <- man_shp %>% filter(!!rlang::sym(u_cluster) == i)
     aux_mapeo <- shp_mapa %>% filter(!!rlang::sym(u_cluster) == i)
     caja <- aux_mapeo %>% sf::st_union() %>% sf::st_centroid() %>% sf::st_coordinates() %>% as.numeric()
@@ -207,7 +256,7 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
       guides(fill = "none") +
       theme_minimal() +
       ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOM_MUN)} \n Localidad: {unique(aux_mapeo$NOM_LOC)}  \n {u_cluster}: {i}")) +
-      labs(subtitle =  cuotas) +
+      labs(subtitle =  etiqueta_mapa(resumen_i, zoom)) +
       theme(plot.title = element_text(hjust = 1), plot.subtitle = element_text(size = 10, hjust = 0))
 
     ggsave(g, filename= sprintf("%s.png", i),
@@ -221,7 +270,10 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
 #' Exportar mapas de campo con Google Maps (marco electoral INE)
 #'
 #' Versión para el marco del INE: genera y guarda en disco un mapa por unidad
-#' mínima de la muestra usando imágenes de Google Maps.
+#' mínima de la muestra usando imágenes de Google Maps. El subtítulo de cada
+#' mapa indica lo operativo del conglomerado (no cuotas): el zoom, las
+#' manzanas a visitar, los contactos (viviendas a levantar) y las entrevistas
+#' efectivas planeadas.
 #'
 #' @param diseño Objeto de la clase [DiseñoINE] con la muestra extraída.
 #' @param shp Lista de cartografías electorales del diseño.
@@ -244,19 +296,17 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
     ya <- list.files(path=dir) %>% gsub('^.*_\\s*|\\s*.png.*$', '', .)
     cluster <- cluster[!cluster %in% ya]
   }
-  
+
   # agebs <- agebs %>% mutate(CVE_AGEB = paste0(22,CVE_MUN,CVE_LOC,CVE_AGEB))
   shp_mapa <- shp %>% purrr::pluck(u_nivel %>% pull(variable)) %>% inner_join(bd)
   man_shp <- shp %>% purrr::pluck("MANZANA") %>% inner_join(bd)
 
+  # subtítulo operativo por conglomerado (ya no cuotas): zoom, manzanas,
+  # contactos y entrevistas efectivas planeadas
+  resumen <- resumen_operativo(diseño)
 
   for(i in cluster){
-    aux_s <- diseño$cuotas %>% filter(!!rlang::sym(u_cluster) == i)
-    s <- aux_s %>%
-      mutate(n = glue::glue("{n} entrevistas")) %>%
-      tidyr::pivot_wider(names_from = c("rango", "sexo"),values_from = "n") %>% select(-1) %>%
-      mutate(Total = glue::glue("{sum(aux_s$n)} entrevistas")) %>% relocate(Total,.before = 1)
-    cuotas <- paste(s %>% names(), s, sep = ": ") %>% paste(collapse = "\n")
+    resumen_i <- resumen %>% filter(!!rlang::sym(u_cluster) == i)
     man <- man_shp %>% filter(!!rlang::sym(u_cluster) == i)
     aux_mapeo <- shp_mapa %>% filter(!!rlang::sym(u_cluster) == i)
     caja <- aux_mapeo %>% sf::st_make_valid() %>% sf::st_union() %>% sf::st_centroid() %>% sf::st_coordinates() %>% as.numeric()
@@ -280,7 +330,7 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
       guides(fill = "none") +
       theme_minimal() +
       ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOMBRE_MUN)}  \n {u_cluster}: {i}")) +
-      labs(subtitle =  cuotas) +
+      labs(subtitle =  etiqueta_mapa(resumen_i, zoom)) +
       theme(plot.title = element_text(hjust = 1), plot.subtitle = element_text(size = 10, hjust = 0))
 
     

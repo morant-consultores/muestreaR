@@ -124,7 +124,7 @@ cartografia <- Cartografia$new(mun_shp = cart$mun, loc_shp = cart$loc,
                                agebR_shp = cart$agebR, agebU_shp = cart$agebU,
                                lpr_shp = cart$lpr, mza_shp = cart$mza)
 diseno$exportar(cartografia, carpeta = "Insumos",
-                mapas = ggmap::has_google_key())   # Mapas/ por AGEB con cuotas
+                mapas = ggmap::has_google_key())   # Mapas/ por AGEB (zoom, manzanas, contactos, entrevistas)
 ```
 
 ## Plan muestral versionado por UPM (secciones o AGEBs)

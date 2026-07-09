@@ -25,5 +25,8 @@ Invisible. Se ejecuta por su efecto secundario (escribe los mapas).
 }
 \description{
 Versión para el marco del INE: genera y guarda en disco un mapa por unidad
-mínima de la muestra usando imágenes de Google Maps.
+mínima de la muestra usando imágenes de Google Maps. El subtítulo de cada
+mapa indica lo operativo del conglomerado (no cuotas): el zoom, las
+manzanas a visitar, los contactos (viviendas a levantar) y las entrevistas
+efectivas planeadas.
 }
