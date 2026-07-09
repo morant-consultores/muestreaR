@@ -82,6 +82,30 @@ test_that("el motor UPM acepta lista negra con llave genérica 'upms' o por unid
   expect_equal(plan2$ageb, plan$ageb)
 })
 
+# ---- plan_para_capas ----
+
+test_that("plan_para_capas renombra al contrato seccional de encuestar", {
+  plan <- planear_muestra_ageb(marco_ageb_prueba(), 200, 10,
+                               dominio = "region", semilla = 2)
+  capas <- plan_para_capas(plan)
+  expect_true(all(c("seccion", "pi_seccion", "ln_seccion", "n_plan",
+                    "contactos") %in% names(capas)))
+  expect_equal(capas$seccion, plan$ageb)
+  expect_equal(capas$pi_seccion, plan$pi_ageb)
+  expect_equal(attr(capas, "unidad_original"), "ageb")
+  # los atributos del plan sobreviven al renombre
+  expect_equal(attr(capas, "asignacion"), attr(plan, "asignacion"))
+})
+
+test_that("plan_para_capas es identidad sobre planes seccionales", {
+  plan_sec <- tibble::tibble(seccion = "x", pi_seccion = 0.1, n_plan = 8)
+  attr(plan_sec, "unidad") <- "seccion"
+  expect_identical(plan_para_capas(plan_sec), plan_sec)
+  # sin attr de unidad se asume seccional (planes viejos versionados)
+  plan_viejo <- tibble::tibble(seccion = "x", pi_seccion = 0.1, n_plan = 8)
+  expect_identical(plan_para_capas(plan_viejo), plan_viejo)
+})
+
 # ---- planear_muestra_ageb ----
 
 test_that("planear_muestra_ageb es el espejo del flujo seccional con defaults censales", {
