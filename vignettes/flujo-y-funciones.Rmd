@@ -312,6 +312,68 @@ Devuelve, por estrato, lo planeado contra lo que realmente se sorteó.
 resumen_diseno(diseno2)
 ```
 
+# Bloque 4 — Muestra seccional y olas consecuentes (arquitectura de capas)
+
+Flujo alterno al de manzanas: cuando el diseño opera a nivel **sección**
+(el salto sistemático asigna las viviendas dentro de la sección), el
+producto del muestreo es el **plan versionado** — el contrato de la capa 1
+de pesos de `encuestar::construir_diseno_capas()`. Sin cuotas y sin
+sustituciones: la no respuesta se dimensiona con sobremuestra y se corrige
+en las capas.
+
+### `estratificar_electoral()` — estratos por comportamiento de voto
+
+El estrato que minimiza la varianza dentro y la maximiza entre no es
+urbano/rural sino **tipo de sección electoral × región de interés**:
+
+```{r estratificar, eval = FALSE}
+marco <- estratificar_electoral(marco)  # cortes MVN: duro/blando/competitiva/opositor
+```
+
+### `asignar_potencia()` — cuánta muestra a cada dominio
+
+`potencia = 1` proporcional, `0.5` raíz-cuadrada (recomendada cuando el
+cliente lee los dominios chicos), `0` igualitaria. Dentro del dominio, los
+estratos reciben proporcional a su lista nominal y ≥ 2 secciones cada uno.
+
+```{r asignar, eval = FALSE}
+asignar_potencia(marco, n_total = 2400, m_por_seccion = 8, potencia = 0.5)
+```
+
+### `aplicar_lista_negra()` — exclusión documentada, nunca sustitución
+
+Municipios/secciones estructuralmente inoperables salen del marco ANTES del
+sorteo y quedan documentados en `attr(, "lista_negra")` para la nota
+metodológica.
+
+### `planear_muestra_seccional()` — PPS + plan versionado
+
+Sortea con `seleccionar_pps()` y calcula `pi_seccion` sobre TODO el estrato
+(las probabilidades del diseño, no una renormalización sobre las
+sorteadas). El plan (`seccion`, `pi_seccion`, `ln_seccion`, `n_plan`,
+`contactos`) **se versiona en el repo de la ola antes de campo**.
+
+```{r plan-seccional, eval = FALSE}
+plan <- planear_muestra_seccional(marco, n_total = 2400, m_por_seccion = 8,
+                                  tasa_rechazo = 0.5, semilla = 2026,
+                                  lista_negra = list(municipios = "08_031"))
+saveRDS(plan, "salidas/plan_ola1.rds")
+```
+
+### `planear_siguiente_ola()` — sobremuestra diferenciada
+
+Con el registro de contactos de la ola previa (`seccion`, `contactos`,
+`efectivas`) estima la tasa de respuesta por sección con encogimiento hacia
+su estrato y dosifica los contactos donde costó más. `metodo = "resortear"`
+(sorteo independiente) o `"panel"` (mismas secciones y `pi`). Las secciones
+con 0 efectivas se reportan en `attr(, "inoperables")` — gabinete decide si
+pasan a la lista negra.
+
+```{r ola2, eval = FALSE}
+plan2 <- planear_siguiente_ola(marco, plan, registro_contactos,
+                               metodo = "resortear", semilla = 2027)
+```
+
 # Recapitulación
 
 | Paso | Función | Qué hace |
@@ -331,3 +393,8 @@ resumen_diseno(diseno2)
 | Global | `validar_estratos()` | revisa la especificación |
 | Global | `disenar_muestra_ine()` | **todo el flujo en una llamada** |
 | Global | `resumen_diseno()` | objetivo vs realizado |
+| Seccional | `estratificar_electoral()` | estratos = tipo electoral × región |
+| Seccional | `asignar_potencia()` | reparto por dominio (raíz-cuadrada) |
+| Seccional | `aplicar_lista_negra()` | exclusión documentada pre-sorteo |
+| Seccional | `planear_muestra_seccional()` | **PPS + plan versionado (capa 1)** |
+| Seccional | `planear_siguiente_ola()` | sobremuestra diferenciada por tasas |
