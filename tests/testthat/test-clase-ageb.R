@@ -112,6 +112,53 @@ test_that("disenar_muestra_ageb ejecuta el pipeline de la clase de punta a punta
                     dplyr::pull(n) == 20))
 })
 
+# ---- leer_cartografia_inegi (los shapefiles que se exportan con la clase) ----
+
+test_that("leer_cartografia_inegi deja la cartografía lista para Cartografia$new", {
+  skip_if_not_installed("sf")
+  skip_if_not_installed("withr")
+  dir <- withr::local_tempdir()
+  sq <- function(x0, y0, s = 0.01) {
+    sf::st_polygon(list(matrix(c(x0, y0, x0 + s, y0, x0 + s, y0 + s,
+                                 x0, y0 + s, x0, y0), ncol = 2, byrow = TRUE)))
+  }
+  escribir <- function(capa, bd) {
+    d <- file.path(dir, paste0("2025_1_15_", capa))
+    dir.create(d)
+    sf::st_write(bd, file.path(d, paste0("2025_1_15_", capa, ".shp")),
+                 quiet = TRUE)
+  }
+  escribir("MUN", sf::st_sf(CVEGEO = "15058", NOMGEO = "Neza",
+                            geometry = sf::st_sfc(sq(0, 0), crs = 4326)))
+  escribir("L", sf::st_sf(CVEGEO = "150580001", NOMGEO = "Neza",
+                          AMBITO = "Urbana",
+                          geometry = sf::st_sfc(sq(0, 0), crs = 4326)))
+  escribir("A", sf::st_sf(CVEGEO = "1505800010010",
+                          geometry = sf::st_sfc(sq(0, 0), crs = 4326)))
+  escribir("AR", sf::st_sf(CVEGEO = "1505800010777",
+                           geometry = sf::st_sfc(sq(1, 1), crs = 4326)))
+  escribir("LPR", sf::st_sf(CVEGEO = "150580002", NOMGEO = "Rancho",
+                            geometry = sf::st_sfc(sf::st_point(c(0, 0)),
+                                                  crs = 4326)))
+  escribir("M", sf::st_sf(CVEGEO = "1505800010010001", AMBITO = "Urbana",
+                          TIPOMZA = "Típica",
+                          geometry = sf::st_sfc(sq(0, 0, 0.001), crs = 4326)))
+
+  cart <- leer_cartografia_inegi(dir, patron = "2025_1_15")
+  expect_setequal(names(cart), c("mun", "loc", "agebR", "agebU", "lpr", "mza"))
+  expect_s3_class(cart$agebU, "sf")
+  expect_equal(sf::st_crs(cart$mza)$epsg, 4326)
+
+  # directo a la Cartografia de la clase (las llaves cruzan con crear_mm_ageb)
+  shp <- crear_shp(cart$mun, cart$loc, cart$agebR, cart$agebU,
+                   cart$lpr, cart$mza)
+  expect_setequal(names(shp), c("MUN", "ARLU", "AULR", "AGEB", "MZA"))
+  expect_equal(as.character(shp$AGEB$AULR), "1505800010010-AGEB-Urbana")
+  expect_equal(shp$MZA$MZA, "1505800010010001")
+
+  expect_error(leer_cartografia_inegi(dir, patron = "2020_1_15"), "No existe")
+})
+
 test_that("derivar_plan_ageb reconstruye el plan versionado desde la clase", {
   diseno <- suppressWarnings(disenar_muestra_ageb(
     poblacion_ageb_prueba(),
