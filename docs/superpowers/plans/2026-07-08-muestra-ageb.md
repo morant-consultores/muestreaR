@@ -525,3 +525,59 @@ test_that("planear_siguiente_ola opera sobre planes AGEB (registro por ageb)", {
 1. **Cobertura**: aceptar AGEB (Tasks 1–8) ✓; script muestra completa (Task 11) ✓; espejo informe Chihuahua aplicado (Task 11 §7, comentarios + plan versionado + 0.5 + DR-MNAR) ✓; TDD/commits atómicos/code review (estructura de cada task + Task 10) ✓; PR nuevo desde master (Tasks 0 y 10) ✓.
 2. **Placeholders**: los cuerpos marcados como "el actual de planear_muestra_seccional con…" son refactor de código existente leído en sesión — el ejecutor copia el cuerpo real; no hay TBD.
 3. **Consistencia de tipos**: plan AGEB = `ageb, ln_ageb, pi_ageb, n_plan, contactos` en Tasks 3–8 y 11 ✓; `marco_ageb_prueba()` compartido vía helper-fixture (Task 7 Step 2) ✓; `variable_tamano = "pob18"` uniforme ✓.
+
+---
+
+# ADDENDUM (feedback del usuario): la clase exportable es el insumo del equipo
+
+El flujo del equipo es la CLASE (población adentro, `exportar()` → `diseño.rda`
++ `shp.rda` + `cuotas.csv` + `Mapas/` de Google por conglomerado) que consumen
+AppAuditoria y encuestar (`Muestra$new` lee `$muestra`, `$variable_poblacional`,
+`$poblacion$marco_muestral`; rake `tipo_encuesta = "inegi"` YA existe con
+P_18A24/P_18YMAS/P_60YMAS). El flujo censal base (`Poblacion`/`Diseño`/
+`Cartografia`, `cuotas()`, `google_maps()`) ya opera marcos censo+AGEB; faltan
+piezas de paridad y la declarativa.
+
+### Task 12: `crear_mm_ageb()` + clase `PoblacionAGEB`
+Marco censal POR MANZANA compatible con la clase, desde el dataset
+ageb_mza_urbana (sin base de localidad ni shp: universo urbano): columnas de
+crear_mm (`ENTIDAD`, `MUN` 5, `LOC` 9, `AGEB` 13, `MZA` 16, `ARLU`, `AULR`,
+`NOM_MUN`, `NOM_LOC`, `AMBITO="Urbana"`, `id`) + TODO el bloque numérico censal
+parseado (`POBTOT:última`, asteriscos→NA; cuotas y rake necesitan
+P_18A24_F/M, P_18YMAS_F/M, P_60YMAS_F/M). `PoblacionAGEB` (classname
+"Poblacion"): `new(nombre, censo)` + método `regiones()`. TDD con censo_prueba().
+
+### Task 13: `Diseño$plan_muestra` con criterio "manual" (paridad INE)
+La base censal no acepta `manual`; DiseñoINE sí. Mismo diff mínimo (param
+`manual` + rama `criterio != "manual"`), retrocompatible. TDD: diseño censal
+sintético con AGEBs fijados por estrato.
+
+### Task 14: `disenar_muestra_ageb()` declarativa (espejo de disenar_muestra_ine)
+`(poblacion, estratos, variable_cluster = "AGEB",
+variable_poblacional = "P_18YMAS", n_0 = 5, manzanas_por_ageb = 2,
+tasa_rechazo, modo_rechazo, semilla, calcular_cuotas = TRUE)` →
+niveles estrato+AGEB, plan manual (AGEBs por estrato de
+`calcular_asignacion`), fpc(2)/fpc(0), extraer 1 y 2, `cuotas()` censal.
+Devuelve el objeto `Diseño` con attr "asignacion" y attr "plan_ageb"
+(Task 15). El modelo operativo del rechazo es el del equipo: modo
+"manzanas" infla manzanas por AGEB (2→4 con 0.5), n_0 = 5 fijo.
+
+### Task 15: `derivar_plan_ageb(diseno)` — puente al plan versionado
+Reconstruye el contrato DR-MNAR DESDE la clase (un solo sorteo, cero
+inconsistencia): `ageb`, `ln_ageb` (= total del AGEB), `pi_ageb`
+(= fpc del nivel AGEB, exacto al sorteo PPS), `n_plan` (efectivas
+objetivo por AGEB), `contactos` (a levantar = n_0 × manzanas), attr
+unidad="ageb" → listo para plan_para_capas()/planear_siguiente_ola().
+
+### Task 16: `leer_cartografia_inegi(carpeta, patron)`
+Lee los 6 shapefiles del marco geoestadístico ({patron}_{MUN,L,AR,A,LPR,M})
+→ lista para `Cartografia$new()` (CRS 4326). Test con shapefiles sintéticos
+escritos a tempdir (fixtures sf ya existen en helper).
+
+### Task 17: docs (viñeta bloque clase, README) + check + PR update
+
+### Task 18: reescribir el script EdoMex al flujo de la clase
+PoblacionAGEB → disenar_muestra_ageb (120 AGEBs × 4 mza × 5, rechazo 0.5
+modo manzanas) → Cartografia (shapefiles 2025) → `exportar()` a Insumos/
+(diseño.rda, shp.rda, cuotas.csv, Mapas/ si hay llave de Google) +
+plan versionado derivado a salidas/. Correr end-to-end y verificar.
