@@ -171,3 +171,42 @@ marco_ageb_prueba <- function() {
     estrato = rep(c("Metropolitana", "Metropolitana", "Resto", "Resto"), each = 10)
   )
 }
+
+# -------------------------------------------------------------------------------------
+# Censo sintético estilo INEGI ageb_mza_urbana PARA EL FLUJO DE LA CLASE
+# (PoblacionAGEB/Diseño): 2 municipios x 3 AGEBs x 6 manzanas, todo character
+# (como llega del CSV), CON el bloque demográfico que usan cuotas() y el rake
+# "inegi" de encuestar (P_18A24_*, P_18YMAS_*, P_60YMAS_*).
+censo_clase_prueba <- function(n_manzanas = 6) {
+  base <- tidyr::expand_grid(
+    ENTIDAD = "15", NOM_ENT = "México",
+    tibble::tibble(MUN = c("058", "106"),
+                   NOM_MUN = c("Nezahualcóyotl", "Toluca")),
+    LOC = "0001",
+    AGEB = c("0010", "025A", "0033")
+  )
+  demograficos <- function(bd, escala) {
+    bd |>
+      dplyr::mutate(
+        pob = escala * (10 + (dplyr::row_number() %% 5) * 4),
+        POBTOT = as.character(round(pob * 1.4)),
+        P_18YMAS = as.character(pob),
+        P_18YMAS_F = as.character(round(pob * 0.52)),
+        P_18YMAS_M = as.character(pob - round(pob * 0.52)),
+        P_18A24_F = as.character(round(pob * 0.10)),
+        P_18A24_M = as.character(round(pob * 0.09)),
+        P_60YMAS_F = as.character(round(pob * 0.08)),
+        P_60YMAS_M = as.character(round(pob * 0.07)),
+        VIVPAR_HAB = as.character(round(pob / 3))
+      ) |>
+      dplyr::select(-pob)
+  }
+  totales <- base |>
+    dplyr::mutate(NOM_LOC = "Total AGEB urbana", MZA = "000") |>
+    demograficos(escala = n_manzanas)
+  manzanas <- base |>
+    tidyr::expand_grid(MZA = sprintf("%03d", seq_len(n_manzanas))) |>
+    dplyr::mutate(NOM_LOC = "Ciudad ejemplo") |>
+    demograficos(escala = 1)
+  dplyr::bind_rows(totales, manzanas)
+}

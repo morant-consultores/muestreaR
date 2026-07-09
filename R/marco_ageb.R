@@ -154,3 +154,65 @@ construir_marco_manzanas <- function(censo) {
   }
   marco
 }
+
+#' Construir el marco muestral censal AGEB para la clase [Diseño]
+#'
+#' Versión del marco por manzana COMPATIBLE CON LA CLASE del equipo
+#' (la que se exporta como `diseño.rda` y consumen AppAuditoria y
+#' encuestar): una fila por manzana urbana del dataset "ageb_mza_urbana"
+#' con las columnas y llaves de [crear_mm()] — `ENTIDAD` (2), `MUN` (5),
+#' `LOC` (9), `AGEB` (13), `MZA` (16), las llaves de cruce con la
+#' cartografía (`ARLU`, `AULR`), `id` — y TODO el bloque censal numérico
+#' parseado (de `POBTOT` en adelante; el enmascaramiento `*` queda como
+#' `NA`). [cuotas()] y el rake `tipo_encuesta = "inegi"` de encuestar usan
+#' de ahí `P_18A24_*`, `P_18YMAS_*` y `P_60YMAS_*`.
+#'
+#' A diferencia de [crear_mm()] no requiere la base de localidades (ITER)
+#' ni shapefiles: el dataset es el universo urbano (localidades con AGEB y
+#' manzana), que es el marco del diseño por AGEBs.
+#'
+#' @inheritParams construir_marco_ageb
+#'
+#' @return `tibble` con una fila por manzana, listo para
+#'   `PoblacionAGEB$new()` / [Diseño].
+#' @export
+crear_mm_ageb <- function(censo) {
+  validar_censo(censo)
+  mzas <- censo[!grepl("^Total", censo$NOM_LOC), , drop = FALSE]
+  if (nrow(mzas) == 0) {
+    stop("El censo no trae filas de manzana: ",
+         "¿es el dataset ageb_mza_urbana del Censo 2020?", call. = FALSE)
+  }
+
+  # bloque censal numérico completo (POBTOT en adelante), como crear_mm
+  cols_num <- names(mzas)[match("POBTOT", names(mzas)):ncol(mzas)]
+
+  marco <- mzas |>
+    dplyr::mutate(dplyr::across(dplyr::all_of(cols_num), parsear_censo)) |>
+    dplyr::mutate(
+      ENTIDAD = formato_clave(.data$ENTIDAD, 2),
+      .cve_mun = formato_clave(.data$MUN, 3),
+      .cve_loc = formato_clave(.data$LOC, 4),
+      .cve_ageb = formato_ageb(.data$AGEB),
+      .cve_mza = formato_clave(.data$MZA, 3),
+      AMBITO = "Urbana",
+      tipo_localidad = "Localidad amanzanada",
+      tipo = "Localidad amanzanada",
+      MUN = paste0(.data$ENTIDAD, .data$.cve_mun),
+      LOC = paste0(.data$MUN, .data$.cve_loc),
+      AGEB = paste0(.data$LOC, .data$.cve_ageb),
+      MZA = paste0(.data$AGEB, .data$.cve_mza),
+      ARLU = paste0(.data$LOC, "-LOC-Urbana"),
+      AULR = paste0(.data$AGEB, "-AGEB-Urbana")
+    ) |>
+    dplyr::select(-dplyr::starts_with(".cve_")) |>
+    tibble::rownames_to_column("id")
+
+  validar_ancho_llave(marco$AGEB, 13, "AGEB")
+  validar_ancho_llave(marco$MZA, 16, "manzana")
+  if (anyDuplicated(marco$MZA) > 0) {
+    stop("Hay llaves de manzana duplicadas en el censo (",
+         sum(duplicated(marco$MZA)), "): revisa el insumo.", call. = FALSE)
+  }
+  marco
+}
