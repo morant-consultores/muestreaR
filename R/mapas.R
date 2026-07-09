@@ -174,9 +174,11 @@ resolver_tasa_rechazo <- function(diseño){
 }
 
 # Resumen operativo por conglomerado (último nivel): manzanas de la muestra,
-# contactos (suma de n_0 = viviendas a levantar) y entrevistas efectivas
-# planeadas (contactos ajustados por la tasa de rechazo). Una fila por
-# conglomerado, con la columna del cluster de último nivel.
+# contactos (suma de n_0 = viviendas a levantar), entrevistas efectivas
+# planeadas (contactos ajustados por la tasa de rechazo) y la numeración
+# estable del mapa (`mapa` de `total_mapas`, para el contador n/N en la
+# esquina del PNG). Una fila por conglomerado, ordenada por el cluster de
+# último nivel para que el número no dependa del orden de dibujo.
 resumen_operativo <- function(diseño){
   u_cluster <- diseño$niveles %>%
     filter(nivel == diseño$ultimo_nivel) %>%
@@ -189,7 +191,10 @@ resumen_operativo <- function(diseño){
     left_join(diseño$n_i$cluster_0, by = "cluster_0") %>%
     group_by(!!rlang::sym(u_cluster)) %>%
     summarise(manzanas = n(), contactos = sum(n_0), .groups = "drop") %>%
-    mutate(entrevistas = round(contactos * (1 - tasa)))
+    arrange(!!rlang::sym(u_cluster)) %>%
+    mutate(entrevistas = round(contactos * (1 - tasa)),
+           total_mapas = n(),
+           mapa = row_number())
 }
 
 # Subtítulo del mapa a partir de una fila del resumen operativo y el zoom.
@@ -248,16 +253,22 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
     Google <- ggmap::ggmap(nc_map)
     # Google
     g <- Google +
+      # contorno del AGEB (azul, grueso) y manzanas a levantar (rojo, con
+      # relleno tenue para que resalten sobre el mapa)
       geom_sf(data = aux_mapeo,
-              inherit.aes = F, alpha = 0, color = "blue") +
+              inherit.aes = F, fill = NA, color = "blue", linewidth = 1.4) +
       geom_sf(data = man,
-              inherit.aes = F, alpha = 0, color = "red") +
+              inherit.aes = F, fill = "red", alpha = 0.3, color = "red",
+              linewidth = 1.1) +
       # scale_x_continuous(limits = c(caja[1], caja[3])) + scale_y_continuous(limits = c(caja[2],caja[4])) +
       guides(fill = "none") +
       theme_minimal() +
       ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOM_MUN)} \n Localidad: {unique(aux_mapeo$NOM_LOC)}  \n {u_cluster}: {i}")) +
-      labs(subtitle =  etiqueta_mapa(resumen_i, zoom)) +
-      theme(plot.title = element_text(hjust = 1), plot.subtitle = element_text(size = 10, hjust = 0))
+      labs(subtitle =  etiqueta_mapa(resumen_i, zoom),
+           caption = glue::glue("{resumen_i$mapa}/{resumen_i$total_mapas}")) +
+      theme(plot.title = element_text(hjust = 1),
+            plot.subtitle = element_text(size = 10, hjust = 0),
+            plot.caption = element_text(size = 16, hjust = 1, face = "bold"))
 
     ggsave(g, filename= sprintf("%s.png", i),
            path=dir,width = 11,height = 8.5,units = "in",dpi = "print", bg = "white")
@@ -317,12 +328,15 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
     puntos <- man %>% filter(sf::st_geometry_type(.) == "POINT")
     man <- man %>% filter(sf::st_geometry_type(.) != "POINT")
     g <- Google +
+      # contorno de la sección (azul, grueso) y manzanas a levantar (rojo,
+      # con relleno tenue para que resalten sobre el mapa)
       geom_sf(data = aux_mapeo,
-              inherit.aes = F, alpha = 0, color = "blue") +
+              inherit.aes = F, fill = NA, color = "blue", linewidth = 1.4) +
       geom_sf(data = man,
-              inherit.aes = F, alpha = 0, color = "red") +
+              inherit.aes = F, fill = "red", alpha = 0.3, color = "red",
+              linewidth = 1.1) +
       geom_sf(data = puntos,
-              inherit.aes = F, alpha = 1, color = "red") +
+              inherit.aes = F, alpha = 1, color = "red", size = 3) +
       geom_sf_label(data = puntos, color = "red",
                     inherit.aes = F, aes(label = MANZANA), hjust = "inward",
                    vjust = "inward", size = 2) +
@@ -330,8 +344,11 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
       guides(fill = "none") +
       theme_minimal() +
       ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOMBRE_MUN)}  \n {u_cluster}: {i}")) +
-      labs(subtitle =  etiqueta_mapa(resumen_i, zoom)) +
-      theme(plot.title = element_text(hjust = 1), plot.subtitle = element_text(size = 10, hjust = 0))
+      labs(subtitle =  etiqueta_mapa(resumen_i, zoom),
+           caption = glue::glue("{resumen_i$mapa}/{resumen_i$total_mapas}")) +
+      theme(plot.title = element_text(hjust = 1),
+            plot.subtitle = element_text(size = 10, hjust = 0),
+            plot.caption = element_text(size = 16, hjust = 1, face = "bold"))
 
     
     

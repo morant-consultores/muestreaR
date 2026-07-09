@@ -32,6 +32,18 @@ test_that("resumen_operativo da manzanas, contactos y entrevistas por conglomera
   expect_true(all(res$entrevistas == 10))
 })
 
+test_that("resumen_operativo numera los mapas (n de N) de forma estable", {
+  res <- resumen_operativo(diseno_ageb_con_muestra())
+  expect_true(all(c("mapa", "total_mapas") %in% names(res)))
+  # numeración 1..N sin huecos y N = número de conglomerados
+  expect_equal(sort(res$mapa), seq_len(nrow(res)))
+  expect_true(all(res$total_mapas == nrow(res)))
+  # estable: el número de cada conglomerado no depende del orden de dibujo
+  res2 <- resumen_operativo(diseno_ageb_con_muestra())
+  expect_equal(res$mapa[order(res$cluster_2)],
+               res2$mapa[order(res2$cluster_2)])
+})
+
 test_that("etiqueta_mapa arma el subtítulo con zoom, manzanas, contactos y entrevistas", {
   res <- resumen_operativo(diseno_ageb_con_muestra())
   txt <- etiqueta_mapa(res[1, ], zoom = 16)
