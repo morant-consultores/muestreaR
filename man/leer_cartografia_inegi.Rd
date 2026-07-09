@@ -4,7 +4,7 @@
 \alias{leer_cartografia_inegi}
 \title{Cargar la cartografía del marco geoestadístico INEGI}
 \usage{
-leer_cartografia_inegi(carpeta, patron, encoding = "UTF-8")
+leer_cartografia_inegi(carpeta, patron, encoding = "CP1252")
 }
 \arguments{
 \item{carpeta}{Ruta a la carpeta que contiene las subcarpetas de cada
@@ -12,8 +12,9 @@ capa (p. ej. \code{"data-raw"}).}
 
 \item{patron}{Prefijo de los archivos (p. ej. \code{"2025_1_15"}).}
 
-\item{encoding}{Codificación de los shapefiles (default \code{"UTF-8"}, la
-del marco geoestadístico).}
+\item{encoding}{Codificación de los shapefiles (default \code{"CP1252"},
+Windows-1252, la del marco geoestadístico del INEGI — su \code{.cpg} dice
+\code{1252}; los nombres con acento se transcodifican a UTF-8 al leer).}
 }
 \value{
 Lista con \code{mun}, \code{loc} (L), \code{agebR} (AR), \code{agebU} (A), \code{lpr}

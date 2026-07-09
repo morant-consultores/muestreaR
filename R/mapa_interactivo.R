@@ -5,9 +5,21 @@
 # abre en el navegador y planea las rutas viendo todas las manzanas a la vez,
 # agrupadas por AGEB, con lo que hay que hacer en cada una.
 
-# Capas sf listas para leaflet: los AGEBs sorteados y las manzanas sorteadas,
-# cada una con su columna `popup` (HTML) y las variables operativas. Es la
-# parte con lógica de datos (testeable) del mapa interactivo del flujo censal.
+# Paleta de colores para agrupar las manzanas por AGEB: un color por AGEB,
+# recicla una paleta cualitativa (los AGEBs lejanos pueden repetir color, no
+# importa; lo que cuenta es que las manzanas de un mismo AGEB compartan uno).
+# Recicla a mano (no interpola) y funciona con cualquier número de AGEBs sin
+# el warning de RColorBrewer (Set1 topa en 9).
+paleta_agebs <- function(grupos) {
+  base <- c("#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00",
+            "#a65628", "#f781bf", "#1b9e77", "#666666", "#e6ab02")
+  leaflet::colorFactor(rep(base, length.out = length(grupos)), domain = grupos)
+}
+
+# Capas sf listas para leaflet: municipios (cobertura), los AGEBs sorteados y
+# las manzanas sorteadas, cada una con su columna `popup` (HTML) y las
+# variables operativas. Es la parte con lógica de datos (testeable) del mapa
+# interactivo del flujo censal.
 capas_leaflet_ageb <- function(diseño, cartografia) {
   shp <- if (inherits(cartografia, "Cartografia")) cartografia$shp else cartografia
   u_cluster <- paste0("cluster_", diseño$ultimo_nivel)
@@ -67,6 +79,9 @@ capas_leaflet_ageb <- function(diseño, cartografia) {
     purrr::pluck("MUN") %>%
     dplyr::left_join(mun_agg, by = "MUN") %>%
     dplyr::mutate(
+      # los nombres vienen del shapefile (CP1252): a UTF-8 para que el widget
+      # serialice bien aunque la cartografía se haya leído con otro encoding
+      NOM_MUN     = enc2utf8(as.character(NOM_MUN)),
       en_muestra  = !is.na(agebs),
       agebs       = dplyr::coalesce(agebs, 0L),
       contactos   = dplyr::coalesce(contactos, 0),
@@ -135,7 +150,7 @@ mapa_interactivo_ageb <- function(diseño, cartografia,
   # un color por AGEB: las manzanas de un mismo AGEB comparten color (se
   # precomputa la columna de grupo para no depender de get() en la fórmula)
   capas$manzanas$.grupo <- as.character(capas$manzanas[[u_cluster]])
-  pal <- leaflet::colorFactor("Set1", domain = unique(capas$manzanas$.grupo))
+  pal <- paleta_agebs(unique(capas$manzanas$.grupo))
 
   mapa <- leaflet::leaflet(
     options = leaflet::leafletOptions(preferCanvas = TRUE)

@@ -62,6 +62,28 @@ test_that("capas_leaflet_ageb agrega la capa municipal con totales y flag en_mue
   expect_equal(mun$agebs[mun$MUN == "15999"], 0)
 })
 
+test_that("la capa municipal produce popups en UTF-8 aunque el shp venga en Latin1", {
+  diseno <- diseno_ageb_con_muestra()
+  cart <- cartografia_ageb_prueba(diseno$poblacion$marco_muestral)
+  # nombre con acento en bytes CP1252/Latin1 (0xf3 = ó), como los shapefiles
+  # del INEGI leídos con el encoding equivocado
+  nom <- "Ray\xf3n"
+  Encoding(nom) <- "latin1"
+  cart$shp$MUN$NOM_MUN[1] <- nom
+
+  capas <- capas_leaflet_ageb(diseno, cart)
+  expect_true(all(validUTF8(capas$municipios$NOM_MUN)))
+  expect_true(all(validUTF8(capas$municipios$popup)))
+})
+
+test_that("paleta_agebs no advierte con muchos AGEBs y asigna color a cada grupo", {
+  grupos <- as.character(1:50)   # muy por encima de los 9 de Set1
+  expect_no_warning(pal <- paleta_agebs(grupos))
+  cols <- pal(grupos)
+  expect_length(cols, 50)
+  expect_false(anyNA(cols))
+})
+
 test_that("capas_leaflet_ageb avisa cuando una manzana no tiene su AGEB dibujable", {
   diseno <- diseno_ageb_con_muestra()
   cart <- cartografia_ageb_prueba(diseno$poblacion$marco_muestral)

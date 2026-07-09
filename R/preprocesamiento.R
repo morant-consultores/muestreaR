@@ -54,14 +54,15 @@ leer_cartografia_ine <- function(carpeta,
 #' @param carpeta Ruta a la carpeta que contiene las subcarpetas de cada
 #'   capa (p. ej. `"data-raw"`).
 #' @param patron Prefijo de los archivos (p. ej. `"2025_1_15"`).
-#' @param encoding Codificación de los shapefiles (default `"UTF-8"`, la
-#'   del marco geoestadístico).
+#' @param encoding Codificación de los shapefiles (default `"CP1252"`,
+#'   Windows-1252, la del marco geoestadístico del INEGI — su `.cpg` dice
+#'   `1252`; los nombres con acento se transcodifican a UTF-8 al leer).
 #'
 #' @return Lista con `mun`, `loc` (L), `agebR` (AR), `agebU` (A), `lpr`
 #'   (LPR) y `mza` (M), lista para
 #'   `Cartografia$new(mun_shp = cart$mun, loc_shp = cart$loc, ...)`.
 #' @export
-leer_cartografia_inegi <- function(carpeta, patron, encoding = "UTF-8") {
+leer_cartografia_inegi <- function(carpeta, patron, encoding = "CP1252") {
   leer <- function(capa) {
     base <- paste0(patron, "_", capa)
     ruta <- file.path(carpeta, base, paste0(base, ".shp"))
