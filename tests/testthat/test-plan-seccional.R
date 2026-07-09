@@ -165,3 +165,70 @@ test_that("planear_muestra_seccional excluye secciones sin estrato con aviso", {
   )
   expect_false("08_0005" %in% plan$seccion)
 })
+
+# ---- hallazgos del code review del PR #23 ----
+
+test_that("asignar_potencia con potencia 1 reparte proporcional (valores exactos)", {
+  marco <- estratificar_electoral(marco_prueba())
+  dom <- attr(asignar_potencia(marco, 400, 8, potencia = 1), "dominios")
+  # LN: Capital 14500, Juárez 24500, Resto 22000 (total 61000)
+  # 400 * shares = 95.08 / 160.66 / 144.26 -> Hamilton: sobrante al .66
+  esperado <- c(Capital = 95, `Juárez` = 161, Resto = 144)
+  expect_equal(dom$entrevistas_dominio[match(names(esperado), dom$region)],
+               unname(esperado))
+})
+
+test_that("asignar_potencia funciona con un solo dominio", {
+  marco <- estratificar_electoral(marco_prueba()) |>
+    dplyr::filter(region == "Capital")
+  asig <- asignar_potencia(marco, 80, 8)
+  expect_equal(sum(attr(asig, "dominios")$entrevistas_dominio), 80)
+  plan <- planear_muestra_seccional(marco, 80, 8, semilla = 1)
+  expect_equal(sum(plan$n_plan), sum(asig$entrevistas_plan))
+})
+
+test_that("secciones nunca excede las disponibles (aunque min_secciones pida más)", {
+  marco <- estratificar_electoral(marco_prueba())
+  # dejar el estrato Capital/Opositor con UNA sección disponible
+  marco <- marco[!(marco$seccion %in% sprintf("08_%04d", 1:9)), ]
+  expect_warning(
+    asig <- asignar_potencia(marco, 240, 8, min_secciones = 2),
+    "menos de 2"
+  )
+  expect_true(all(asig$secciones <= asig$secciones_disponibles))
+  fila <- asig[asig$secciones_disponibles == 1, ]
+  expect_equal(fila$secciones, 1)
+})
+
+test_that("una región NA no crea estratos fantasma", {
+  marco <- marco_prueba()
+  marco$region[3] <- NA
+  expect_warning(res <- estratificar_electoral(marco), "sin regi")
+  expect_true(is.na(res$estrato[3]))
+  expect_false(any(grepl("^NA / ", res$estrato)))
+})
+
+test_that("lista nominal NA o dominio en cero fallan con mensaje claro", {
+  marco <- estratificar_electoral(marco_prueba())
+  marco$lista_nominal[5] <- NA
+  # suppressWarnings: sampling avisa (correctamente) por el tamaño 0
+  suppressWarnings(expect_message(
+    plan <- planear_muestra_seccional(marco, 240, 8, semilla = 1),
+    "lista nominal"
+  ))
+  expect_false("08_0005" %in% plan$seccion)  # tamaño 0: nunca sorteable
+
+  marco2 <- estratificar_electoral(marco_prueba())
+  marco2$lista_nominal[marco2$region == "Capital"] <- 0
+  expect_error(
+    planear_muestra_seccional(marco2, 240, 8, semilla = 1),
+    "tama"
+  )
+})
+
+test_that("aplicar_lista_negra funciona sobre un marco sin estratificar", {
+  marco <- marco_prueba()   # sin columna estrato
+  res <- aplicar_lista_negra(marco, municipios = "08_019")
+  expect_equal(nrow(res), 30)
+  expect_true(all(is.na(attr(res, "lista_negra")$estrato)))
+})

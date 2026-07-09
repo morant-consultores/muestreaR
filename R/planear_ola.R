@@ -71,6 +71,32 @@ planear_siguiente_ola <- function(marco, plan_anterior, registro_contactos,
     stop("Al registro de contactos le faltan columnas: ",
          paste(faltan, collapse = ", "), call. = FALSE)
   }
+  # el registro alimenta joins y tasas: datos corruptos aquí corrompen el
+  # plan entero en silencio, así que se validan de entrada
+  if (anyDuplicated(registro_contactos$seccion)) {
+    stop("Hay secciones duplicadas en el registro de contactos (doble ",
+         "carga): agrégalo a una fila por sección antes de planear.",
+         call. = FALSE)
+  }
+  if (anyNA(registro_contactos$contactos) ||
+      anyNA(registro_contactos$efectivas)) {
+    stop("El registro de contactos trae NA en `contactos`/`efectivas`.",
+         call. = FALSE)
+  }
+  if (any(registro_contactos$contactos < 0 |
+            registro_contactos$efectivas < 0)) {
+    stop("El registro de contactos trae valores negativos.", call. = FALSE)
+  }
+  if (any(registro_contactos$efectivas > registro_contactos$contactos)) {
+    stop("Hay secciones con más efectivas que contactos en el registro: ",
+         "revisa la carga.", call. = FALSE)
+  }
+  req_plan <- c("seccion", "estrato", "pi_seccion", "n_plan")
+  faltan_plan <- setdiff(req_plan, names(plan_anterior))
+  if (length(faltan_plan) > 0) {
+    stop("A `plan_anterior` le faltan columnas del plan versionado: ",
+         paste(faltan_plan, collapse = ", "), call. = FALSE)
+  }
   if (encogimiento < 0 || encogimiento > 1) {
     stop("`encogimiento` debe estar en [0, 1].", call. = FALSE)
   }

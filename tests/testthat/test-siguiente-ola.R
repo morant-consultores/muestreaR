@@ -102,3 +102,46 @@ test_that("valida el esquema del registro de contactos", {
     "contactos"
   )
 })
+
+# ---- hallazgos del code review del PR #23 ----
+
+test_that("secciones duplicadas en el registro abortan (no duplican el plan)", {
+  marco <- marco_ola()
+  plan1 <- planear_muestra_seccional(marco, 240, 8, semilla = 3)
+  registro <- registro_de(plan1, tasa = 0.5)
+  registro <- rbind(registro, registro[1, ])   # doble carga de la app
+  expect_error(
+    planear_siguiente_ola(marco, plan1, registro, metodo = "panel"),
+    "duplicad"
+  )
+})
+
+test_that("NA o efectivas > contactos en el registro abortan con mensaje claro", {
+  marco <- marco_ola()
+  plan1 <- planear_muestra_seccional(marco, 240, 8, semilla = 3)
+
+  con_na <- registro_de(plan1, tasa = 0.5)
+  con_na$efectivas[2] <- NA
+  expect_error(
+    planear_siguiente_ola(marco, plan1, con_na, metodo = "panel"),
+    "NA"
+  )
+
+  invertido <- registro_de(plan1, tasa = 0.5)
+  invertido$efectivas[1] <- invertido$contactos[1] + 5
+  expect_error(
+    planear_siguiente_ola(marco, plan1, invertido, metodo = "panel"),
+    "efectivas"
+  )
+})
+
+test_that("plan_anterior sin el esquema del plan aborta al inicio", {
+  marco <- marco_ola()
+  plan1 <- planear_muestra_seccional(marco, 240, 8, semilla = 3)
+  registro <- registro_de(plan1, tasa = 0.5)
+  expect_error(
+    planear_siguiente_ola(marco, plan1 |> dplyr::select(-n_plan), registro,
+                          metodo = "panel"),
+    "n_plan"
+  )
+})

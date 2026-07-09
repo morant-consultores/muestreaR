@@ -49,6 +49,7 @@ estratificar_electoral <- function(marco,
   }
 
   v <- marco[[mvn]]
+  reg <- marco[[region]]
   tipo <- dplyr::case_when(
     is.na(v)        ~ NA_character_,
     v > cortes[1]   ~ etiquetas[1],
@@ -60,12 +61,18 @@ estratificar_electoral <- function(marco,
     warning(sum(is.na(tipo)), " sección(es) sin MVN quedan sin estrato ",
             "(no entran al sorteo).", call. = FALSE)
   }
+  # una región NA también deja sin estrato (si no, paste() serializa el NA
+  # como texto y nace un estrato fantasma "NA / ...")
+  if (anyNA(reg)) {
+    warning(sum(is.na(reg)), " sección(es) sin región quedan sin estrato ",
+            "(no entran al sorteo).", call. = FALSE)
+  }
 
   marco |>
     dplyr::mutate(
       tipo_electoral = tipo,
-      estrato = ifelse(is.na(tipo), NA_character_,
-                       paste(.data[[region]], tipo, sep = " / "))
+      estrato = ifelse(is.na(tipo) | is.na(reg), NA_character_,
+                       paste(reg, tipo, sep = " / "))
     )
 }
 
@@ -115,6 +122,11 @@ asignar_potencia <- function(marco, n_total, m_por_seccion,
     dplyr::group_by(.data[[dominio]]) |>
     dplyr::summarise(ln_dominio = sum(.data[[variable_tamano]], na.rm = TRUE),
                      .groups = "drop")
+  if (any(is.na(doms$ln_dominio) | doms$ln_dominio <= 0)) {
+    stop("Dominio(s) sin tamaño poblacional (lista nominal 0 o NA): ",
+         paste(doms[[1]][is.na(doms$ln_dominio) | doms$ln_dominio <= 0],
+               collapse = ", "), call. = FALSE)
+  }
   peso <- doms$ln_dominio^potencia
   doms$entrevistas_dominio <- repartir_cociente(n_total,
                                                 n_total * peso / sum(peso))
@@ -134,8 +146,11 @@ asignar_potencia <- function(marco, n_total, m_por_seccion,
     ) |>
     dplyr::ungroup() |>
     dplyr::mutate(
-      secciones = pmax(min_secciones,
-                       pmin(secciones_disponibles,
+      # las disponibles mandan: pedir min_secciones a un estrato de 1 sección
+      # rompería el invariante secciones <= disponibles (y el sorteo lo
+      # entregaría corto en silencio)
+      secciones = pmin(secciones_disponibles,
+                       pmax(min_secciones,
                             ceiling(entrevistas_obj / m_por_seccion))),
       entrevistas_plan = secciones * m_por_seccion
     ) |>
@@ -188,9 +203,16 @@ aplicar_lista_negra <- function(marco, secciones = NULL, municipios = NULL,
   }
 
   ln <- if ("lista_nominal" %in% names(marco)) marco$lista_nominal else NA_real_
+  # el marco puede venir sin estratificar (excluir antes de estratificar es
+  # un orden válido); la documentación registra NA en ese caso
+  est <- if (variable_estrato %in% names(marco)) {
+    marco[[variable_estrato]]
+  } else {
+    rep(NA_character_, nrow(marco))
+  }
   doc <- tibble::tibble(
     seccion = marco[[llave_seccion]][fuera_mun | fuera_sec],
-    estrato = marco[[variable_estrato]][fuera_mun | fuera_sec],
+    estrato = est[fuera_mun | fuera_sec],
     lista_nominal = ln[fuera_mun | fuera_sec],
     motivo = dplyr::case_when(
       fuera_mun[fuera_mun | fuera_sec] ~ "municipio en lista negra",
@@ -207,14 +229,16 @@ aplicar_lista_negra <- function(marco, secciones = NULL, municipios = NULL,
             "Declararlo en la nota metodológica.")
   }
 
-  restantes <- res |>
-    dplyr::filter(!is.na(.data[[variable_estrato]])) |>
-    dplyr::count(.data[[variable_estrato]])
-  cortos <- restantes[[2]] < min_secciones
-  if (any(cortos)) {
-    warning("La lista negra dejó estrato(s) con menos de ", min_secciones,
-            " secciones: ", paste(restantes[[1]][cortos], collapse = ", "),
-            call. = FALSE)
+  if (variable_estrato %in% names(res)) {
+    restantes <- res |>
+      dplyr::filter(!is.na(.data[[variable_estrato]])) |>
+      dplyr::count(.data[[variable_estrato]])
+    cortos <- restantes[[2]] < min_secciones
+    if (any(cortos)) {
+      warning("La lista negra dejó estrato(s) con menos de ", min_secciones,
+              " secciones: ", paste(restantes[[1]][cortos], collapse = ", "),
+              call. = FALSE)
+    }
   }
 
   attr(res, "lista_negra") <- doc
@@ -279,6 +303,15 @@ planear_muestra_seccional <- function(marco, n_total, m_por_seccion = 8,
   if (any(sin_estrato)) {
     message(sum(sin_estrato), " sección(es) sin estrato fuera del sorteo.")
     marco <- marco[!sin_estrato, , drop = FALSE]
+  }
+
+  # lista nominal NA = tamaño 0 (nunca sorteable), consistente con
+  # seleccionar_pps; sin sanear, inclusionprobabilities() muere críptico
+  tam_na <- is.na(marco[[variable_tamano]])
+  if (any(tam_na)) {
+    message(sum(tam_na), " sección(es) con lista nominal NA: se tratan ",
+            "como tamaño 0 (nunca sorteables).")
+    marco[[variable_tamano]][tam_na] <- 0
   }
 
   asig <- asignar_potencia(marco, n_total, m_por_seccion, potencia, dominio,
