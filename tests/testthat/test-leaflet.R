@@ -62,6 +62,20 @@ test_that("capas_leaflet_ageb agrega la capa municipal con totales y flag en_mue
   expect_equal(mun$agebs[mun$MUN == "15999"], 0)
 })
 
+test_that("la capa de AGEBs expone el cluster_2 (consistente con los PNG de google_maps)", {
+  diseno <- diseno_ageb_con_muestra()
+  cart <- cartografia_ageb_prueba(diseno$poblacion$marco_muestral)
+  capas <- capas_leaflet_ageb(diseno, cart)
+
+  # cada AGEB trae su cluster_2 (el mismo id que nombra y titula el PNG)
+  expect_true(".cluster" %in% names(capas$agebs))
+  bd <- diseno$muestra |> purrr::pluck(length(diseno$muestra)) |>
+    tidyr::unnest(data)
+  expect_setequal(capas$agebs$.cluster, unique(bd$cluster_2))
+  # el popup del AGEB lo muestra, para cruzarlo con el PNG "cluster_2: N"
+  expect_true(all(grepl("cluster_2", capas$agebs$popup)))
+})
+
 test_that("la capa municipal produce popups en UTF-8 aunque el shp venga en Latin1", {
   diseno <- diseno_ageb_con_muestra()
   cart <- cartografia_ageb_prueba(diseno$poblacion$marco_muestral)

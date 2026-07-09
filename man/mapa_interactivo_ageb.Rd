@@ -33,8 +33,9 @@ pensado para que campo \strong{planee las rutas} desde el navegador: las
 manzanas se colorean por AGEB (las de un mismo AGEB comparten color, se
 visitan juntas) y cada una trae en su popup lo que hay que hacer
 (municipio, localidad, AGEB, manzana y viviendas a levantar); cada AGEB
-trae su resumen operativo y su número de mapa (para cruzarlo con los PNG
-impresos). Sobre esas dos capas va la \strong{capa municipal}: todos los
+se identifica con su \strong{cluster_2} — el MISMO id que nombra y titula los
+PNG de \code{\link[=google_maps]{google_maps()}} — para que campo cruce sin ambigüedad el mapa
+impreso con este, más su resumen operativo y su número de mapa. Sobre esas dos capas va la \strong{capa municipal}: todos los
 municipios del estado, en verde si salieron en la muestra y gris si no,
 con el nombre y el total de contactos y entrevistas planeadas por
 municipio (para ver la cobertura y repartir la carga de campo). Incluye

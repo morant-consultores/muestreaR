@@ -238,9 +238,6 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
 
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
-  # la clave que ve campo es la del conglomerado (AGEB), NO el id interno
-  # cluster_2 (1,2,3...), que no le dice nada
-  var_cluster <- u_nivel %>% pull(variable)
   bd <- diseño$muestra %>% purrr::pluck(length(diseño$muestra)) %>% tidyr::unnest(data)
 
 
@@ -286,7 +283,7 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
       # scale_x_continuous(limits = c(caja[1], caja[3])) + scale_y_continuous(limits = c(caja[2],caja[4])) +
       guides(fill = "none") +
       theme_minimal() +
-      ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOM_MUN)} \n Localidad: {unique(aux_mapeo$NOM_LOC)}  \n {var_cluster}: {unique(aux_mapeo[[var_cluster]])}")) +
+      ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOM_MUN)} \n Localidad: {unique(aux_mapeo$NOM_LOC)}  \n {u_cluster}: {i}")) +
       labs(subtitle =  etiqueta_mapa(resumen_i, zoom),
            caption = glue::glue("{resumen_i$mapa}/{resumen_i$total_mapas}")) +
       theme(plot.title = element_text(hjust = 1),
@@ -323,9 +320,6 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
 
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
-  # la clave que ve campo es la del conglomerado (SECCION), NO el id interno
-  # cluster_2 (1,2,3...), que no le dice nada
-  var_cluster <- u_nivel %>% pull(variable)
   bd <- diseño$muestra %>% purrr::pluck(length(diseño$muestra)) %>% tidyr::unnest(data)
 
   if(is.null(cluster)){
@@ -378,7 +372,7 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
       # scale_x_continuous(limits = c(caja[1], caja[3])) + scale_y_continuous(limits = c(caja[2],caja[4])) +
       guides(fill = "none") +
       theme_minimal() +
-      ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOMBRE_MUN)}  \n {var_cluster}: {unique(aux_mapeo[[var_cluster]])}")) +
+      ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOMBRE_MUN)}  \n {u_cluster}: {i}")) +
       labs(subtitle =  etiqueta_mapa(resumen_i, zoom),
            caption = glue::glue("{resumen_i$mapa}/{resumen_i$total_mapas}")) +
       theme(plot.title = element_text(hjust = 1),

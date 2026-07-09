@@ -55,13 +55,19 @@ capas_leaflet_ageb <- function(diseño, cartografia) {
       by = "AULR"
     ) %>%
     dplyr::left_join(resumen, by = u_cluster) %>%
-    dplyr::mutate(popup = paste0(
-      "<b>AGEB ", AGEB, "</b> — mapa ", mapa, "/", total_mapas,
-      "<br>", NOM_MUN,
-      "<br>Manzanas: ", manzanas,
-      "<br>Contactos (viviendas): ", contactos,
-      "<br>Entrevistas efectivas: ", entrevistas
-    ))
+    # `.cluster` = el id cluster_2 que nombra y titula el PNG de google_maps;
+    # se muestra igual aquí para que campo cruce el mapa impreso con este
+    dplyr::mutate(
+      .cluster = .data[[u_cluster]],
+      popup = paste0(
+        "<b>cluster_2 ", .cluster, "</b> — mapa ", mapa, "/", total_mapas,
+        "<br>AGEB ", AGEB,
+        "<br>", NOM_MUN,
+        "<br>Manzanas: ", manzanas,
+        "<br>Contactos (viviendas): ", contactos,
+        "<br>Entrevistas efectivas: ", entrevistas
+      )
+    )
 
   # capa municipal: TODOS los municipios de la cartografía, marcados según
   # tengan o no AGEBs en la muestra, con el total de contactos y entrevistas
@@ -118,8 +124,9 @@ capas_leaflet_ageb <- function(diseño, cartografia) {
 #' manzanas se colorean por AGEB (las de un mismo AGEB comparten color, se
 #' visitan juntas) y cada una trae en su popup lo que hay que hacer
 #' (municipio, localidad, AGEB, manzana y viviendas a levantar); cada AGEB
-#' trae su resumen operativo y su número de mapa (para cruzarlo con los PNG
-#' impresos). Sobre esas dos capas va la **capa municipal**: todos los
+#' se identifica con su **cluster_2** — el MISMO id que nombra y titula los
+#' PNG de [google_maps()] — para que campo cruce sin ambigüedad el mapa
+#' impreso con este, más su resumen operativo y su número de mapa. Sobre esas dos capas va la **capa municipal**: todos los
 #' municipios del estado, en verde si salieron en la muestra y gris si no,
 #' con el nombre y el total de contactos y entrevistas planeadas por
 #' municipio (para ver la cobertura y repartir la carga de campo). Incluye
@@ -182,7 +189,8 @@ mapa_interactivo_ageb <- function(diseño, cartografia,
       group = "AGEBs",
       fill = FALSE, color = "#1d3557", weight = 2, opacity = 0.9,
       popup = ~popup,
-      label = ~lapply(paste0("AGEB ", AGEB, " (mapa ", mapa, "/", total_mapas, ")"),
+      label = ~lapply(paste0("cluster_2 ", .cluster, " (mapa ", mapa, "/",
+                             total_mapas, ")"),
                       htmltools::HTML)
     ) %>%
     # manzanas sorteadas (lo que se levanta), coloreadas por AGEB
