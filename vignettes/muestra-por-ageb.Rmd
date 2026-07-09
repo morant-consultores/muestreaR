@@ -164,23 +164,79 @@ attr(plan_ola2, "tasa_general")
 head(plan_ola2, 3)
 ```
 
+## El flujo de la CLASE: el insumo de AppAuditoria y encuestar
+
+Lo anterior es el flujo *ligero* (tibbles). El flujo **operativo del
+equipo** es el de la clase: la población vive dentro del [Diseño], el
+objeto se **exporta** (`diseño.rda` + `shp.rda` + `cuotas.csv` +
+`Mapas/`) y ese export es el insumo de AppAuditoria y de `encuestar`
+(`tipo_encuesta = "inegi"`). Para AGEB es una sola llamada declarativa,
+espejo de `disenar_muestra_ine()`:
+
+```{r clase}
+pob <- PoblacionAGEB$new("Ejemplo urbano", censo)
+# estrato = región de interés (o constante para el espejo sin estratificar)
+pob$marco_muestral <- pob$marco_muestral |> mutate(region = NOM_MUN)
+
+diseno <- disenar_muestra_ageb(
+  pob,
+  estratos = tibble(estrato = c("Nezahualcóyotl", "Toluca"),
+                    entrevistas = c(20, 20)),
+  n_0               = 5,      # entrevistas por manzana (Etapa III)
+  manzanas_por_ageb = 2,      # Etapa II base
+  tasa_rechazo      = 0.5,    # modelo operativo: infla manzanas (2 -> 4)
+  modo_rechazo      = "manzanas",
+  semilla           = 2026
+)
+resumen_diseno(diseno)
+head(diseno$cuotas)           # instrucciones por AGEB (rango x sexo)
+```
+
+La exportación escribe el insumo completo; con la llave del API de
+Google, `mapas = TRUE` imprime en `Insumos/Mapas/` un PNG por AGEB
+(polígono del AGEB, manzanas sorteadas y las cuotas como instrucciones
+del encuestador):
+
+```{r exportar, eval = FALSE}
+cart <- leer_cartografia_inegi("data-raw", patron = "2025_1_15")
+cartografia <- Cartografia$new(
+  mun_shp = cart$mun, loc_shp = cart$loc, agebR_shp = cart$agebR,
+  agebU_shp = cart$agebU, lpr_shp = cart$lpr, mza_shp = cart$mza
+)
+diseno$exportar(cartografia, zoom = 16, carpeta = "Insumos",
+                mapas = ggmap::has_google_key())
+```
+
+El puente al plan versionado sale del MISMO sorteo de la clase (las
+`pi_ageb` son el `fpc` del nivel AGEB):
+
+```{r plan-clase}
+plan_clase <- attr(diseno, "plan_ageb")   # o derivar_plan_ageb(diseno)
+head(plan_clase, 3)
+names(plan_para_capas(plan_clase))
+```
+
 ## Espejo de una nota metodológica tipo Enkoll
 
 Para replicar un diseño "120 AGEBs PPT → 2 manzanas PPT → 5 viviendas
-sistemático" (1,200 entrevistas):
+sistemático" (1,200 entrevistas) con el flujo de la clase:
 
 ```{r espejo, eval = FALSE}
-marco <- construir_marco_ageb(censo) |>
-  mutate(region = "Estatal", estrato = "Estatal")   # sin estratificar, como el espejo
+pob <- PoblacionAGEB$new("Estado de México (urbano)", censo)
+pob$marco_muestral <- pob$marco_muestral |>
+  mutate(region = "Estado de México")     # sin estratificar, como el espejo
 
-plan <- planear_muestra_ageb(marco, n_total = 1200, m_por_ageb = 10,
-                             dominio = NULL, potencia = 1,
-                             tasa_rechazo = 0.5, semilla = 2026)
-listado <- seleccionar_manzanas(plan, construir_marco_manzanas(censo),
-                                manzanas_por_upm = 2, semilla = 2026)
+diseno <- disenar_muestra_ageb(
+  pob,
+  estratos = tibble(estrato = "Estado de México", entrevistas = 1200),
+  n_0 = 5, manzanas_por_ageb = 2,
+  tasa_rechazo = 0.5, modo_rechazo = "manzanas",   # 120 AGEBs x 4 mza x 5
+  semilla = 2026
+)
 ```
 
 La diferencia metodológica que sí conservamos: **sin sustitución en
-campo** — la sobremuestra (`contactos`) y la lista negra documentada
-reemplazan al "AGEB de reemplazo", y la no respuesta se corrige en las
-capas de pesos (y con DR-MNAR cuando el diagnóstico lo pide).
+campo** — la sobremuestra (manzanas infladas y `contactos` del plan) y la
+lista negra documentada reemplazan al "AGEB de reemplazo", y la no
+respuesta se corrige en las capas de pesos (y con DR-MNAR cuando el
+diagnóstico lo pide).

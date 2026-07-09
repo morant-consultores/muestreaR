@@ -94,7 +94,7 @@ reproducible: cada etapa estocástica fija una sub-semilla derivada de
 \subsection{\code{Diseño$plan_muestra()}}{
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{Diseño$plan_muestra(nivel, criterio, unidades_nivel)}
+    \preformatted{Diseño$plan_muestra(nivel, criterio, unidades_nivel, manual)}
     \if{html}{\out{</div>}}
   }
 }

@@ -99,35 +99,48 @@ diseno <- disenar_muestra_ine(
 resumen_diseno(diseno)                  # objetivo vs realizado por estrato
 ```
 
-## Plan muestral versionado por UPM (secciones o AGEBs)
+## Muestra por AGEB (marco censal INEGI)
 
-El flujo moderno de pesos por capas (contrato con
-`encuestar::construir_diseno_capas()`) sortea **UPMs con PPS por estrato** y
-entrega un plan versionable. La UPM puede ser la **sección electoral**
-(`planear_muestra_seccional()`) o el **AGEB urbano** del censo INEGI
-(`planear_muestra_ageb()`); ambos delegan en el motor genérico
-`planear_muestra_upm()`.
+El diseño por AGEBs corre por el **flujo de la clase** que el equipo ya
+opera — la población vive dentro del `Diseño`, el objeto se exporta
+(`diseño.rda` + `shp.rda` + `cuotas.csv` + `Mapas/` de Google por AGEB) y
+es el insumo de AppAuditoria y de `encuestar` (`tipo_encuesta = "inegi"`):
 
 ```r
-# marco censal desde el dataset "ageb_mza_urbana" del Censo 2020
 censo <- readr::read_csv("conjunto_de_datos_ageb_urbana_15_cpv2020.csv",
                          col_types = readr::cols(.default = "c"))
-marco  <- construir_marco_ageb(censo)      |> dplyr::mutate(estrato = ...)
-mzas   <- construir_marco_manzanas(censo)
+pob <- PoblacionAGEB$new("Estado de México (urbano)", censo)
+pob$marco_muestral <- pob$marco_muestral |> dplyr::mutate(region = ...)
 
-# Etapa I: AGEBs con PPT y plan versionado (guardarlo ANTES de campo)
-plan <- planear_muestra_ageb(marco, n_total = 1200, m_por_ageb = 10,
-                             tasa_rechazo = 0.5, semilla = 2026)
+diseno <- disenar_muestra_ageb(
+  pob, estratos,                    # data.frame(estrato, entrevistas)
+  n_0 = 5, manzanas_por_ageb = 2,
+  tasa_rechazo = 0.5,               # modelo operativo: infla manzanas (2 -> 4)
+  semilla = 2026
+)
 
-# Etapa II: manzanas con PPT dentro de cada AGEB (listado de campo)
-listado <- seleccionar_manzanas(plan, mzas, manzanas_por_upm = 2,
-                                semilla = 2026)
-
-# puente al contrato seccional de encuestar y olas consecuentes
-plan_capas <- plan_para_capas(plan)
-plan_ola2  <- planear_siguiente_ola(marco, plan, registro_contactos,
-                                    variable_tamano = "pob18")
+cart <- leer_cartografia_inegi("data-raw", patron = "2025_1_15")
+cartografia <- Cartografia$new(mun_shp = cart$mun, loc_shp = cart$loc,
+                               agebR_shp = cart$agebR, agebU_shp = cart$agebU,
+                               lpr_shp = cart$lpr, mza_shp = cart$mza)
+diseno$exportar(cartografia, carpeta = "Insumos",
+                mapas = ggmap::has_google_key())   # Mapas/ por AGEB con cuotas
 ```
+
+## Plan muestral versionado por UPM (secciones o AGEBs)
+
+El flujo de pesos por capas (contrato con
+`encuestar::construir_diseno_capas()`) usa un **plan versionable** por UPM.
+Del diseño de la clase sale directo: `attr(diseno, "plan_ageb")` (o
+`derivar_plan_ageb(diseno)`) trae las `pi_ageb` exactas del sorteo; el
+puente `plan_para_capas()` lo renombra al contrato seccional y
+`planear_siguiente_ola()` dimensiona la ola 2 con el registro de contactos.
+
+También existe el flujo *ligero* sin clase (tibbles): la UPM puede ser la
+**sección electoral** (`planear_muestra_seccional()`) o el **AGEB**
+(`planear_muestra_ageb()`), ambos sobre el motor `planear_muestra_upm()`,
+con `construir_marco_ageb()`/`construir_marco_manzanas()` para armar los
+marcos y `seleccionar_manzanas()` para la Etapa II con PPT.
 
 Del flujo seccional comparte `estratificar_electoral()`, `asignar_potencia()`,
 `aplicar_lista_negra()` y `seleccionar_pps()`.
