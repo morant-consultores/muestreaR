@@ -99,7 +99,7 @@ Diseño <- R6::R6Class("Diseño",
                           self$n_i <- self$n_i[-grep(glue::glue("(cluster|strata)_[{nivel}-9]"),
                                                      names(self$n_i))]
                         },
-                        plan_muestra =function(nivel, criterio, unidades_nivel){
+                        plan_muestra =function(nivel, criterio, unidades_nivel, manual){
                           nivel_l <- nivel
                           if(nivel_l==0){
                             # Se asigna el nivel 0
@@ -129,11 +129,27 @@ Diseño <- R6::R6Class("Diseño",
                             else{
                               # Si no es el último nivel
                               # Primero se asigna m
-                              # Después se asigna n
-                              res <- asignar_m(diseño = self,
-                                               criterio = criterio,
-                                               unidades_nivel = unidades_nivel) %>%
-                                left_join(asignar_n(self))
+                              # Después se asigna n (con criterio "manual", el n
+                              # se reparte proporcional al m fijado — paridad con
+                              # DiseñoINE, necesario para fijar AGEBs por estrato)
+                              if(missing(criterio) || criterio != "manual"){
+                                res <- asignar_m(diseño = self,
+                                                 criterio = criterio,
+                                                 unidades_nivel = unidades_nivel,
+                                                 manual = manual) %>%
+                                  left_join(asignar_n(self))
+                              } else{
+                                res <- asignar_m(diseño = self,
+                                                 criterio = criterio,
+                                                 unidades_nivel = unidades_nivel,
+                                                 manual = manual) %>%
+                                  mutate(
+                                    !!rlang::sym(glue::glue("n_{nivel_l}")) :=
+                                      !!rlang::sym(glue::glue("m_{nivel_l}")) /
+                                      sum(!!rlang::sym(glue::glue("m_{nivel_l}"))) *
+                                      self$n
+                                  )
+                              }
                               # Se etiqueta
                               res <- purrr::set_names(list(res), glue::glue("{self$niveles %>%
                                                      filter(nivel==nivel_l) %>%

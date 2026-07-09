@@ -45,3 +45,28 @@ test_that("PoblacionAGEB construye la población con el marco adentro", {
   expect_equal(pob$calcular_poblacion(),
                sum(pob$marco_muestral$P_18YMAS, na.rm = TRUE))
 })
+
+# ---- Diseño censal con plan manual (paridad con DiseñoINE) ----
+
+test_that("Diseño censal acepta plan manual por estrato (paridad INE)", {
+  pob <- PoblacionAGEB$new("Fixture", censo_clase_prueba())
+  pob$marco_muestral <- pob$marco_muestral |> dplyr::mutate(region = NOM_MUN)
+  diseno <- Diseño$new(
+    poblacion = pob, n = 40, n_0 = 5,
+    variable_poblacional = "P_18YMAS",
+    unidad_muestreo = "Manzanas",
+    id_unidad_muestreo = "id", llave_muestreo = "Man",
+    semilla = 11
+  )
+  diseno$agregar_nivel("region", tipo = "strata",
+                       descripcion = "Regiones", llave = "region")
+  diseno$agregar_nivel("AGEB", tipo = "cluster",
+                       descripcion = "AGEBs", llave = "AGEB")
+  diseno$plan_muestra(nivel = 1, criterio = "manual", manual = c(2, 2))
+  diseno$n_i$strata_1$n_1 <- c(20, 20)
+  suppressWarnings(diseno$plan_muestra(nivel = 2))   # último nivel: criterio fijo
+
+  expect_equal(diseno$n_i$strata_1$m_1, c(2, 2))
+  # manzanas por AGEB = (n_1 / m_1) / n_0 = (20/2)/5 = 2
+  expect_true(all(diseno$n_i$cluster_2$m_2 == 2))
+})
