@@ -62,6 +62,23 @@ test_that("capas_leaflet_ageb agrega la capa municipal con totales y flag en_mue
   expect_equal(mun$agebs[mun$MUN == "15999"], 0)
 })
 
+test_that("las manzanas del mapa interactivo llevan el id corto del cuestionario", {
+  diseno <- diseno_ageb_con_muestra()
+  cart <- cartografia_ageb_prueba(diseno$poblacion$marco_muestral)
+  capas <- capas_leaflet_ageb(diseno, cart)
+
+  expect_true("manzana_num" %in% names(capas$manzanas))
+  # el número coincide EXACTAMENTE con numerar_manzanas (la fuente única
+  # que también usan los PNG y los CSV de campo)
+  num <- numerar_manzanas(diseno)
+  esperado <- num$manzana_num[match(capas$manzanas$cluster_0, num$cluster_0)]
+  expect_equal(capas$manzanas$manzana_num, esperado)
+  # el popup lidera con el id corto y conserva la clave larga como referencia
+  expect_true(all(grepl("Manzana <b>", capas$manzanas$popup)))
+  expect_true(all(mapply(grepl, capas$manzanas$MZA, capas$manzanas$popup,
+                         MoreArgs = list(fixed = TRUE))))
+})
+
 test_that("la capa de AGEBs expone el cluster_2 (consistente con los PNG de google_maps)", {
   diseno <- diseno_ageb_con_muestra()
   cart <- cartografia_ageb_prueba(diseno$poblacion$marco_muestral)

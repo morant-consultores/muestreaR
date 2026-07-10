@@ -208,6 +208,50 @@ clusters_dibujables <- function(cluster, shp_mapa, u_cluster){
   cluster[cluster %in% unique(shp_mapa[[u_cluster]])]
 }
 
+#' Numerar las manzanas de la muestra dentro de cada conglomerado (1, 2, 3, ...)
+#'
+#' Asigna a cada manzana sorteada un **identificador corto** dentro de su
+#' conglomerado (1..k), que es el que usa campo en el **cuestionario** (la
+#' clave CVEGEO de 16 caracteres es impráctica para capturar). Es la fuente
+#' única de esa numeración: la consumen [google_maps()] (número impreso en
+#' cada manzana del PNG), [mapa_interactivo_ageb()] (labels/popups) y los
+#' listados CSV que se entregan a campo — así el número es EL MISMO en los
+#' tres materiales.
+#'
+#' La numeración es **estable y reproducible**: dentro de cada conglomerado
+#' se ordena por la clave de manzana (`MZA` en el flujo censal, `MANZANA`
+#' en el electoral; `cluster_0` como último recurso), así que regenerar
+#' cualquier material produce los mismos números.
+#'
+#' @param diseño Objeto [Diseño] (o [DiseñoINE]) con la muestra extraída.
+#'
+#' @return `tibble` con una fila por manzana sorteada: la columna del
+#'   conglomerado de último nivel (p. ej. `cluster_2`), `cluster_0` (la
+#'   llave de unión con el marco/muestra) y `manzana_num` (1..k dentro del
+#'   conglomerado).
+#' @seealso [google_maps()], [mapa_interactivo_ageb()]
+#' @export
+numerar_manzanas <- function(diseño){
+  u_cluster <- diseño$niveles %>%
+    filter(nivel == diseño$ultimo_nivel) %>%
+    transmute(paste(tipo, nivel, sep = "_")) %>%
+    pull(1)
+  bd <- diseño$muestra %>%
+    purrr::pluck(length(diseño$muestra)) %>%
+    tidyr::unnest(data)
+  # la clave que ordena: MZA (censal) o MANZANA (INE); cluster_0 de respaldo
+  llave <- intersect(c("MZA", "MANZANA"), names(bd))[1]
+  if (is.na(llave)) llave <- "cluster_0"
+
+  bd %>%
+    select(dplyr::all_of(unique(c(u_cluster, "cluster_0", llave)))) %>%
+    group_by(!!rlang::sym(u_cluster)) %>%
+    arrange(!!rlang::sym(llave), .by_group = TRUE) %>%
+    mutate(manzana_num = dplyr::row_number()) %>%
+    ungroup() %>%
+    select(dplyr::all_of(c(u_cluster, "cluster_0", "manzana_num")))
+}
+
 # Subtítulo del mapa a partir de una fila del resumen operativo y el zoom.
 etiqueta_mapa <- function(resumen_i, zoom){
   paste(
@@ -253,6 +297,11 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
   # subtítulo operativo por conglomerado (ya no cuotas): zoom, manzanas,
   # contactos y entrevistas efectivas planeadas
   resumen <- resumen_operativo(diseño)
+  # el id corto de manzana del cuestionario (1..k por conglomerado), impreso
+  # sobre cada manzana; la MISMA numeración del mapa interactivo y los CSV
+  man_shp <- man_shp %>%
+    left_join(numerar_manzanas(diseño) %>% select(cluster_0, manzana_num),
+              by = "cluster_0")
 
   # conglomerados sin polígono en la cartografía: se reportan y se saltan
   sin_carto <- setdiff(cluster, clusters_dibujables(cluster, shp_mapa, u_cluster))
@@ -280,6 +329,10 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
       geom_sf(data = man,
               inherit.aes = F, fill = "red", alpha = 0.3, color = "red",
               linewidth = 1.1) +
+      # el número corto de cada manzana (el que va en el cuestionario)
+      geom_sf_label(data = man, inherit.aes = F, aes(label = manzana_num),
+                    color = "red", fontface = "bold", size = 4.5,
+                    alpha = 0.85, label.size = 0) +
       # scale_x_continuous(limits = c(caja[1], caja[3])) + scale_y_continuous(limits = c(caja[2],caja[4])) +
       guides(fill = "none") +
       theme_minimal() +
@@ -335,6 +388,10 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
   # subtítulo operativo por conglomerado (ya no cuotas): zoom, manzanas,
   # contactos y entrevistas efectivas planeadas
   resumen <- resumen_operativo(diseño)
+  # el id corto de manzana del cuestionario (1..k por conglomerado)
+  man_shp <- man_shp %>%
+    left_join(numerar_manzanas(diseño) %>% select(cluster_0, manzana_num),
+              by = "cluster_0")
 
   # conglomerados sin polígono en la cartografía: se reportan y se saltan
   sin_carto <- setdiff(cluster, clusters_dibujables(cluster, shp_mapa, u_cluster))
@@ -364,6 +421,10 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
       geom_sf(data = man,
               inherit.aes = F, fill = "red", alpha = 0.3, color = "red",
               linewidth = 1.1) +
+      # el número corto de cada manzana (el que va en el cuestionario)
+      geom_sf_label(data = man, inherit.aes = F, aes(label = manzana_num),
+                    color = "red", fontface = "bold", size = 4.5,
+                    alpha = 0.85, label.size = 0) +
       geom_sf(data = puntos,
               inherit.aes = F, alpha = 1, color = "red", size = 3) +
       geom_sf_label(data = puntos, color = "red",

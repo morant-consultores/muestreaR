@@ -74,6 +74,32 @@ test_that("resumen_operativo opera igual sobre el flujo electoral INE", {
   expect_equal(res$entrevistas, res$contactos)
 })
 
+test_that("numerar_manzanas asigna 1..k por conglomerado, estable y compartible", {
+  diseno <- diseno_ageb_con_muestra()
+  num <- numerar_manzanas(diseno)
+
+  expect_true(all(c("cluster_2", "cluster_0", "manzana_num") %in% names(num)))
+  # una fila por manzana sorteada
+  bd <- diseno$muestra |> purrr::pluck(length(diseno$muestra)) |>
+    tidyr::unnest(data)
+  expect_equal(nrow(num), nrow(bd))
+  # dentro de cada conglomerado: 1..k sin huecos
+  por_cluster <- split(num$manzana_num, num$cluster_2)
+  expect_true(all(vapply(por_cluster,
+                         function(x) identical(sort(x), seq_along(x)),
+                         logical(1))))
+  # estable: misma numeración en llamadas repetidas (es el id del cuestionario)
+  expect_identical(num, numerar_manzanas(diseno))
+  # en el flujo censal la numeración sigue el orden de la clave MZA
+  chk <- bd |>
+    dplyr::left_join(num, by = c("cluster_2", "cluster_0")) |>
+    dplyr::group_by(cluster_2) |>
+    dplyr::arrange(MZA, .by_group = TRUE) |>
+    dplyr::summarise(ok = identical(manzana_num, seq_len(dplyr::n())),
+                     .groups = "drop")
+  expect_true(all(chk$ok))
+})
+
 test_that("resumen_operativo usa la tasa de rechazo de la asignación si existe", {
   diseno <- diseno_ageb_con_muestra()
   # con la asignación (tasa 0.5) las entrevistas son la mitad de los contactos

@@ -31,6 +31,10 @@ capas_leaflet_ageb <- function(diseño, cartografia) {
 
   # viviendas a levantar por manzana (n_0, ya con el ajuste de extraer_muestra)
   viviendas <- diseño$n_i$cluster_0 %>% dplyr::select(cluster_0, viviendas = n_0)
+  # el id corto de manzana del cuestionario (1..k por conglomerado): la MISMA
+  # numeración que imprimen los PNG de google_maps y los CSV de campo
+  numeracion <- numerar_manzanas(diseño) %>%
+    dplyr::select(cluster_0, manzana_num)
 
   manzanas <- shp %>%
     purrr::pluck("MZA") %>%
@@ -40,10 +44,13 @@ capas_leaflet_ageb <- function(diseño, cartografia) {
       by = "MZA"
     ) %>%
     dplyr::left_join(viviendas, by = "cluster_0") %>%
+    dplyr::left_join(numeracion, by = "cluster_0") %>%
     dplyr::mutate(popup = paste0(
-      "<b>", NOM_MUN, "</b><br>", NOM_LOC,
+      "<b>cluster_2 ", .data[[u_cluster]],
+      "</b> · Manzana <b>", manzana_num, "</b>",
+      "<br>", NOM_MUN, " — ", NOM_LOC,
       "<br>AGEB: ", AGEB,
-      "<br>Manzana: ", MZA,
+      "<br>Clave de manzana: ", MZA,
       "<br><b>Viviendas a levantar: ", viviendas, "</b>"
     ))
 
@@ -200,10 +207,25 @@ mapa_interactivo_ageb <- function(diseño, cartografia,
       fillColor = ~pal(.grupo), fillOpacity = 0.5,
       color = "#e63946", weight = 1.5, opacity = 1,
       popup = ~popup,
-      label = ~lapply(paste0("Manzana ", MZA, " · ", viviendas, " viviendas"),
+      label = ~lapply(paste0("cluster_2 ", .grupo, " · Manzana <b>",
+                             manzana_num, "</b> · ", viviendas, " viviendas"),
                       htmltools::HTML),
       highlightOptions = leaflet::highlightOptions(
         weight = 3, color = "#000000", fillOpacity = 0.8, bringToFront = TRUE
+      )
+    ) %>%
+    # el número corto de cada manzana, siempre visible sobre su polígono
+    # (el mismo que capturan en el cuestionario y que imprime el PNG)
+    leaflet::addLabelOnlyMarkers(
+      data = sf::st_point_on_surface(sf::st_geometry(capas$manzanas)) %>%
+        sf::st_sf(manzana_num = capas$manzanas$manzana_num),
+      group = "Manzanas a levantar",
+      label = ~as.character(manzana_num),
+      labelOptions = leaflet::labelOptions(
+        noHide = TRUE, textOnly = TRUE, direction = "center",
+        style = list("font-weight" = "bold", "font-size" = "13px",
+                     "color" = "#1d1d1d",
+                     "text-shadow" = "0 0 3px #ffffff, 0 0 3px #ffffff")
       )
     ) %>%
     leaflet::addLayersControl(
