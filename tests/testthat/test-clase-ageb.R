@@ -235,3 +235,27 @@ test_that("derivar_plan_ageb reconstruye el plan versionado desde la clase", {
   expect_true(all(c("seccion", "pi_seccion", "ln_seccion", "n_plan")
                   %in% names(capas)))
 })
+
+# ---- contrato con encuestar::Preproceso y AppAuditoria ----
+
+test_that("cada capa del shp trae su columna llave simple (contrato Preproceso)", {
+  marco <- crear_mm_ageb(censo_clase_prueba())
+  cartografia <- cartografia_ageb_prueba(marco)
+  shp <- cartografia$shp
+
+  # Preproceso hace shp$shp[[nivel]] |> inner_join(muestra por esa llave):
+  # cada capa debe traer la columna con el nombre EXACTO del nivel
+  expect_true("AGEB" %in% names(shp$AGEB))
+  expect_true("MUN" %in% names(shp$MUN))
+  expect_true("MZA" %in% names(shp$MZA))
+  # la llave simple es el código pelón de 13 y cruza con el marco
+  expect_true(all(nchar(shp$AGEB$AGEB) == 13))
+  expect_true(all(shp$AGEB$AGEB == sub("-AGEB-.*$", "", shp$AGEB$AULR)))
+  expect_true(all(unique(marco$AGEB) %in% shp$AGEB$AGEB))
+})
+
+test_that("el marco censal expone `municipio` (nombre, para AppAuditoria)", {
+  marco <- crear_mm_ageb(censo_clase_prueba())
+  expect_true("municipio" %in% names(marco))
+  expect_equal(marco$municipio, marco$NOM_MUN)
+})

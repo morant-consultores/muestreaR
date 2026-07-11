@@ -134,7 +134,11 @@ crear_shp <- function(mun, locU, agebR, agebU, locR, mza){
 
   agebR <- agebR %>% transmute(ARLU = glue::glue("{CVEGEO}-AGEB-Rural"))
 
-  agebU <- agebU %>% transmute(AULR = glue::glue("{CVEGEO}-AGEB-Urbana"))
+  # AULR es la llave decorada de los mapas; AGEB es la llave simple de 13
+  # que usan el marco y la muestra — encuestar::Preproceso une
+  # shp$shp[["AGEB"]] con muestra$muestra[["AGEB"]] por esta columna
+  agebU <- agebU %>% transmute(AULR = glue::glue("{CVEGEO}-AGEB-Urbana"),
+                               AGEB = as.character(CVEGEO))
 
   locR <-   locR %>% transmute(AULR = glue::glue("{CVEGEO}-LOC-Rural"), Nombre = NOMGEO)
 

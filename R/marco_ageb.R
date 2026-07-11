@@ -278,7 +278,10 @@ crear_mm_ageb <- function(censo) {
       AGEB = paste0(.data$LOC, .data$.cve_ageb),
       MZA = paste0(.data$AGEB, .data$.cve_mza),
       ARLU = paste0(.data$LOC, "-LOC-Urbana"),
-      AULR = paste0(.data$AGEB, "-AGEB-Urbana")
+      AULR = paste0(.data$AGEB, "-AGEB-Urbana"),
+      # AppAuditoria (mod_encuestadores) lee `municipio` = NOMBRE del
+      # municipio del snapshot/marco (lo agrupa por nombre, no por clave)
+      municipio = .data$NOM_MUN
     ) |>
     dplyr::select(-dplyr::starts_with(".cve_")) |>
     tibble::rownames_to_column("id")
