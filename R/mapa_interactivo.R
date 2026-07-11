@@ -38,6 +38,7 @@ capas_leaflet_ageb <- function(diseño, cartografia) {
 
   manzanas <- shp %>%
     purrr::pluck("MZA") %>%
+    dplyr::select(MZA) %>%
     dplyr::inner_join(
       bd %>% dplyr::select(dplyr::all_of(u_cluster), cluster_0, MZA, AGEB,
                            MUN, NOM_MUN, NOM_LOC),
@@ -56,6 +57,9 @@ capas_leaflet_ageb <- function(diseño, cartografia) {
 
   agebs <- shp %>%
     purrr::pluck("AGEB") %>%
+    # solo la llave de unión (+geometría): la capa puede traer también la
+    # llave simple AGEB (contrato Preproceso) y duplicaría columnas del bd
+    dplyr::select(AULR) %>%
     dplyr::inner_join(
       bd %>% dplyr::distinct(dplyr::across(dplyr::all_of(u_cluster)),
                              AULR, AGEB, MUN, NOM_MUN),
