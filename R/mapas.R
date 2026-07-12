@@ -221,7 +221,9 @@ clusters_dibujables <- function(cluster, shp_mapa, u_cluster){
 #' La numeración es **estable y reproducible**: dentro de cada conglomerado
 #' se ordena por la clave de manzana (`MZA` en el flujo censal, `MANZANA`
 #' en el electoral; `cluster_0` como último recurso), así que regenerar
-#' cualquier material produce los mismos números.
+#' cualquier material produce los mismos números. Si el diseño trae el attr
+#' `"numeracion_base"` (lo fija [ampliar_manzanas_ageb()]), esos números son
+#' inmutables y las manzanas nuevas continúan la secuencia (max+1, ...).
 #'
 #' @param diseño Objeto [Diseño] (o [DiseñoINE]) con la muestra extraída.
 #'
@@ -243,13 +245,40 @@ numerar_manzanas <- function(diseño){
   llave <- intersect(c("MZA", "MANZANA"), names(bd))[1]
   if (is.na(llave)) llave <- "cluster_0"
 
-  bd %>%
-    select(dplyr::all_of(unique(c(u_cluster, "cluster_0", llave)))) %>%
+  numer <- bd %>%
+    select(dplyr::all_of(unique(c(u_cluster, "cluster_0", llave))))
+
+  # Numeración BASE (attr "numeracion_base", la fija ampliar_manzanas_ageb):
+  # los números que campo YA tiene impresos en mapas/cuestionario son
+  # inmutables; las manzanas nuevas continúan (max+1, max+2, ...) ordenadas
+  # por la misma clave. Sin base, numeración estable 1..k por clave.
+  base <- attr(diseño, "numeracion_base")
+  if (is.null(base)) {
+    return(numer %>%
+      group_by(!!rlang::sym(u_cluster)) %>%
+      arrange(!!rlang::sym(llave), .by_group = TRUE) %>%
+      mutate(manzana_num = dplyr::row_number()) %>%
+      ungroup() %>%
+      select(dplyr::all_of(c(u_cluster, "cluster_0", "manzana_num"))))
+  }
+
+  conocidas <- base %>%
+    dplyr::semi_join(numer, by = "cluster_0") %>%
+    select(dplyr::all_of(c(u_cluster, "cluster_0", "manzana_num")))
+  topes <- conocidas %>%
+    group_by(!!rlang::sym(u_cluster)) %>%
+    summarise(.tope = max(manzana_num), .groups = "drop")
+  nuevas <- numer %>%
+    dplyr::anti_join(base, by = "cluster_0") %>%
+    dplyr::left_join(topes, by = u_cluster) %>%
+    mutate(.tope = dplyr::coalesce(.tope, 0L)) %>%
     group_by(!!rlang::sym(u_cluster)) %>%
     arrange(!!rlang::sym(llave), .by_group = TRUE) %>%
-    mutate(manzana_num = dplyr::row_number()) %>%
+    mutate(manzana_num = .tope + dplyr::row_number()) %>%
     ungroup() %>%
     select(dplyr::all_of(c(u_cluster, "cluster_0", "manzana_num")))
+  dplyr::bind_rows(conocidas, nuevas) %>%
+    arrange(!!rlang::sym(u_cluster), manzana_num)
 }
 
 # Subtítulo del mapa a partir de una fila del resumen operativo y el zoom.
