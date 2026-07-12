@@ -281,6 +281,35 @@ numerar_manzanas <- function(diseño){
     arrange(!!rlang::sym(u_cluster), manzana_num)
 }
 
+# Zoom de Google Static Maps que ENCUADRA un bbox (Web Mercator): el mayor
+# nivel al que el bbox del conglomerado (con margen) cabe en un tile de
+# `size` px lógicos. Los mapas de campo lo calculan POR conglomerado, con el
+# `zoom` del usuario como techo de detalle: un zoom fijo corta manzanas
+# cuando la muestra crece (p. ej. ampliación de 4 a 9 manzanas por AGEB).
+zoom_para_bbox <- function(bbox, size = 640, margen = 1.15, zoom_max = 16){
+  merc <- function(lat) log(tan(pi / 4 + pmax(pmin(lat, 85), -85) * pi / 360))
+  lon_span <- as.numeric(bbox[["xmax"]] - bbox[["xmin"]])
+  lat_span <- merc(as.numeric(bbox[["ymax"]])) - merc(as.numeric(bbox[["ymin"]]))
+  z_lon <- if (isTRUE(lon_span > 0)) log2(size * 360 / (256 * lon_span * margen)) else Inf
+  z_lat <- if (isTRUE(lat_span > 0)) log2(size * 2 * pi / (256 * lat_span * margen)) else Inf
+  z <- suppressWarnings(floor(min(z_lon, z_lat)))
+  if (!is.finite(z)) z <- zoom_max
+  as.integer(max(1, min(zoom_max, z)))
+}
+
+# bbox conjunto del conglomerado (polígono del cluster + sus manzanas)
+bbox_cluster <- function(aux_mapeo, man){
+  bb <- sf::st_bbox(aux_mapeo)
+  if (nrow(man) > 0) {
+    bm <- sf::st_bbox(man)
+    bb[["xmin"]] <- min(bb[["xmin"]], bm[["xmin"]])
+    bb[["ymin"]] <- min(bb[["ymin"]], bm[["ymin"]])
+    bb[["xmax"]] <- max(bb[["xmax"]], bm[["xmax"]])
+    bb[["ymax"]] <- max(bb[["ymax"]], bm[["ymax"]])
+  }
+  bb
+}
+
 # Subtítulo del mapa a partir de una fila del resumen operativo y el zoom.
 etiqueta_mapa <- function(resumen_i, zoom){
   paste(
@@ -345,9 +374,15 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
     resumen_i <- resumen %>% filter(!!rlang::sym(u_cluster) == i)
     man <- man_shp %>% filter(!!rlang::sym(u_cluster) == i)
     aux_mapeo <- shp_mapa %>% filter(!!rlang::sym(u_cluster) == i)
-    caja <- aux_mapeo %>% sf::st_union() %>% sf::st_centroid() %>% sf::st_coordinates() %>% as.numeric()
+    # encuadre por conglomerado: centro del bbox AGEB+manzanas y el mayor
+    # zoom al que TODO cabe (con `zoom` como techo de detalle) — con zoom
+    # fijo, las muestras ampliadas dejan manzanas fuera del cuadro
+    bb <- bbox_cluster(aux_mapeo, man)
+    zoom_i <- zoom_para_bbox(bb, zoom_max = zoom)
+    caja <- c(mean(c(bb[["xmin"]], bb[["xmax"]])),
+              mean(c(bb[["ymin"]], bb[["ymax"]])))
     nc_map <- ggmap::get_map(location = caja, maptype = "roadmap",
-                             source = "google",force = T, zoom = zoom)
+                             source = "google",force = T, zoom = zoom_i)
     Google <- ggmap::ggmap(nc_map)
     # Google
     g <- Google +
@@ -366,7 +401,7 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
       guides(fill = "none") +
       theme_minimal() +
       ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOM_MUN)} \n Localidad: {unique(aux_mapeo$NOM_LOC)}  \n {u_cluster}: {i}")) +
-      labs(subtitle =  etiqueta_mapa(resumen_i, zoom),
+      labs(subtitle =  etiqueta_mapa(resumen_i, zoom_i),
            caption = glue::glue("{resumen_i$mapa}/{resumen_i$total_mapas}")) +
       theme(plot.title = element_text(hjust = 1),
             plot.subtitle = element_text(size = 10, hjust = 0),
@@ -435,9 +470,13 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
     resumen_i <- resumen %>% filter(!!rlang::sym(u_cluster) == i)
     man <- man_shp %>% filter(!!rlang::sym(u_cluster) == i)
     aux_mapeo <- shp_mapa %>% filter(!!rlang::sym(u_cluster) == i)
-    caja <- aux_mapeo %>% sf::st_make_valid() %>% sf::st_union() %>% sf::st_centroid() %>% sf::st_coordinates() %>% as.numeric()
+    # encuadre por conglomerado (ver google_maps): nada se queda fuera
+    bb <- bbox_cluster(sf::st_make_valid(aux_mapeo), man)
+    zoom_i <- zoom_para_bbox(bb, zoom_max = zoom)
+    caja <- c(mean(c(bb[["xmin"]], bb[["xmax"]])),
+              mean(c(bb[["ymin"]], bb[["ymax"]])))
     nc_map <- ggmap::get_map(location = caja, maptype = "roadmap",
-                             source = "google",force = T, zoom = zoom)
+                             source = "google",force = T, zoom = zoom_i)
     Google <- ggmap::ggmap(nc_map)
     # Google
     puntos <- man %>% filter(sf::st_geometry_type(.) == "POINT")
@@ -463,7 +502,7 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
       guides(fill = "none") +
       theme_minimal() +
       ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOMBRE_MUN)}  \n {u_cluster}: {i}")) +
-      labs(subtitle =  etiqueta_mapa(resumen_i, zoom),
+      labs(subtitle =  etiqueta_mapa(resumen_i, zoom_i),
            caption = glue::glue("{resumen_i$mapa}/{resumen_i$total_mapas}")) +
       theme(plot.title = element_text(hjust = 1),
             plot.subtitle = element_text(size = 10, hjust = 0),
