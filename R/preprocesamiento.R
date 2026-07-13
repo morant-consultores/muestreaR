@@ -41,6 +41,49 @@ leer_cartografia_ine <- function(carpeta,
   cart
 }
 
+#' Cargar la cartografía del marco geoestadístico INEGI
+#'
+#' Lee los seis shapefiles del marco geoestadístico integrado que usa el
+#' flujo censal por AGEB y los devuelve como lista de objetos `sf` en CRS
+#' 4326, en el orden que espera `Cartografia$new()` / [crear_shp()]:
+#' municipios, localidades urbanas, AGEB rural, AGEB urbana, localidades
+#' puntuales rurales y manzanas. Los archivos siguen la nomenclatura del
+#' INEGI `{patron}_{CAPA}` (p. ej. `2025_1_15_A` = AGEB urbana de la
+#' entidad 15, versión 2025.1).
+#'
+#' @param carpeta Ruta a la carpeta que contiene las subcarpetas de cada
+#'   capa (p. ej. `"data-raw"`).
+#' @param patron Prefijo de los archivos (p. ej. `"2025_1_15"`).
+#' @param encoding Codificación de los shapefiles (default `"CP1252"`,
+#'   Windows-1252, la del marco geoestadístico del INEGI — su `.cpg` dice
+#'   `1252`; los nombres con acento se transcodifican a UTF-8 al leer).
+#'
+#' @return Lista con `mun`, `loc` (L), `agebR` (AR), `agebU` (A), `lpr`
+#'   (LPR) y `mza` (M), lista para
+#'   `Cartografia$new(mun_shp = cart$mun, loc_shp = cart$loc, ...)`.
+#' @export
+leer_cartografia_inegi <- function(carpeta, patron, encoding = "CP1252") {
+  leer <- function(capa) {
+    base <- paste0(patron, "_", capa)
+    ruta <- file.path(carpeta, base, paste0(base, ".shp"))
+    if (!file.exists(ruta)) {
+      stop("No existe ", ruta, ": revisa `carpeta`/`patron` (nomenclatura ",
+           "INEGI {patron}_{MUN,L,AR,A,LPR,M}).", call. = FALSE)
+    }
+    sf::st_read(ruta, quiet = TRUE,
+                options = paste0("ENCODING=", encoding)) |>
+      sf::st_transform(4326)
+  }
+  list(
+    mun   = leer("MUN"),
+    loc   = leer("L"),
+    agebR = leer("AR"),
+    agebU = leer("A"),
+    lpr   = leer("LPR"),
+    mza   = leer("M")
+  )
+}
+
 #' Leer la lista nominal del INE
 #'
 #' Lee el archivo de lista nominal por rango de edad y sexo (xlsx del INE),

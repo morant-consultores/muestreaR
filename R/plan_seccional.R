@@ -5,6 +5,18 @@
 # n_plan, contactos) que es el contrato con encuestar::construir_diseno_capas
 # (capa 1 = selección planeada). La no respuesta NO se resuelve sustituyendo:
 # se dimensiona con sobremuestra (contactos) y se corrige en las capas.
+#
+# La sección es UNA unidad primaria de muestreo (UPM) posible; el mismo flujo
+# opera con AGEBs del marco censal INEGI (ver planear_muestra_upm() y
+# planear_muestra_ageb() en R/plan_upm.R). El parámetro `unidad` de las
+# funciones de este archivo solo controla cómo se NOMBRAN columnas y
+# mensajes; la matemática es idéntica.
+
+# plural de la unidad para nombrar columnas de conteo ("seccion" es el único
+# plural irregular que manejamos; el resto agrega "s": ageb -> agebs)
+plural_unidad <- function(unidad) {
+  if (identical(unidad, "seccion")) "secciones" else paste0(unidad, "s")
+}
 
 #' Estratificar secciones por tipo electoral y región
 #'
@@ -93,21 +105,26 @@ estratificar_electoral <- function(marco,
 #' @param dominio Columna del dominio de interés (default `"region"`). `NULL`
 #'   aplica la potencia directamente sobre los estratos.
 #' @param variable_estrato,variable_tamano Columnas del estrato y del tamaño
-#'   (lista nominal).
-#' @param min_secciones Mínimo de secciones por estrato (default 2: con una
-#'   sola sección la varianza del estrato no es estimable).
+#'   (lista nominal en marcos electorales; población adulta en censales).
+#' @param min_secciones Mínimo de UPMs por estrato (default 2: con una
+#'   sola la varianza del estrato no es estimable).
+#' @param unidad Nombre de la UPM, solo para nombrar las columnas de conteo
+#'   y los mensajes: `"seccion"` (default) produce `secciones` y
+#'   `secciones_disponibles`; `"ageb"` produce `agebs` y `agebs_disponibles`.
 #'
 #' @return `tibble` con una fila por estrato: dominio, `estrato`,
-#'   `ln_estrato`, `secciones_disponibles`, `entrevistas_obj`, `secciones`,
-#'   `entrevistas_plan` (= `secciones * m_por_seccion`). La asignación por
-#'   dominio va en el atributo `"dominios"`.
+#'   `ln_estrato`, `<unidad en plural>_disponibles`, `entrevistas_obj`,
+#'   `<unidad en plural>` (UPMs a sortear), `entrevistas_plan`
+#'   (= `UPMs * m_por_seccion`). La asignación por dominio va en el
+#'   atributo `"dominios"`.
 #' @export
 asignar_potencia <- function(marco, n_total, m_por_seccion,
                              potencia = 0.5,
                              dominio = "region",
                              variable_estrato = "estrato",
                              variable_tamano = "lista_nominal",
-                             min_secciones = 2) {
+                             min_secciones = 2,
+                             unidad = "seccion") {
   if (potencia < 0 || potencia > 1) {
     stop("`potencia` debe estar en [0, 1].", call. = FALSE)
   }
@@ -159,10 +176,17 @@ asignar_potencia <- function(marco, n_total, m_por_seccion,
                   entrevistas_plan) |>
     dplyr::rename(estrato = !!rlang::sym(variable_estrato))
 
-  cortos <- asig$secciones_disponibles < min_secciones
+  pl <- plural_unidad(unidad)
+  if (!identical(pl, "secciones")) {
+    asig <- asig |>
+      dplyr::rename("{pl}" := secciones,
+                    "{pl}_disponibles" := secciones_disponibles)
+  }
+
+  cortos <- asig[[paste0(pl, "_disponibles")]] < min_secciones
   if (any(cortos)) {
-    warning("Estrato(s) con menos de ", min_secciones, " secciones ",
-            "disponibles (la varianza no será estimable ahí): ",
+    warning("Estrato(s) con menos de ", min_secciones, " ", pl,
+            " disponibles (la varianza no será estimable ahí): ",
             paste(asig$estrato[cortos], collapse = ", "), call. = FALSE)
   }
 
@@ -177,20 +201,29 @@ asignar_potencia <- function(marco, n_total, m_por_seccion,
 #' metodológica. Es el reemplazo de la sustitución en campo: lo que no se
 #' puede levantar se declara, no se cambia en silencio por otra sección.
 #'
-#' @param marco Marco seccional.
-#' @param secciones Vector de llaves de sección a excluir (opcional).
+#' @param marco Marco de UPMs (seccional o censal).
+#' @param secciones Vector de llaves de UPM a excluir (opcional). El nombre
+#'   del parámetro es histórico: acepta llaves de la unidad que sea
+#'   (secciones, AGEBs, ...).
 #' @param municipios Vector de claves de municipio a excluir (opcional).
 #' @param variable_municipio,llave_seccion,variable_estrato Nombres de columna.
-#' @param min_secciones Umbral para avisar si un estrato queda corto.
+#' @param min_secciones Umbral para avisar si un estrato queda corto (en UPMs).
+#' @param variable_tamano Columna del tamaño con que se documenta y reporta
+#'   el porcentaje excluido (default `"lista_nominal"`; en marcos censales,
+#'   p. ej. `"pob18"`).
+#' @param unidad Nombre de la UPM para la columna llave del documento y los
+#'   mensajes (default `"seccion"`).
 #'
 #' @return El marco filtrado, con el atributo `"lista_negra"`: tibble de las
-#'   secciones excluidas (`seccion`, `estrato`, `lista_nominal`, `motivo`).
+#'   UPMs excluidas (`<unidad>`, `estrato`, `<variable_tamano>`, `motivo`).
 #' @export
 aplicar_lista_negra <- function(marco, secciones = NULL, municipios = NULL,
                                 variable_municipio = "municipio_cod",
                                 llave_seccion = "seccion",
                                 variable_estrato = "estrato",
-                                min_secciones = 2) {
+                                min_secciones = 2,
+                                variable_tamano = "lista_nominal",
+                                unidad = "seccion") {
   fuera_mun <- if (!is.null(municipios)) {
     marco[[variable_municipio]] %in% municipios
   } else {
@@ -202,7 +235,11 @@ aplicar_lista_negra <- function(marco, secciones = NULL, municipios = NULL,
     rep(FALSE, nrow(marco))
   }
 
-  ln <- if ("lista_nominal" %in% names(marco)) marco$lista_nominal else NA_real_
+  tam <- if (variable_tamano %in% names(marco)) {
+    marco[[variable_tamano]]
+  } else {
+    NA_real_
+  }
   # el marco puede venir sin estratificar (excluir antes de estratificar es
   # un orden válido); la documentación registra NA en ese caso
   est <- if (variable_estrato %in% names(marco)) {
@@ -210,22 +247,23 @@ aplicar_lista_negra <- function(marco, secciones = NULL, municipios = NULL,
   } else {
     rep(NA_character_, nrow(marco))
   }
+  etiqueta <- if (identical(unidad, "seccion")) "sección" else unidad
   doc <- tibble::tibble(
-    seccion = marco[[llave_seccion]][fuera_mun | fuera_sec],
+    "{unidad}" := marco[[llave_seccion]][fuera_mun | fuera_sec],
     estrato = est[fuera_mun | fuera_sec],
-    lista_nominal = ln[fuera_mun | fuera_sec],
+    "{variable_tamano}" := tam[fuera_mun | fuera_sec],
     motivo = dplyr::case_when(
       fuera_mun[fuera_mun | fuera_sec] ~ "municipio en lista negra",
-      TRUE ~ "sección en lista negra"
+      TRUE ~ paste(etiqueta, "en lista negra")
     )
   )
   res <- marco[!(fuera_mun | fuera_sec), , drop = FALSE]
 
   if (nrow(doc) > 0) {
-    pct <- sum(doc$lista_nominal, na.rm = TRUE) /
-      sum(marco$lista_nominal, na.rm = TRUE)
-    message("Lista negra: ", nrow(doc), " sección(es) excluidas (",
-            round(100 * pct, 1), "% de la lista nominal). ",
+    pct <- sum(doc[[variable_tamano]], na.rm = TRUE) /
+      sum(marco[[variable_tamano]], na.rm = TRUE)
+    message("Lista negra: ", nrow(doc), " ", etiqueta, "(es) excluidas (",
+            round(100 * pct, 1), "% de `", variable_tamano, "`). ",
             "Declararlo en la nota metodológica.")
   }
 
@@ -236,7 +274,8 @@ aplicar_lista_negra <- function(marco, secciones = NULL, municipios = NULL,
     cortos <- restantes[[2]] < min_secciones
     if (any(cortos)) {
       warning("La lista negra dejó estrato(s) con menos de ", min_secciones,
-              " secciones: ", paste(restantes[[1]][cortos], collapse = ", "),
+              " ", plural_unidad(unidad), ": ",
+              paste(restantes[[1]][cortos], collapse = ", "),
               call. = FALSE)
     }
   }
@@ -254,23 +293,26 @@ aplicar_lista_negra <- function(marco, secciones = NULL, municipios = NULL,
 #' calculan sobre el marco COMPLETO del estrato (no sobre las sorteadas):
 #' son las probabilidades del diseño, no una renormalización a posteriori.
 #'
+#' Es la cara seccional del motor genérico [planear_muestra_upm()] (la
+#' matemática vive ahí); para marcos censales por AGEB, ver
+#' [planear_muestra_ageb()].
+#'
 #' El plan debe guardarse en el repo de la ola ANTES de campo
 #' (`saveRDS(plan, "salidas/plan_ola1.rds")`): sin plan versionado la capa
 #' de ajuste por sección no puede reconstruir los pesos.
 #'
-#' @inheritParams asignar_potencia
+#' @inheritParams planear_muestra_upm
+#' @param m_por_seccion Entrevistas planeadas por sección (6–8 recomendado:
+#'   controla el deff de conglomerado `1 + (m-1)·rho`).
 #' @param llave_seccion Columna que identifica la sección.
-#' @param tasa_rechazo Tasa esperada de no respuesta en `[0, 1)`: infla los
-#'   `contactos` por sección (`n_plan / (1 - tasa)`), nunca el `n_plan`.
 #' @param lista_negra Lista opcional `list(secciones =, municipios =)` que se
 #'   aplica con [aplicar_lista_negra()] antes del sorteo.
-#' @param semilla Semilla para reproducibilidad del sorteo.
 #'
 #' @return `tibble` (una fila por sección sorteada) con `seccion`, el
 #'   dominio, `estrato`, `ln_seccion`, `pi_seccion`, `n_plan` (efectivas
 #'   planeadas) y `contactos` (viviendas a tocar). Atributos: `"asignacion"`
 #'   (tabla de [asignar_potencia()]), `"dominios"`, `"lista_negra"`,
-#'   `"parametros"`.
+#'   `"unidad"` y `"parametros"`.
 #' @export
 planear_muestra_seccional <- function(marco, n_total, m_por_seccion = 8,
                                       potencia = 0.5,
@@ -282,73 +324,18 @@ planear_muestra_seccional <- function(marco, n_total, m_por_seccion = 8,
                                       tasa_rechazo = 0,
                                       lista_negra = NULL,
                                       semilla = NULL) {
-  if (tasa_rechazo < 0 || tasa_rechazo >= 1) {
-    stop("`tasa_rechazo` debe estar en el intervalo [0, 1).", call. = FALSE)
-  }
-
-  doc_lista <- NULL
-  if (!is.null(lista_negra)) {
-    marco <- aplicar_lista_negra(
-      marco,
-      secciones = lista_negra$secciones,
-      municipios = lista_negra$municipios,
-      llave_seccion = llave_seccion,
-      variable_estrato = variable_estrato,
-      min_secciones = min_secciones
-    )
-    doc_lista <- attr(marco, "lista_negra")
-  }
-
-  sin_estrato <- is.na(marco[[variable_estrato]])
-  if (any(sin_estrato)) {
-    message(sum(sin_estrato), " sección(es) sin estrato fuera del sorteo.")
-    marco <- marco[!sin_estrato, , drop = FALSE]
-  }
-
-  # lista nominal NA = tamaño 0 (nunca sorteable), consistente con
-  # seleccionar_pps; sin sanear, inclusionprobabilities() muere críptico
-  tam_na <- is.na(marco[[variable_tamano]])
-  if (any(tam_na)) {
-    message(sum(tam_na), " sección(es) con lista nominal NA: se tratan ",
-            "como tamaño 0 (nunca sorteables).")
-    marco[[variable_tamano]][tam_na] <- 0
-  }
-
-  asig <- asignar_potencia(marco, n_total, m_por_seccion, potencia, dominio,
-                           variable_estrato, variable_tamano, min_secciones)
-
-  if (!is.null(semilla)) set.seed(semilla)
-  plan <- asig$estrato |>
-    lapply(function(h) {
-      secs_h <- marco[marco[[variable_estrato]] == h, , drop = FALSE]
-      n_h <- asig$secciones[asig$estrato == h]
-      # pi del diseño: sobre TODO el estrato, antes de sortear
-      secs_h$pi_seccion <- sampling::inclusionprobabilities(
-        secs_h[[variable_tamano]], n_h
-      )
-      seleccionar_pps(secs_h, n = n_h, variable_tamano = variable_tamano)
-    }) |>
-    dplyr::bind_rows()
-
-  cols_dom <- setdiff(if (is.null(dominio)) character(0) else dominio,
-                      variable_estrato)
-  plan <- plan |>
-    dplyr::transmute(
-      seccion = .data[[llave_seccion]],
-      dplyr::across(dplyr::all_of(cols_dom)),
-      estrato = .data[[variable_estrato]],
-      ln_seccion = .data[[variable_tamano]],
-      pi_seccion,
-      n_plan = m_por_seccion,
-      contactos = ceiling(m_por_seccion / (1 - tasa_rechazo))
-    )
-
-  attr(plan, "asignacion") <- asig
-  attr(plan, "dominios") <- attr(asig, "dominios")
-  attr(plan, "lista_negra") <- doc_lista
-  attr(plan, "parametros") <- list(
-    n_total = n_total, m_por_seccion = m_por_seccion, potencia = potencia,
-    tasa_rechazo = tasa_rechazo, semilla = semilla
+  planear_muestra_upm(
+    marco, n_total,
+    m_por_upm = m_por_seccion,
+    potencia = potencia,
+    dominio = dominio,
+    variable_estrato = variable_estrato,
+    variable_tamano = variable_tamano,
+    llave_upm = llave_seccion,
+    unidad = "seccion",
+    min_secciones = min_secciones,
+    tasa_rechazo = tasa_rechazo,
+    lista_negra = lista_negra,
+    semilla = semilla
   )
-  plan
 }

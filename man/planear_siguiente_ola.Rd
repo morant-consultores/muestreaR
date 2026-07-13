@@ -16,50 +16,64 @@ planear_siguiente_ola(
   tope_contactos = 3,
   lista_negra = NULL,
   semilla = NULL,
+  unidad = NULL,
+  llave_upm = NULL,
   ...
 )
 }
 \arguments{
-\item{marco}{Marco seccional estratificado (el vigente para la ola nueva).}
+\item{marco}{Marco de UPMs estratificado (el vigente para la ola nueva).}
 
-\item{plan_anterior}{Plan de la ola previa (\code{\link[=planear_muestra_seccional]{planear_muestra_seccional()}}).}
+\item{plan_anterior}{Plan de la ola previa (\code{\link[=planear_muestra_upm]{planear_muestra_upm()}} o sus
+envolturas seccional/AGEB).}
 
-\item{registro_contactos}{\code{tibble} con una fila por sección levantada:
-\code{seccion}, \code{contactos} (intentos totales registrados por la app) y
-\code{efectivas} (entrevistas válidas tras auditoría).}
+\item{registro_contactos}{\code{tibble} con una fila por UPM levantada: la
+llave de la unidad (\code{seccion}, \code{ageb}, ...), \code{contactos} (intentos
+totales registrados por la app) y \code{efectivas} (entrevistas válidas
+tras auditoría).}
 
 \item{metodo}{\code{"resortear"} (default) o \code{"panel"}.}
 
 \item{n_total, m_por_seccion}{Objetivos de la ola nueva; por defecto los de
-\code{plan_anterior}.}
+\code{plan_anterior} (\code{m_por_seccion} es el \code{m} por UPM; conserva su nombre
+histórico).}
 
-\item{encogimiento}{Peso de la tasa propia de la sección en \verb{[0, 1]}
-(default 0.6). Con pocos contactos por sección conviene bajarlo.}
+\item{encogimiento}{Peso de la tasa propia de la UPM en \verb{[0, 1]}
+(default 0.6). Con pocos contactos por UPM conviene bajarlo.}
 
 \item{tasa_minima}{Piso de la tasa estimada (default 0.2): evita que una
-sección con muy mala suerte pida contactos infinitos.}
+UPM con muy mala suerte pida contactos infinitos.}
 
 \item{tope_contactos}{Tope de contactos como múltiplo de \code{n_plan}
 (default 3).}
 
-\item{lista_negra}{Lista \code{list(secciones =, municipios =)} actualizada con
-lo reportado en campo; solo aplica con \code{metodo = "resortear"}.}
+\item{lista_negra}{Lista (\code{list(upms =, municipios =)} o el plural de la
+unidad) actualizada con lo reportado en campo; solo aplica con
+\code{metodo = "resortear"}.}
 
 \item{semilla}{Semilla del re-sorteo.}
 
-\item{...}{Argumentos extra para \code{\link[=planear_muestra_seccional]{planear_muestra_seccional()}} (\code{potencia},
-\code{dominio}, \code{min_secciones}, ...).}
+\item{unidad}{Unidad del plan; por default se lee del atributo
+\code{"unidad"} de \code{plan_anterior} (planes viejos sin atributo: \code{"seccion"}).}
+
+\item{llave_upm}{Columna del marco que identifica la UPM en el re-sorteo;
+por default el nombre de la unidad.}
+
+\item{...}{Argumentos extra para \code{\link[=planear_muestra_upm]{planear_muestra_upm()}} (\code{potencia},
+\code{dominio}, \code{variable_tamano}, \code{min_secciones}, ...).}
 }
 \value{
-Plan de la ola nueva (mismo esquema que
-\code{\link[=planear_muestra_seccional]{planear_muestra_seccional()}}) con atributos: \code{"tasas"} (tabla por
-estrato: contactos, efectivas, \code{tasa_estrato}), \code{"tasa_general"},
-\code{"inoperables"} (secciones con 0 efectivas) y \code{"metodo"}.
+Plan de la ola nueva (mismo esquema que \code{plan_anterior}) con
+atributos: \code{"tasas"} (tabla por estrato: contactos, efectivas,
+\code{tasa_estrato}), \code{"tasa_general"}, \code{"inoperables"} (UPMs con 0
+efectivas) y \code{"metodo"}.
 }
 \description{
 Construye el plan muestral de una ola consecuente usando el \strong{registro de
 contactos} de la ola anterior (protocolo de campo: todo intento se
-registra, conteste o no). La tasa de respuesta esperada de cada sección
+registra, conteste o no). Opera sobre planes de cualquier unidad
+(sección electoral o AGEB censal): la unidad se lee del atributo
+\code{"unidad"} del plan. La tasa de respuesta esperada de cada UPM
 se estima con encogimiento hacia la tasa agregada de su estrato
 (\code{tasa_hat = encogimiento * tasa_propia + (1 - encogimiento) * tasa_estrato})
 y dimensiona los contactos: \code{contactos = min(ceiling(n_plan / tasa_hat), tope_contactos * n_plan)}.
@@ -68,15 +82,15 @@ y dimensiona los contactos: \code{contactos = min(ceiling(n_plan / tasa_hat), to
 Dos métodos:
 \describe{
 \item{\code{"resortear"}}{sorteo PPS nuevo e independiente (vía
-\code{\link[=planear_muestra_seccional]{planear_muestra_seccional()}}). Las secciones que repiten usan su tasa
+\code{\link[=planear_muestra_upm]{planear_muestra_upm()}}). Las UPMs que repiten usan su tasa
 propia encogida; las nuevas, la tasa agregada de su estrato (o la
 general si el estrato no se observó).}
-\item{\code{"panel"}}{conserva las secciones y \code{pi_seccion} de la ola
+\item{\code{"panel"}}{conserva las UPMs y sus \code{pi} de la ola
 anterior (comparabilidad máxima, misma logística) y solo re-dosifica
-los contactos por sección.}
+los contactos por UPM.}
 }
 
-Las secciones con \strong{cero efectivas} en el registro se devuelven en el
+Las UPMs con \strong{cero efectivas} en el registro se devuelven en el
 atributo \code{"inoperables"}: gabinete decide si son caso puntual (reintentar
 con más sobremuestra) o estructural (pasarlas a la lista negra de la
 siguiente ola y declararlas). La exclusión nunca es automática.

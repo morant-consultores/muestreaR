@@ -156,3 +156,100 @@ generar_diseno_ine <- function(n = 240, n_0 = 5, semilla = 123, unidades_nivel =
 
   diseno
 }
+
+# -------------------------------------------------------------------------------------
+# Marco censal AGEB sintético (estilo construir_marco_ageb): una fila por AGEB
+# urbana con llave de 13 caracteres y población 18+ como medida de tamaño.
+# Lo comparten test-plan-ageb.R y test-seleccionar-manzanas.R.
+marco_ageb_prueba <- function() {
+  tibble::tibble(
+    ageb = sprintf("15121%04d%04d", rep(1:4, each = 10), 1:10),
+    municipio_cod = rep(c("15121", "15121", "15058", "15058"), each = 10),
+    region = rep(c("Metropolitana", "Metropolitana", "Resto", "Resto"), each = 10),
+    pob18 = rep(c(1500, 2500, 700, 1100), each = 10) +
+      rep(seq(0, 900, by = 100), 4),
+    estrato = rep(c("Metropolitana", "Metropolitana", "Resto", "Resto"), each = 10)
+  )
+}
+
+# -------------------------------------------------------------------------------------
+# Censo sintético estilo INEGI ageb_mza_urbana PARA EL FLUJO DE LA CLASE
+# (PoblacionAGEB/Diseño): 2 municipios x 3 AGEBs x 6 manzanas, todo character
+# (como llega del CSV), CON el bloque demográfico que usan cuotas() y el rake
+# "inegi" de encuestar (P_18A24_*, P_18YMAS_*, P_60YMAS_*).
+censo_clase_prueba <- function(n_manzanas = 6) {
+  base <- tidyr::expand_grid(
+    ENTIDAD = "15", NOM_ENT = "México",
+    tibble::tibble(MUN = c("058", "106"),
+                   NOM_MUN = c("Nezahualcóyotl", "Toluca")),
+    LOC = "0001",
+    AGEB = c("0010", "025A", "0033")
+  )
+  demograficos <- function(bd, escala) {
+    bd |>
+      dplyr::mutate(
+        pob = escala * (10 + (dplyr::row_number() %% 5) * 4),
+        POBTOT = as.character(round(pob * 1.4)),
+        P_18YMAS = as.character(pob),
+        P_18YMAS_F = as.character(round(pob * 0.52)),
+        P_18YMAS_M = as.character(pob - round(pob * 0.52)),
+        P_18A24_F = as.character(round(pob * 0.10)),
+        P_18A24_M = as.character(round(pob * 0.09)),
+        P_60YMAS_F = as.character(round(pob * 0.08)),
+        P_60YMAS_M = as.character(round(pob * 0.07)),
+        VIVPAR_HAB = as.character(round(pob / 3))
+      ) |>
+      dplyr::select(-pob)
+  }
+  totales <- base |>
+    dplyr::mutate(NOM_LOC = "Total AGEB urbana", MZA = "000") |>
+    demograficos(escala = n_manzanas)
+  manzanas <- base |>
+    tidyr::expand_grid(MZA = sprintf("%03d", seq_len(n_manzanas))) |>
+    dplyr::mutate(NOM_LOC = "Ciudad ejemplo") |>
+    demograficos(escala = 1)
+  dplyr::bind_rows(totales, manzanas)
+}
+
+# Diseño censal AGEB con muestra extraída (flujo de la clase), reproducible.
+diseno_ageb_con_muestra <- function() {
+  pob <- PoblacionAGEB$new("Fixture", censo_clase_prueba())
+  pob$marco_muestral <- pob$marco_muestral |> dplyr::mutate(region = NOM_MUN)
+  suppressWarnings(disenar_muestra_ageb(
+    pob,
+    estratos = tibble::tibble(estrato = c("Nezahualcóyotl", "Toluca"),
+                              entrevistas = c(20, 20)),
+    n_0 = 5, manzanas_por_ageb = 2,
+    tasa_rechazo = 0.5, modo_rechazo = "manzanas",
+    calcular_cuotas = FALSE, semilla = 7
+  ))
+}
+
+# Cartografía censal sintética (Cartografia) cuyos CVEGEO cruzan con el marco
+# de crear_mm_ageb: AGEBs urbanas (AULR) y manzanas (MZA) del diseño fixture.
+cartografia_ageb_prueba <- function(marco) {
+  sq <- function(x0, y0, s = 0.01) {
+    sf::st_polygon(list(matrix(c(x0, y0, x0 + s, y0, x0 + s, y0 + s,
+                                 x0, y0 + s, x0, y0), ncol = 2, byrow = TRUE)))
+  }
+  poligonos <- function(claves) {
+    sf::st_sfc(lapply(seq_along(claves), function(i) sq(i * 0.02, 0)),
+               crs = 4326)
+  }
+  agebs <- unique(substr(marco$AGEB, 1, 13))
+  Cartografia$new(
+    mun_shp   = sf::st_sf(CVEGEO = unique(marco$MUN), NOMGEO = "Mun",
+                          geometry = poligonos(unique(marco$MUN))),
+    loc_shp   = sf::st_sf(CVEGEO = unique(marco$LOC), NOMGEO = "Loc",
+                          AMBITO = "Urbana",
+                          geometry = poligonos(unique(marco$LOC))),
+    agebR_shp = sf::st_sf(CVEGEO = "1509900010001",
+                          geometry = poligonos("x")),
+    agebU_shp = sf::st_sf(CVEGEO = agebs, geometry = poligonos(agebs)),
+    lpr_shp   = sf::st_sf(CVEGEO = "150990002", NOMGEO = "Rancho",
+                          geometry = sf::st_sfc(sf::st_point(c(9, 9)),
+                                                crs = 4326)),
+    mza_shp   = sf::st_sf(CVEGEO = marco$MZA, TIPOMZA = "Típica",
+                          geometry = poligonos(marco$MZA))
+  )
+}

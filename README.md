@@ -99,9 +99,58 @@ diseno <- disenar_muestra_ine(
 resumen_diseno(diseno)                  # objetivo vs realizado por estrato
 ```
 
+## Muestra por AGEB (marco censal INEGI)
+
+El diseño por AGEBs corre por el **flujo de la clase** que el equipo ya
+opera — la población vive dentro del `Diseño`, el objeto se exporta
+(`diseño.rda` + `shp.rda` + `cuotas.csv` + `Mapas/` de Google por AGEB) y
+es el insumo de AppAuditoria y de `encuestar` (`tipo_encuesta = "inegi"`):
+
+```r
+censo <- readr::read_csv("conjunto_de_datos_ageb_urbana_15_cpv2020.csv",
+                         col_types = readr::cols(.default = "c"))
+pob <- PoblacionAGEB$new("Estado de México (urbano)", censo)
+pob$marco_muestral <- pob$marco_muestral |> dplyr::mutate(region = ...)
+
+diseno <- disenar_muestra_ageb(
+  pob, estratos,                    # data.frame(estrato, entrevistas)
+  n_0 = 5, manzanas_por_ageb = 2,
+  tasa_rechazo = 0.5,               # modelo operativo: infla manzanas (2 -> 4)
+  semilla = 2026
+)
+
+cart <- leer_cartografia_inegi("data-raw", patron = "2025_1_15")
+cartografia <- Cartografia$new(mun_shp = cart$mun, loc_shp = cart$loc,
+                               agebR_shp = cart$agebR, agebU_shp = cart$agebU,
+                               lpr_shp = cart$lpr, mza_shp = cart$mza)
+diseno$exportar(cartografia, carpeta = "Insumos",
+                mapas = ggmap::has_google_key())   # Mapas/ por AGEB (zoom, manzanas, contactos, entrevistas)
+
+# mapa interactivo (leaflet) de TODAS las manzanas para planear rutas de campo
+mapa_interactivo_ageb(diseno, cartografia, archivo = "salidas/rutas.html")
+```
+
+## Plan muestral versionado por UPM (secciones o AGEBs)
+
+El flujo de pesos por capas (contrato con
+`encuestar::construir_diseno_capas()`) usa un **plan versionable** por UPM.
+Del diseño de la clase sale directo: `attr(diseno, "plan_ageb")` (o
+`derivar_plan_ageb(diseno)`) trae las `pi_ageb` exactas del sorteo; el
+puente `plan_para_capas()` lo renombra al contrato seccional y
+`planear_siguiente_ola()` dimensiona la ola 2 con el registro de contactos.
+
+También existe el flujo *ligero* sin clase (tibbles): la UPM puede ser la
+**sección electoral** (`planear_muestra_seccional()`) o el **AGEB**
+(`planear_muestra_ageb()`), ambos sobre el motor `planear_muestra_upm()`,
+con `construir_marco_ageb()`/`construir_marco_manzanas()` para armar los
+marcos y `seleccionar_manzanas()` para la Etapa II con PPT.
+
+Del flujo seccional comparte `estratificar_electoral()`, `asignar_potencia()`,
+`aplicar_lista_negra()` y `seleccionar_pps()`.
+
 ## Documentación (viñetas)
 
-Dos recorridos ejecutables sobre datos sintéticos:
+Tres recorridos ejecutables sobre datos sintéticos:
 
 - **[Diseñar una muestra paso a paso](vignettes/disenar-una-muestra.Rmd)** —
   tutorial rápido del flujo de diseño, de principio a fin.
@@ -109,6 +158,9 @@ Dos recorridos ejecutables sobre datos sintéticos:
   referencia detallada **función por función**: preprocesamiento (insumos del
   INE → población), diseño manual (cada método explicado) y la función global
   `disenar_muestra_ine()` que ejecuta todo en una llamada.
+- **[Muestra por AGEB](vignettes/muestra-por-ageb.Rmd)** — el plan versionado
+  sobre el marco censal: marco por AGEB/manzana, Etapas I y II, puente a las
+  capas de pesos y olas consecuentes.
 
 ```r
 browseVignettes("muestreaR")

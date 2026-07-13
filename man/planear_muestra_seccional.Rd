@@ -33,15 +33,15 @@ controla el deff de conglomerado \verb{1 + (m-1)·rho}).}
 aplica la potencia directamente sobre los estratos.}
 
 \item{variable_estrato, variable_tamano}{Columnas del estrato y del tamaño
-(lista nominal).}
+(lista nominal en marcos electorales; población adulta en censales).}
 
 \item{llave_seccion}{Columna que identifica la sección.}
 
-\item{min_secciones}{Mínimo de secciones por estrato (default 2: con una
-sola sección la varianza del estrato no es estimable).}
+\item{min_secciones}{Mínimo de UPMs por estrato (default 2: con una
+sola la varianza del estrato no es estimable).}
 
 \item{tasa_rechazo}{Tasa esperada de no respuesta en \verb{[0, 1)}: infla los
-\code{contactos} por sección (\code{n_plan / (1 - tasa)}), nunca el \code{n_plan}.}
+\code{contactos} por UPM (\code{n_plan / (1 - tasa)}), nunca el \code{n_plan}.}
 
 \item{lista_negra}{Lista opcional \code{list(secciones =, municipios =)} que se
 aplica con \code{\link[=aplicar_lista_negra]{aplicar_lista_negra()}} antes del sorteo.}
@@ -53,7 +53,7 @@ aplica con \code{\link[=aplicar_lista_negra]{aplicar_lista_negra()}} antes del s
 dominio, \code{estrato}, \code{ln_seccion}, \code{pi_seccion}, \code{n_plan} (efectivas
 planeadas) y \code{contactos} (viviendas a tocar). Atributos: \code{"asignacion"}
 (tabla de \code{\link[=asignar_potencia]{asignar_potencia()}}), \code{"dominios"}, \code{"lista_negra"},
-\code{"parametros"}.
+\code{"unidad"} y \code{"parametros"}.
 }
 \description{
 Sortea las secciones de cada estrato con probabilidad proporcional a la
@@ -64,6 +64,10 @@ calculan sobre el marco COMPLETO del estrato (no sobre las sorteadas):
 son las probabilidades del diseño, no una renormalización a posteriori.
 }
 \details{
+Es la cara seccional del motor genérico \code{\link[=planear_muestra_upm]{planear_muestra_upm()}} (la
+matemática vive ahí); para marcos censales por AGEB, ver
+\code{\link[=planear_muestra_ageb]{planear_muestra_ageb()}}.
+
 El plan debe guardarse en el repo de la ola ANTES de campo
 (\code{saveRDS(plan, "salidas/plan_ola1.rds")}): sin plan versionado la capa
 de ajuste por sección no puede reconstruir los pesos.

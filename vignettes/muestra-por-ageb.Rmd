@@ -1,0 +1,263 @@
+---
+title: "Muestra por AGEB: el plan versionado sobre el marco censal"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Muestra por AGEB: el plan versionado sobre el marco censal}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+El plan muestral versionado de `muestreaR` no está casado con la sección
+electoral: la **UPM** (unidad primaria de muestreo) puede ser el **AGEB
+urbano** del Censo de Población y Vivienda (INEGI). Esta viñeta recorre el
+flujo completo con AGEBs — el diseño clásico de los estudios espejo tipo
+"AGEBs con PPT → manzanas → viviendas":
+
+1. **Marco censal** — `construir_marco_ageb()` y `construir_marco_manzanas()`
+   desde el dataset "ageb_mza_urbana" del Censo 2020.
+2. **Etapa I** — `planear_muestra_ageb()`: AGEBs con probabilidad
+   proporcional al tamaño y plan versionado.
+3. **Etapa II** — `seleccionar_manzanas()`: manzanas con PPT dentro de cada
+   AGEB, con el `n_plan` y los `contactos` repartidos.
+4. **Pesos** — `plan_para_capas()`: el puente al contrato de
+   `encuestar::construir_diseno_capas()`.
+5. **Olas consecuentes** — `planear_siguiente_ola()` con el registro de
+   contactos, igual que en el flujo seccional.
+
+La Etapa III (viviendas dentro de cada manzana, muestreo sistemático con
+arranque aleatorio) es operación de campo: queda dimensionada por el
+`n_plan` y los `contactos` por manzana del plan.
+
+```{r setup}
+library(muestreaR)
+library(dplyr)
+```
+
+## 1. El marco censal por AGEB
+
+El insumo es el CSV "Principales resultados por AGEB y manzana urbana" del
+Censo 2020 (uno por entidad). Se lee **como texto** — el enmascaramiento de
+confidencialidad del INEGI (`*`) rompe la adivinanza de tipos — y las
+funciones del paquete parsean lo numérico:
+
+```{r censo-sintetico, echo = TRUE}
+# En producción:
+# censo <- readr::read_csv("conjunto_de_datos_ageb_urbana_15_cpv2020.csv",
+#                          col_types = readr::cols(.default = "c"))
+# Aquí, un censo sintético con la misma forma (totales + manzanas):
+# el desglose por edad y sexo (P_18A24_*, P_18YMAS_*, P_60YMAS_*) alimenta
+# las cuotas de la clase y el rake "inegi" de encuestar
+demograficos <- function(bd, pob) {
+  bd |>
+    mutate(
+      POBTOT = as.character(round(pob * 1.4)),
+      P_18YMAS = as.character(pob),
+      P_18YMAS_F = as.character(round(pob * 0.52)),
+      P_18YMAS_M = as.character(pob - round(pob * 0.52)),
+      P_18A24_F = as.character(round(pob * 0.10)),
+      P_18A24_M = as.character(round(pob * 0.09)),
+      P_60YMAS_F = as.character(round(pob * 0.08)),
+      P_60YMAS_M = as.character(round(pob * 0.07)),
+      VIVPAR_HAB = as.character(round(pob / 3))
+    )
+}
+geo <- tidyr::expand_grid(
+  ENTIDAD = "15", NOM_ENT = "México",
+  tibble(MUN = c("058", "106"),
+         NOM_MUN = c("Nezahualcóyotl", "Toluca")),
+  LOC = "0001", AGEB = c("0010", "025A", "0033")
+)
+totales <- geo |> mutate(NOM_LOC = "Total AGEB urbana", MZA = "000")
+manzanas <- geo |>
+  tidyr::expand_grid(MZA = sprintf("%03d", 1:6)) |>
+  mutate(NOM_LOC = "Localidad ejemplo")
+censo <- bind_rows(
+  totales |> demograficos(pob = 1400 + seq_len(nrow(totales)) * 350),
+  manzanas |> demograficos(pob = 60 + as.integer(manzanas$MZA) * 20)
+)
+
+marco_agebs <- construir_marco_ageb(censo)
+marco_agebs
+marco_manzanas <- construir_marco_manzanas(censo)
+head(marco_manzanas, 3)
+```
+
+Las llaves son los CVEGEO del marco geoestadístico: 13 caracteres el AGEB
+(entidad 2 + municipio 3 + localidad 4 + AGEB 4) y 16 la manzana — empatan
+directo con los shapefiles del INEGI para los mapas de campo.
+
+## 2. Etapa I: el plan versionado por AGEB
+
+El marco necesita `estrato` (y opcionalmente un dominio). Sin información
+electoral a nivel AGEB, un criterio típico es la región de interés del
+cliente; el espejo más simple (sin estratificar, como una PPT estatal) es
+un estrato único con `dominio = NULL`:
+
+```{r plan}
+marco_agebs <- marco_agebs |>
+  mutate(region = nombre_municipio, estrato = region)
+
+plan_ola1 <- planear_muestra_ageb(
+  marco_agebs,
+  n_total      = 40,     # entrevistas efectivas objetivo
+  m_por_ageb   = 10,     # 2 manzanas x 5 viviendas (modelo operativo)
+  dominio      = "region",
+  potencia     = 0.5,    # raíz-cuadrada entre regiones
+  tasa_rechazo = 0.5,    # primera ola sin información: contactos 2x
+  semilla      = 2026
+)
+plan_ola1
+```
+
+El plan es el **contrato versionable**: guárdalo ANTES de campo
+(`saveRDS(plan_ola1, "salidas/plan_ola1.rds")`). `tasa_rechazo` infla los
+`contactos` (viviendas a tocar), nunca el `n_plan`: la sobremuestra es el
+seguro de cuota y la no respuesta se corrige después en las capas de
+pesos, no sustituyendo en campo.
+
+## 3. Etapa II: manzanas dentro de cada AGEB
+
+```{r manzanas}
+listado <- seleccionar_manzanas(
+  plan_ola1, marco_manzanas,
+  manzanas_por_upm = 2,       # espejo operativo: 2 manzanas por AGEB
+  variable_tamano  = "pobtot",
+  semilla          = 2026
+)
+listado |> select(ageb, manzana, pi_manzana, n_plan, contactos)
+```
+
+Cada manzana hereda su parte exacta del plan (`repartir_cociente()`): con
+`m_por_ageb = 10` y 2 manzanas, 5 efectivas y 10 contactos por manzana. El
+listado trae municipio y localidad del marco: es el insumo de campo.
+
+## 4. El puente a las capas de pesos
+
+`encuestar::construir_diseno_capas()` habla "seccional" (`seccion`,
+`pi_seccion`, `ln_seccion`). Mientras tanto, el puente renombra:
+
+```{r capas}
+plan_capas <- plan_para_capas(plan_ola1)
+names(plan_capas)
+attr(plan_capas, "unidad_original")
+```
+
+En el snapshot de campo la llave del AGEB debe ir en una columna que se
+declara en el argumento `seccion` de `construir_diseno_capas()` (p. ej.
+`construir_diseno_capas(bd, plan_capas, seccion = "AGEB")`).
+
+## 5. La siguiente ola
+
+El registro de contactos de la ola 1 (protocolo: todo intento se registra)
+alimenta la sobremuestra diferenciada de la ola 2. La unidad se aprende
+del plan:
+
+```{r ola2}
+registro_ola1 <- plan_ola1 |>
+  transmute(ageb, contactos = 20,
+            efectivas = rep(c(10, 6), length.out = n()))
+
+plan_ola2 <- planear_siguiente_ola(
+  marco_agebs, plan_ola1, registro_ola1,
+  metodo = "resortear",
+  dominio = "region", variable_tamano = "pob18",
+  semilla = 2027
+)
+attr(plan_ola2, "tasa_general")
+head(plan_ola2, 3)
+```
+
+## El flujo de la CLASE: el insumo de AppAuditoria y encuestar
+
+Lo anterior es el flujo *ligero* (tibbles). El flujo **operativo del
+equipo** es el de la clase: la población vive dentro del [Diseño], el
+objeto se **exporta** (`diseño.rda` + `shp.rda` + `cuotas.csv` +
+`Mapas/`) y ese export es el insumo de AppAuditoria y de `encuestar`
+(`tipo_encuesta = "inegi"`). Para AGEB es una sola llamada declarativa,
+espejo de `disenar_muestra_ine()`:
+
+```{r clase}
+pob <- PoblacionAGEB$new("Ejemplo urbano", censo)
+# estrato = región de interés (o constante para el espejo sin estratificar)
+pob$marco_muestral <- pob$marco_muestral |> mutate(region = NOM_MUN)
+
+diseno <- disenar_muestra_ageb(
+  pob,
+  estratos = tibble(estrato = c("Nezahualcóyotl", "Toluca"),
+                    entrevistas = c(20, 20)),
+  n_0               = 5,      # entrevistas por manzana (Etapa III)
+  manzanas_por_ageb = 2,      # Etapa II base
+  tasa_rechazo      = 0.5,    # modelo operativo: infla manzanas (2 -> 4)
+  modo_rechazo      = "manzanas",
+  semilla           = 2026
+)
+resumen_diseno(diseno)
+```
+
+La exportación escribe el insumo completo; con la llave del API de
+Google, `mapas = TRUE` imprime en `Insumos/Mapas/` un PNG por AGEB
+(polígono del AGEB y manzanas sorteadas, con el subtítulo operativo:
+zoom del mapa, manzanas a visitar, contactos —viviendas a levantar— y
+entrevistas efectivas planeadas):
+
+```{r exportar, eval = FALSE}
+cart <- leer_cartografia_inegi("data-raw", patron = "2025_1_15")
+cartografia <- Cartografia$new(
+  mun_shp = cart$mun, loc_shp = cart$loc, agebR_shp = cart$agebR,
+  agebU_shp = cart$agebU, lpr_shp = cart$lpr, mza_shp = cart$mza
+)
+diseno$exportar(cartografia, zoom = 16, carpeta = "Insumos",
+                mapas = ggmap::has_google_key())
+```
+
+> **Solo se muestrea lo mapeable.** El censo y los shapefiles no coinciden
+> 1 a 1 (el INEGI fusiona/divide AGEBs entre años). Un AGEB o manzana sin
+> polígono no se puede localizar en campo, así que se **excluye del marco
+> antes del sorteo** con `reconciliar_marco_cartografia()` (la exclusión se
+> declara como cobertura, no se sustituye): así todo lo sorteado tiene con
+> qué levantarse.
+>
+> ```r
+> pob$marco_muestral <- reconciliar_marco_cartografia(pob$marco_muestral,
+>                                                     cartografia)
+> attr(pob$marco_muestral, "cobertura")   # lo excluido, para la nota
+> # ...y luego disenar_muestra_ageb(pob, ...) sobre el marco reconciliado
+> ```
+
+El puente al plan versionado sale del MISMO sorteo de la clase (las
+`pi_ageb` son el `fpc` del nivel AGEB):
+
+```{r plan-clase}
+plan_clase <- attr(diseno, "plan_ageb")   # o derivar_plan_ageb(diseno)
+head(plan_clase, 3)
+names(plan_para_capas(plan_clase))
+```
+
+## Espejo de una nota metodológica tipo Enkoll
+
+Para replicar un diseño "120 AGEBs PPT → 2 manzanas PPT → 5 viviendas
+sistemático" (1,200 entrevistas) con el flujo de la clase:
+
+```{r espejo, eval = FALSE}
+pob <- PoblacionAGEB$new("Estado de México (urbano)", censo)
+pob$marco_muestral <- pob$marco_muestral |>
+  mutate(region = "Estado de México")     # sin estratificar, como el espejo
+
+diseno <- disenar_muestra_ageb(
+  pob,
+  estratos = tibble(estrato = "Estado de México", entrevistas = 1200),
+  n_0 = 5, manzanas_por_ageb = 2,
+  tasa_rechazo = 0.5, modo_rechazo = "manzanas",   # 120 AGEBs x 4 mza x 5
+  semilla = 2026
+)
+```
+
+La diferencia metodológica que sí conservamos: **sin sustitución en
+campo** — la sobremuestra (manzanas infladas y `contactos` del plan) y la
+lista negra documentada reemplazan al "AGEB de reemplazo", y la no
+respuesta se corrige en las capas de pesos (y con DR-MNAR cuando el
+diagnóstico lo pide).

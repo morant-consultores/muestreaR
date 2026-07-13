@@ -12,7 +12,8 @@ asignar_potencia(
   dominio = "region",
   variable_estrato = "estrato",
   variable_tamano = "lista_nominal",
-  min_secciones = 2
+  min_secciones = 2,
+  unidad = "seccion"
 )
 }
 \arguments{
@@ -29,16 +30,21 @@ controla el deff de conglomerado \verb{1 + (m-1)·rho}).}
 aplica la potencia directamente sobre los estratos.}
 
 \item{variable_estrato, variable_tamano}{Columnas del estrato y del tamaño
-(lista nominal).}
+(lista nominal en marcos electorales; población adulta en censales).}
 
-\item{min_secciones}{Mínimo de secciones por estrato (default 2: con una
-sola sección la varianza del estrato no es estimable).}
+\item{min_secciones}{Mínimo de UPMs por estrato (default 2: con una
+sola la varianza del estrato no es estimable).}
+
+\item{unidad}{Nombre de la UPM, solo para nombrar las columnas de conteo
+y los mensajes: \code{"seccion"} (default) produce \code{secciones} y
+\code{secciones_disponibles}; \code{"ageb"} produce \code{agebs} y \code{agebs_disponibles}.}
 }
 \value{
 \code{tibble} con una fila por estrato: dominio, \code{estrato},
-\code{ln_estrato}, \code{secciones_disponibles}, \code{entrevistas_obj}, \code{secciones},
-\code{entrevistas_plan} (= \code{secciones * m_por_seccion}). La asignación por
-dominio va en el atributo \code{"dominios"}.
+\code{ln_estrato}, \verb{<unidad en plural>_disponibles}, \code{entrevistas_obj},
+\verb{<unidad en plural>} (UPMs a sortear), \code{entrevistas_plan}
+(= \code{UPMs * m_por_seccion}). La asignación por dominio va en el
+atributo \code{"dominios"}.
 }
 \description{
 Reparte \code{n_total} entrevistas entre dominios de interés con la asignación

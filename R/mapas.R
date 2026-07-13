@@ -155,10 +155,121 @@ graficar_mapa_muestra_ine <- function(lflt = NULL, muestra, shp, nivel){
   return(mapa)
 }
 
+# Anotación operativa de los mapas de campo -------------------------------
+#
+# El equipo ya no levanta por cuotas (la composición la corrige el rake), así
+# que el subtítulo de los mapas dejó de mostrar el desglose por rango/sexo y
+# ahora indica lo que el encuestador necesita saber del conglomerado: el zoom
+# del mapa, cuántas manzanas visitar, cuántos contactos (viviendas a
+# levantar) y cuántas entrevistas efectivas se planean. Es común a los dos
+# flujos (google_maps y google_maps_ine).
+
+# Tasa de rechazo declarada en la asignación del diseño (si existe): sirve
+# para pasar de contactos (a levantar) a entrevistas efectivas planeadas. Sin
+# asignación (diseño hecho a mano) se asume 0: no hay sobremuestra declarada.
+# NOTA: si el rechazo varía por estrato se usa el promedio (exacto en el caso
+# uniforme, el habitual); es una guía de planeación para el mapa — el número
+# exacto por conglomerado vive en el plan versionado (`plan_ageb$n_plan`).
+resolver_tasa_rechazo <- function(diseño){
+  asig <- attr(diseño, "asignacion")
+  if(is.null(asig) || is.null(asig[["tasa_rechazo"]])) return(0)
+  mean(asig[["tasa_rechazo"]], na.rm = TRUE)
+}
+
+# Resumen operativo por conglomerado (último nivel): manzanas de la muestra,
+# contactos (suma de n_0 = viviendas a levantar), entrevistas efectivas
+# planeadas (contactos ajustados por la tasa de rechazo) y la numeración
+# estable del mapa (`mapa` de `total_mapas`, para el contador n/N en la
+# esquina del PNG). Una fila por conglomerado, ordenada por el cluster de
+# último nivel para que el número no dependa del orden de dibujo.
+resumen_operativo <- function(diseño){
+  u_cluster <- diseño$niveles %>%
+    filter(nivel == diseño$ultimo_nivel) %>%
+    transmute(paste(tipo, nivel, sep = "_")) %>%
+    pull(1)
+  muestra <- diseño$muestra %>% purrr::pluck(length(diseño$muestra))
+  tasa <- resolver_tasa_rechazo(diseño)
+
+  muestra %>%
+    left_join(diseño$n_i$cluster_0, by = "cluster_0") %>%
+    group_by(!!rlang::sym(u_cluster)) %>%
+    summarise(manzanas = n(), contactos = sum(n_0), .groups = "drop") %>%
+    arrange(!!rlang::sym(u_cluster)) %>%
+    mutate(entrevistas = round(contactos * (1 - tasa)),
+           total_mapas = n(),
+           mapa = row_number())
+}
+
+# Conglomerados con polígono en la cartografía (los que sobreviven el join):
+# los sorteados sin cartografía —p. ej. AGEBs sin marco geoestadístico 2025—
+# no se pueden mapear (su centroide sería una geometría vacía y get_map
+# fallaría), así que se excluyen del loop conservando el orden original.
+clusters_dibujables <- function(cluster, shp_mapa, u_cluster){
+  cluster[cluster %in% unique(shp_mapa[[u_cluster]])]
+}
+
+#' Numerar las manzanas de la muestra dentro de cada conglomerado (1, 2, 3, ...)
+#'
+#' Asigna a cada manzana sorteada un **identificador corto** dentro de su
+#' conglomerado (1..k), que es el que usa campo en el **cuestionario** (la
+#' clave CVEGEO de 16 caracteres es impráctica para capturar). Es la fuente
+#' única de esa numeración: la consumen [google_maps()] (número impreso en
+#' cada manzana del PNG), [mapa_interactivo_ageb()] (labels/popups) y los
+#' listados CSV que se entregan a campo — así el número es EL MISMO en los
+#' tres materiales.
+#'
+#' La numeración es **estable y reproducible**: dentro de cada conglomerado
+#' se ordena por la clave de manzana (`MZA` en el flujo censal, `MANZANA`
+#' en el electoral; `cluster_0` como último recurso), así que regenerar
+#' cualquier material produce los mismos números.
+#'
+#' @param diseño Objeto [Diseño] (o [DiseñoINE]) con la muestra extraída.
+#'
+#' @return `tibble` con una fila por manzana sorteada: la columna del
+#'   conglomerado de último nivel (p. ej. `cluster_2`), `cluster_0` (la
+#'   llave de unión con el marco/muestra) y `manzana_num` (1..k dentro del
+#'   conglomerado).
+#' @seealso [google_maps()], [mapa_interactivo_ageb()]
+#' @export
+numerar_manzanas <- function(diseño){
+  u_cluster <- diseño$niveles %>%
+    filter(nivel == diseño$ultimo_nivel) %>%
+    transmute(paste(tipo, nivel, sep = "_")) %>%
+    pull(1)
+  bd <- diseño$muestra %>%
+    purrr::pluck(length(diseño$muestra)) %>%
+    tidyr::unnest(data)
+  # la clave que ordena: MZA (censal) o MANZANA (INE); cluster_0 de respaldo
+  llave <- intersect(c("MZA", "MANZANA"), names(bd))[1]
+  if (is.na(llave)) llave <- "cluster_0"
+
+  bd %>%
+    select(dplyr::all_of(unique(c(u_cluster, "cluster_0", llave)))) %>%
+    group_by(!!rlang::sym(u_cluster)) %>%
+    arrange(!!rlang::sym(llave), .by_group = TRUE) %>%
+    mutate(manzana_num = dplyr::row_number()) %>%
+    ungroup() %>%
+    select(dplyr::all_of(c(u_cluster, "cluster_0", "manzana_num")))
+}
+
+# Subtítulo del mapa a partir de una fila del resumen operativo y el zoom.
+etiqueta_mapa <- function(resumen_i, zoom){
+  paste(
+    glue::glue("Zoom: {zoom}"),
+    glue::glue("Manzanas: {resumen_i$manzanas}"),
+    glue::glue("Contactos planeados: {resumen_i$contactos}"),
+    glue::glue("Entrevistas planeadas: {resumen_i$entrevistas}"),
+    sep = "\n"
+  )
+}
+
 #' Exportar mapas de campo con Google Maps (marco censal INEGI)
 #'
 #' Genera y guarda en disco un mapa por unidad mínima de la muestra usando
-#' imágenes de Google Maps, para el trabajo de campo.
+#' imágenes de Google Maps, para el trabajo de campo. El subtítulo de cada
+#' mapa indica lo operativo del conglomerado (no cuotas): el zoom, las
+#' manzanas a visitar, los contactos (viviendas a levantar) y las entrevistas
+#' efectivas planeadas.
 #'
 #' @param diseño Objeto de la clase [Diseño] con la muestra extraída.
 #' @param shp Lista de cartografías del diseño.
@@ -173,7 +284,7 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
   bd <- diseño$muestra %>% purrr::pluck(length(diseño$muestra)) %>% tidyr::unnest(data)
 
-  
+
   cluster <- bd %>% distinct(!!rlang::sym(u_cluster)) %>% pull(1)
   ya <- list.files(path=dir) %>% gsub('^.*_\\s*|\\s*.png.*$', '', .)
   cluster <- cluster[!cluster %in% ya]
@@ -183,14 +294,26 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
   shp_mapa <- shp %>% purrr::pluck(u_nivel %>% pull(variable)) %>% inner_join(bd)
   man_shp <- shp %>% purrr::pluck("MZA") %>% inner_join(bd)
 
+  # subtítulo operativo por conglomerado (ya no cuotas): zoom, manzanas,
+  # contactos y entrevistas efectivas planeadas
+  resumen <- resumen_operativo(diseño)
+  # el id corto de manzana del cuestionario (1..k por conglomerado), impreso
+  # sobre cada manzana; la MISMA numeración del mapa interactivo y los CSV
+  man_shp <- man_shp %>%
+    left_join(numerar_manzanas(diseño) %>% select(cluster_0, manzana_num),
+              by = "cluster_0")
+
+  # conglomerados sin polígono en la cartografía: se reportan y se saltan
+  sin_carto <- setdiff(cluster, clusters_dibujables(cluster, shp_mapa, u_cluster))
+  if(length(sin_carto) > 0){
+    warning(length(sin_carto), " conglomerado(s) sin cartografía se omiten ",
+            "del mapeo (georreferenciar aparte): ",
+            paste(utils::head(sin_carto, 10), collapse = ", "), call. = FALSE)
+  }
+  cluster <- clusters_dibujables(cluster, shp_mapa, u_cluster)
 
   for(i in cluster){
-    aux_s <- diseño$cuotas %>% filter(!!rlang::sym(u_cluster) == i)
-    s <- aux_s %>%
-      mutate(n = glue::glue("{n} entrevistas")) %>%
-      tidyr::pivot_wider(names_from = c("rango", "sexo"),values_from = "n") %>% select(-1) %>%
-      mutate(Total = glue::glue("{sum(aux_s$n)} entrevistas")) %>% relocate(Total,.before = 1)
-    cuotas <- paste(s %>% names(), s, sep = ": ") %>% paste(collapse = "\n")
+    resumen_i <- resumen %>% filter(!!rlang::sym(u_cluster) == i)
     man <- man_shp %>% filter(!!rlang::sym(u_cluster) == i)
     aux_mapeo <- shp_mapa %>% filter(!!rlang::sym(u_cluster) == i)
     caja <- aux_mapeo %>% sf::st_union() %>% sf::st_centroid() %>% sf::st_coordinates() %>% as.numeric()
@@ -199,16 +322,26 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
     Google <- ggmap::ggmap(nc_map)
     # Google
     g <- Google +
+      # contorno del AGEB (azul, grueso) y manzanas a levantar (rojo, con
+      # relleno tenue para que resalten sobre el mapa)
       geom_sf(data = aux_mapeo,
-              inherit.aes = F, alpha = 0, color = "blue") +
+              inherit.aes = F, fill = NA, color = "blue", linewidth = 1.4) +
       geom_sf(data = man,
-              inherit.aes = F, alpha = 0, color = "red") +
+              inherit.aes = F, fill = "red", alpha = 0.3, color = "red",
+              linewidth = 1.1) +
+      # el número corto de cada manzana (el que va en el cuestionario)
+      geom_sf_label(data = man, inherit.aes = F, aes(label = manzana_num),
+                    color = "red", fontface = "bold", size = 4.5,
+                    alpha = 0.85, label.size = 0) +
       # scale_x_continuous(limits = c(caja[1], caja[3])) + scale_y_continuous(limits = c(caja[2],caja[4])) +
       guides(fill = "none") +
       theme_minimal() +
       ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOM_MUN)} \n Localidad: {unique(aux_mapeo$NOM_LOC)}  \n {u_cluster}: {i}")) +
-      labs(subtitle =  cuotas) +
-      theme(plot.title = element_text(hjust = 1), plot.subtitle = element_text(size = 10, hjust = 0))
+      labs(subtitle =  etiqueta_mapa(resumen_i, zoom),
+           caption = glue::glue("{resumen_i$mapa}/{resumen_i$total_mapas}")) +
+      theme(plot.title = element_text(hjust = 1),
+            plot.subtitle = element_text(size = 10, hjust = 0),
+            plot.caption = element_text(size = 16, hjust = 1, face = "bold"))
 
     ggsave(g, filename= sprintf("%s.png", i),
            path=dir,width = 11,height = 8.5,units = "in",dpi = "print", bg = "white")
@@ -221,7 +354,10 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
 #' Exportar mapas de campo con Google Maps (marco electoral INE)
 #'
 #' Versión para el marco del INE: genera y guarda en disco un mapa por unidad
-#' mínima de la muestra usando imágenes de Google Maps.
+#' mínima de la muestra usando imágenes de Google Maps. El subtítulo de cada
+#' mapa indica lo operativo del conglomerado (no cuotas): el zoom, las
+#' manzanas a visitar, los contactos (viviendas a levantar) y las entrevistas
+#' efectivas planeadas.
 #'
 #' @param diseño Objeto de la clase [DiseñoINE] con la muestra extraída.
 #' @param shp Lista de cartografías electorales del diseño.
@@ -244,19 +380,30 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
     ya <- list.files(path=dir) %>% gsub('^.*_\\s*|\\s*.png.*$', '', .)
     cluster <- cluster[!cluster %in% ya]
   }
-  
+
   # agebs <- agebs %>% mutate(CVE_AGEB = paste0(22,CVE_MUN,CVE_LOC,CVE_AGEB))
   shp_mapa <- shp %>% purrr::pluck(u_nivel %>% pull(variable)) %>% inner_join(bd)
   man_shp <- shp %>% purrr::pluck("MANZANA") %>% inner_join(bd)
 
+  # subtítulo operativo por conglomerado (ya no cuotas): zoom, manzanas,
+  # contactos y entrevistas efectivas planeadas
+  resumen <- resumen_operativo(diseño)
+  # el id corto de manzana del cuestionario (1..k por conglomerado)
+  man_shp <- man_shp %>%
+    left_join(numerar_manzanas(diseño) %>% select(cluster_0, manzana_num),
+              by = "cluster_0")
+
+  # conglomerados sin polígono en la cartografía: se reportan y se saltan
+  sin_carto <- setdiff(cluster, clusters_dibujables(cluster, shp_mapa, u_cluster))
+  if(length(sin_carto) > 0){
+    warning(length(sin_carto), " conglomerado(s) sin cartografía se omiten ",
+            "del mapeo (georreferenciar aparte): ",
+            paste(utils::head(sin_carto, 10), collapse = ", "), call. = FALSE)
+  }
+  cluster <- clusters_dibujables(cluster, shp_mapa, u_cluster)
 
   for(i in cluster){
-    aux_s <- diseño$cuotas %>% filter(!!rlang::sym(u_cluster) == i)
-    s <- aux_s %>%
-      mutate(n = glue::glue("{n} entrevistas")) %>%
-      tidyr::pivot_wider(names_from = c("rango", "sexo"),values_from = "n") %>% select(-1) %>%
-      mutate(Total = glue::glue("{sum(aux_s$n)} entrevistas")) %>% relocate(Total,.before = 1)
-    cuotas <- paste(s %>% names(), s, sep = ": ") %>% paste(collapse = "\n")
+    resumen_i <- resumen %>% filter(!!rlang::sym(u_cluster) == i)
     man <- man_shp %>% filter(!!rlang::sym(u_cluster) == i)
     aux_mapeo <- shp_mapa %>% filter(!!rlang::sym(u_cluster) == i)
     caja <- aux_mapeo %>% sf::st_make_valid() %>% sf::st_union() %>% sf::st_centroid() %>% sf::st_coordinates() %>% as.numeric()
@@ -267,12 +414,19 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
     puntos <- man %>% filter(sf::st_geometry_type(.) == "POINT")
     man <- man %>% filter(sf::st_geometry_type(.) != "POINT")
     g <- Google +
+      # contorno de la sección (azul, grueso) y manzanas a levantar (rojo,
+      # con relleno tenue para que resalten sobre el mapa)
       geom_sf(data = aux_mapeo,
-              inherit.aes = F, alpha = 0, color = "blue") +
+              inherit.aes = F, fill = NA, color = "blue", linewidth = 1.4) +
       geom_sf(data = man,
-              inherit.aes = F, alpha = 0, color = "red") +
+              inherit.aes = F, fill = "red", alpha = 0.3, color = "red",
+              linewidth = 1.1) +
+      # el número corto de cada manzana (el que va en el cuestionario)
+      geom_sf_label(data = man, inherit.aes = F, aes(label = manzana_num),
+                    color = "red", fontface = "bold", size = 4.5,
+                    alpha = 0.85, label.size = 0) +
       geom_sf(data = puntos,
-              inherit.aes = F, alpha = 1, color = "red") +
+              inherit.aes = F, alpha = 1, color = "red", size = 3) +
       geom_sf_label(data = puntos, color = "red",
                     inherit.aes = F, aes(label = MANZANA), hjust = "inward",
                    vjust = "inward", size = 2) +
@@ -280,8 +434,11 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
       guides(fill = "none") +
       theme_minimal() +
       ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOMBRE_MUN)}  \n {u_cluster}: {i}")) +
-      labs(subtitle =  cuotas) +
-      theme(plot.title = element_text(hjust = 1), plot.subtitle = element_text(size = 10, hjust = 0))
+      labs(subtitle =  etiqueta_mapa(resumen_i, zoom),
+           caption = glue::glue("{resumen_i$mapa}/{resumen_i$total_mapas}")) +
+      theme(plot.title = element_text(hjust = 1),
+            plot.subtitle = element_text(size = 10, hjust = 0),
+            plot.caption = element_text(size = 16, hjust = 1, face = "bold"))
 
     
     
