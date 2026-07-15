@@ -190,14 +190,33 @@ resumen_operativo <- function(diseño){
   muestra <- diseño$muestra %>% purrr::pluck(length(diseño$muestra))
   tasa <- resolver_tasa_rechazo(diseño)
 
-  muestra %>%
+  res <- muestra %>%
     left_join(diseño$n_i$cluster_0, by = "cluster_0") %>%
     group_by(!!rlang::sym(u_cluster)) %>%
     summarise(manzanas = n(), contactos = sum(n_0), .groups = "drop") %>%
-    arrange(!!rlang::sym(u_cluster)) %>%
+    arrange(!!rlang::sym(u_cluster))
+
+  # tasa POR CONGLOMERADO (attr "tasas_cluster": u_cluster + tasa) — la fija
+  # la calibración por AGEB (presupuesto de puertas): así el mapa imprime las
+  # entrevistas esperadas de ESE AGEB (contactos x su tasa de logro), no una
+  # media global que confunde a campo. Sin el attr, tasa global como siempre.
+  tasas_cluster <- attr(diseño, "tasas_cluster")
+  if (!is.null(tasas_cluster) &&
+      all(c(u_cluster, "tasa") %in% names(tasas_cluster))) {
+    res <- res %>%
+      left_join(tasas_cluster %>%
+                  select(dplyr::all_of(c(u_cluster, "tasa"))),
+                by = u_cluster) %>%
+      mutate(tasa = dplyr::coalesce(tasa, !!tasa))
+  } else {
+    res <- res %>% mutate(tasa = !!tasa)
+  }
+
+  res %>%
     mutate(entrevistas = round(contactos * (1 - tasa)),
            total_mapas = n(),
-           mapa = row_number())
+           mapa = row_number()) %>%
+    select(-tasa)
 }
 
 # Conglomerados con polígono en la cartografía (los que sobreviven el join):

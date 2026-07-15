@@ -111,3 +111,18 @@ test_that("resumen_operativo usa la tasa de rechazo de la asignación si existe"
   res0 <- resumen_operativo(diseno)
   expect_equal(res0$entrevistas, res0$contactos)
 })
+
+test_that("resumen_operativo usa la tasa POR CONGLOMERADO si el diseño la trae", {
+  d <- diseno_ageb_con_muestra()
+  base <- resumen_operativo(d)
+  # tasa distinta por cluster: entrevistas = contactos * (1 - tasa_cluster)
+  tasas <- tibble::tibble(cluster_2 = base$cluster_2,
+                          tasa = seq(0.2, 0.8, length.out = nrow(base)))
+  attr(d, "tasas_cluster") <- tasas
+  res <- resumen_operativo(d)
+  esperado <- round(base$contactos * (1 - tasas$tasa))
+  expect_identical(res$entrevistas, esperado)
+  # sin el attr, se conserva el comportamiento global
+  attr(d, "tasas_cluster") <- NULL
+  expect_identical(resumen_operativo(d)$entrevistas, base$entrevistas)
+})
