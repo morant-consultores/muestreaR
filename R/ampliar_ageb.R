@@ -31,7 +31,11 @@
 #' @param diseño Objeto [Diseño] con la muestra extraída (típicamente el
 #'   `diseño.rda` exportado que está operando en campo).
 #' @param manzanas_por_ageb Objetivo TOTAL de manzanas por AGEB (incluidas
-#'   las que ya están en campo).
+#'   las que ya están en campo). Puede ser un escalar (mismo objetivo para
+#'   todos los AGEBs) o un `data.frame` con la columna del conglomerado de
+#'   último nivel (p. ej. `cluster_2`) y `objetivo` — la dosis CALIBRADA
+#'   por AGEB (p. ej. de las tasas aprendidas del registro de contactos);
+#'   los AGEBs sin fila conservan sus manzanas tal cual.
 #' @param semilla Semilla del sorteo complementario (documentarla: es parte
 #'   del plan versionado de la ampliación).
 #'
@@ -58,8 +62,32 @@ ampliar_manzanas_ageb <- function(diseño, manzanas_por_ageb, semilla = NULL) {
   marco <- diseño$poblacion$marco_muestral %>% ungroup()
 
   faltantes <- actual %>%
-    count(.data[[u_cluster]], name = "en_campo") %>%
-    mutate(faltan = pmax(0L, as.integer(manzanas_por_ageb) - en_campo))
+    count(.data[[u_cluster]], name = "en_campo")
+  if (is.data.frame(manzanas_por_ageb)) {
+    requeridas <- c(u_cluster, "objetivo")
+    faltan_cols <- setdiff(requeridas, names(manzanas_por_ageb))
+    if (length(faltan_cols) > 0) {
+      stop("El objetivo por AGEB debe traer las columnas `", u_cluster,
+           "` y `objetivo`.", call. = FALSE)
+    }
+    if (anyDuplicated(manzanas_por_ageb[[u_cluster]])) {
+      stop("Hay conglomerados duplicados en el objetivo por AGEB.",
+           call. = FALSE)
+    }
+    faltantes <- faltantes %>%
+      left_join(
+        manzanas_por_ageb %>%
+          select(dplyr::all_of(c(u_cluster, "objetivo"))),
+        by = u_cluster
+      ) %>%
+      # sin fila en la tabla = ese AGEB no se amplía (conserva lo que tiene)
+      mutate(objetivo = coalesce(as.integer(objetivo), en_campo))
+  } else {
+    faltantes <- faltantes %>%
+      mutate(objetivo = as.integer(manzanas_por_ageb))
+  }
+  faltantes <- faltantes %>%
+    mutate(faltan = pmax(0L, objetivo - en_campo))
 
   candidatas <- marco %>%
     dplyr::semi_join(actual, by = u_cluster) %>%
@@ -169,16 +197,18 @@ ampliar_manzanas_ageb <- function(diseño, manzanas_por_ageb, semilla = NULL) {
 
   attr(d2, "numeracion_base") <- base_num
   attr(d2, "ampliacion") <- list(
-    objetivo_por_ageb = manzanas_por_ageb,
+    objetivo_por_ageb = if (is.data.frame(manzanas_por_ageb)) {
+      manzanas_por_ageb
+    } else manzanas_por_ageb,
     semilla = semilla,
     manzanas_previas = nrow(actual),
     manzanas_nuevas = nrow(nuevas_nested),
     agebs_cortos = faltantes %>%
-      dplyr::anti_join(
-        por_manzana %>% count(.data[[u_cluster]], name = "logradas") %>%
-          filter(logradas >= manzanas_por_ageb),
+      dplyr::left_join(
+        por_manzana %>% count(.data[[u_cluster]], name = "logradas"),
         by = u_cluster
       ) %>%
+      filter(coalesce(logradas, 0L) < objetivo) %>%
       dplyr::pull(dplyr::all_of(u_cluster))
   )
 

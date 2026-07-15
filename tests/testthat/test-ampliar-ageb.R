@@ -115,3 +115,31 @@ test_that("es reproducible con semilla y actualiza n, asignación y plan", {
     reales |> dplyr::arrange(.data[[var_ageb]]) |> dplyr::pull(contactos_real)
   )
 })
+
+test_that("acepta un objetivo DISTINTO por AGEB (tabla cluster -> objetivo)", {
+  d <- diseno_ageb_con_muestra()      # fixture: 6 manzanas por AGEB, 4 sorteadas
+  antes <- d$muestra[[length(d$muestra)]]
+  clusters <- sort(unique(antes$cluster_2))
+  # al primero pedirle 6, al segundo 5, el resto NO se toca (sin fila)
+  objetivos <- tibble::tibble(cluster_2 = clusters[1:2], objetivo = c(6L, 5L))
+
+  d2 <- ampliar_manzanas_ageb(d, manzanas_por_ageb = objetivos, semilla = 99)
+  conteo <- d2$muestra[[length(d2$muestra)]] |> dplyr::count(cluster_2)
+
+  expect_identical(conteo$n[conteo$cluster_2 == clusters[1]], 6L)
+  expect_identical(conteo$n[conteo$cluster_2 == clusters[2]], 5L)
+  # los AGEBs sin fila en la tabla conservan sus manzanas tal cual
+  sin_objetivo <- setdiff(clusters, clusters[1:2])
+  antes_conteo <- antes |> dplyr::count(cluster_2)
+  for (cl in sin_objetivo) {
+    expect_identical(conteo$n[conteo$cluster_2 == cl],
+                     antes_conteo$n[antes_conteo$cluster_2 == cl])
+  }
+  # y las manzanas originales siguen intactas
+  expect_identical(
+    d2$muestra[[length(d2$muestra)]] |>
+      dplyr::semi_join(antes, by = "cluster_0") |>
+      dplyr::arrange(cluster_0) |> tidyr::unnest(data),
+    antes |> dplyr::arrange(cluster_0) |> tidyr::unnest(data)
+  )
+})

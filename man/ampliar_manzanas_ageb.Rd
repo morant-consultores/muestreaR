@@ -11,7 +11,11 @@ ampliar_manzanas_ageb(diseño, manzanas_por_ageb, semilla = NULL)
 \code{diseño.rda} exportado que está operando en campo).}
 
 \item{manzanas_por_ageb}{Objetivo TOTAL de manzanas por AGEB (incluidas
-las que ya están en campo).}
+las que ya están en campo). Puede ser un escalar (mismo objetivo para
+todos los AGEBs) o un \code{data.frame} con la columna del conglomerado de
+último nivel (p. ej. \code{cluster_2}) y \code{objetivo} — la dosis CALIBRADA
+por AGEB (p. ej. de las tasas aprendidas del registro de contactos);
+los AGEBs sin fila conservan sus manzanas tal cual.}
 
 \item{semilla}{Semilla del sorteo complementario (documentarla: es parte
 del plan versionado de la ampliación).}
