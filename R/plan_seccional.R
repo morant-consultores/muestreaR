@@ -339,3 +339,81 @@ planear_muestra_seccional <- function(marco, n_total, m_por_seccion = 8,
     semilla = semilla
   )
 }
+
+#' Derivar el plan muestral versionado desde el diseño INE de la clase
+#'
+#' Reconstruye el **plan versionado por sección** (el contrato de la capa 1
+#' de `encuestar::construir_diseno_capas()`) desde un [DiseñoINE] con la
+#' muestra ya extraída: las `pi_seccion` son exactamente las del sorteo
+#' (el `fpc` del nivel de sección, calculado sobre el marco completo del
+#' estrato) — un solo sorteo, cero inconsistencia entre el diseño operativo
+#' y el de pesos. Espejo seccional de [derivar_plan_ageb()].
+#'
+#' @param diseno Objeto [DiseñoINE] con niveles estrato + sección, `fpc`
+#'   calculado y muestra extraída (típicamente de [disenar_muestra_ine()]).
+#' @param asignacion Tabla de [calcular_asignacion()]; por default se lee
+#'   del atributo `"asignacion"` del diseño.
+#'
+#' @return Plan versionado: `tibble` con `seccion`, `estrato`, `ln_seccion`
+#'   (tamaño de la sección en la variable poblacional), `pi_seccion`,
+#'   `n_plan` (efectivas objetivo por sección) y `contactos` (entrevistas a
+#'   levantar por sección). Atributos `"unidad"` y `"parametros"`.
+#' @export
+derivar_plan_seccional <- function(diseno,
+                                   asignacion = attr(diseno, "asignacion")) {
+  if (is.null(asignacion)) {
+    stop("El diseño no trae la asignación del modelo operativo: pásala en ",
+         "`asignacion` o usa disenar_muestra_ine().", call. = FALSE)
+  }
+  niveles <- diseno$niveles
+  var_estrato <- niveles$variable[niveles$nivel == 1]
+  var_seccion <- niveles$variable[niveles$nivel == diseno$ultimo_nivel]
+  col_fpc <- paste0("fpc_", diseno$ultimo_nivel)
+  marco <- diseno$poblacion$marco_muestral
+  if (!col_fpc %in% names(marco)) {
+    stop("El marco no trae `", col_fpc, "`: corre diseno$fpc(nivel = ",
+         diseno$ultimo_nivel, ") antes de derivar el plan.", call. = FALSE)
+  }
+  if (is.null(diseno$muestra)) {
+    stop("El diseño no tiene muestra extraída.", call. = FALSE)
+  }
+
+  ult <- diseno$muestra |>
+    purrr::pluck(length(diseno$muestra)) |>
+    tidyr::unnest(data)
+  secciones_sel <- unique(ult[[var_seccion]])
+
+  info <- marco |>
+    dplyr::filter(.data[[var_seccion]] %in% secciones_sel) |>
+    dplyr::group_by(.data[[var_estrato]], .data[[var_seccion]]) |>
+    dplyr::summarise(
+      ln_seccion = sum(.data[[diseno$variable_poblacional]], na.rm = TRUE),
+      pi_seccion = unique(.data[[col_fpc]]),
+      .groups = "drop"
+    )
+  names(info)[1:2] <- c("estrato", "seccion")
+
+  dosis <- asignacion |>
+    dplyr::transmute(
+      estrato = as.character(estrato),
+      n_plan = round(entrevistas / secciones),
+      contactos = round(entrevistas_a_levantar / secciones)
+    )
+
+  plan <- info |>
+    dplyr::mutate(estrato = as.character(estrato)) |>
+    dplyr::left_join(dosis, by = "estrato") |>
+    dplyr::relocate(seccion, estrato, ln_seccion, pi_seccion, n_plan,
+                    contactos)
+
+  attr(plan, "unidad") <- "seccion"
+  attr(plan, "parametros") <- list(
+    n_total = sum(asignacion$entrevistas),
+    n_0 = diseno$n_0,
+    tasa_rechazo = unique(asignacion$tasa_rechazo),
+    semilla = diseno$semilla,
+    unidad = "seccion",
+    origen = "clase"
+  )
+  plan
+}
