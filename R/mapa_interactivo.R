@@ -353,6 +353,9 @@ capas_leaflet_seccional <- function(diseño, cartografia, ruta = NULL,
   manzanas <- manzanas %>%
     dplyr::mutate(popup = paste0(
       "<b>Sección ", SECCION, "</b> · Manzana <b>", orden_ruta, "</b>",
+      if ("cluster_2" %in% names(manzanas))
+        paste0("<br>cluster_2: ", manzanas$cluster_2,
+               " (mapa ", manzanas$cluster_2, ".png)") else "",
       if ("NOMBRE_MUN" %in% names(manzanas)) paste0("<br>", NOMBRE_MUN) else "",
       if ("MANZANA" %in% names(manzanas))
         paste0("<br>Clave de manzana: ", manzanas$MANZANA) else "",
@@ -397,11 +400,14 @@ capas_leaflet_seccional <- function(diseño, cartografia, ruta = NULL,
     dplyr::select(dplyr::all_of(llaves_secc)) %>%
     dplyr::inner_join(
       bd %>% dplyr::distinct(dplyr::across(dplyr::all_of(
-        intersect(c(llaves_secc, "NOMBRE_MUN"), names(bd))))),
+        intersect(c(llaves_secc, "NOMBRE_MUN", "cluster_2"), names(bd))))),
       by = llaves_secc) %>%
     dplyr::left_join(resumen_secc, by = "SECCION") %>%
     dplyr::mutate(popup = paste0(
       "<b>Sección ", SECCION, "</b>",
+      if ("cluster_2" %in% names(.))
+        paste0(" · cluster_2 ", cluster_2, " (mapa ", cluster_2, ".png)")
+      else "",
       if ("NOMBRE_MUN" %in% names(.)) paste0("<br>", NOMBRE_MUN) else "",
       "<br>Manzanas sorteadas: ", mzas,
       "<br>", detalle
