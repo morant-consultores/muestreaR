@@ -458,10 +458,25 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
   bd <- diseño$muestra %>% purrr::pluck(length(diseño$muestra)) %>% tidyr::unnest(data)
 
+  # etiqueta de CAMPO: el flujo INE nombra el mapa por su SECCIÓN electoral
+  # (el id que campo usa y que traen el listado/Excel y el mapa interactivo),
+  # no por el índice interno cluster_2. Si no hay SECCION, cae a cluster_2.
+  etiqueta_col <- if ("SECCION" %in% names(bd)) "SECCION" else u_cluster
+  mapa_etiqueta <- bd %>%
+    dplyr::distinct(!!rlang::sym(u_cluster), !!rlang::sym(etiqueta_col))
+  etiqueta_de <- function(i) {
+    as.character(mapa_etiqueta[[etiqueta_col]][
+      mapa_etiqueta[[u_cluster]] == i][1])
+  }
+
   if(is.null(cluster)){
     cluster <- bd %>% distinct(!!rlang::sym(u_cluster)) %>% pull(1)
+    # los PNG ya dibujados están nombrados por SECCIÓN: se traduce a cluster_2
+    # para saltarlos (resumible sin volver a facturar los ya hechos)
     ya <- list.files(path=dir) %>% gsub('^.*_\\s*|\\s*.png.*$', '', .)
-    cluster <- cluster[!cluster %in% ya]
+    clusters_ya <- mapa_etiqueta[[u_cluster]][
+      as.character(mapa_etiqueta[[etiqueta_col]]) %in% ya]
+    cluster <- cluster[!cluster %in% clusters_ya]
   }
 
   # agebs <- agebs %>% mutate(CVE_AGEB = paste0(22,CVE_MUN,CVE_LOC,CVE_AGEB))
@@ -520,7 +535,7 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
       # scale_x_continuous(limits = c(caja[1], caja[3])) + scale_y_continuous(limits = c(caja[2],caja[4])) +
       guides(fill = "none") +
       theme_minimal() +
-      ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOMBRE_MUN)}  \n {u_cluster}: {i}")) +
+      ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOMBRE_MUN)}  \n Sección: {etiqueta_de(i)}")) +
       labs(subtitle =  etiqueta_mapa(resumen_i, zoom_i),
            caption = glue::glue("{resumen_i$mapa}/{resumen_i$total_mapas}")) +
       theme(plot.title = element_text(hjust = 1),
@@ -531,7 +546,7 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
     
       
     if(exportar){
-      ggsave(g, filename= sprintf("%s.png", i),
+      ggsave(g, filename= sprintf("%s.png", etiqueta_de(i)),
       path=dir,width = 11,height = 8.5,units = "in",dpi = "print")
     } else{
       return(g)
