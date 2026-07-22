@@ -588,6 +588,13 @@ mapa_interactivo_seccional <- function(diseño, cartografia, ruta = NULL,
     leaflet::addControl(htmltools::HTML(paste0("<b>", titulo, "</b>")),
                         position = "topright")
 
+  # encuadre inicial: las MANZANAS del mapa (no todo el estado — la capa
+  # municipal completa dispararía el fitBounds por default de leaflet)
+  bb <- sf::st_bbox(capas$manzanas)
+  mapa <- mapa %>%
+    leaflet::fitBounds(as.numeric(bb[["xmin"]]), as.numeric(bb[["ymin"]]),
+                       as.numeric(bb[["xmax"]]), as.numeric(bb[["ymax"]]))
+
   if (is.null(archivo)) {
     return(mapa)
   }
