@@ -8,10 +8,11 @@ cartografia_ine_prueba <- function(marco) {
     c(x, y, x + s, y, x + s, y + s, x, y + s, x, y), ncol = 2, byrow = TRUE)))
 
   mzas <- marco |> dplyr::distinct(MUNICIPIO, SECCION, id)
-  shp_mza <- sf::st_sf(
-    mzas,
-    geometry = sf::st_sfc(lapply(seq_len(nrow(mzas)),
-                                 function(i) sq(i * 0.02, 0)), crs = 4326))
+  # la última manzana como PUNTO (el shapefile INE mezcla polígonos con
+  # puntos en manzanas dispersas): el mapa debe soportar geometría mixta
+  geoms <- lapply(seq_len(nrow(mzas)), function(i) sq(i * 0.02, 0))
+  geoms[[nrow(mzas)]] <- sf::st_point(c(nrow(mzas) * 0.02, 0.005))
+  shp_mza <- sf::st_sf(mzas, geometry = sf::st_sfc(geoms, crs = 4326))
 
   secc <- marco |> dplyr::distinct(MUNICIPIO, SECCION)
   shp_secc <- sf::st_sf(

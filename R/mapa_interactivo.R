@@ -496,21 +496,48 @@ mapa_interactivo_seccional <- function(diseño, cartografia, ruta = NULL,
       label = ~lapply(paste0("Sección <b>", SECCION, "</b> · ", detalle),
                       htmltools::HTML)
     ) %>%
-    leaflet::addPolygons(
-      data = capas$manzanas,
-      group = "Manzanas a levantar",
-      fillColor = ~pal(.grupo), fillOpacity = 0.5,
-      color = "#e63946", weight = 1.5, opacity = 1,
-      popup = ~popup,
-      label = ~lapply(paste0("Sección ", .grupo, " · Manzana <b>", orden_ruta,
-                             "</b> · ", etiqueta_dosis),
-                      htmltools::HTML),
-      highlightOptions = leaflet::highlightOptions(
-        weight = 3, color = "#000000", fillOpacity = 0.8, bringToFront = TRUE
-      )
-    ) %>%
+    {
+      # el shapefile de MANZANA del INE mezcla polígonos con PUNTOS (manzanas
+      # dispersas): los polígonos van como polígonos y los puntos como
+      # marcadores circulares — addPolygons truena con geometría mixta
+      m <- .
+      tipo <- as.character(sf::st_geometry_type(capas$manzanas))
+      es_pol <- tipo %in% c("POLYGON", "MULTIPOLYGON")
+      mz_pol <- capas$manzanas[es_pol, ]
+      mz_pto <- capas$manzanas[!es_pol, ]
+      etiquetas <- lapply(paste0("Sección ", capas$manzanas$.grupo,
+                                 " · Manzana <b>", capas$manzanas$orden_ruta,
+                                 "</b> · ", etiqueta_dosis),
+                          htmltools::HTML)
+      if (nrow(mz_pol) > 0) {
+        m <- m %>% leaflet::addPolygons(
+          data = mz_pol,
+          group = "Manzanas a levantar",
+          fillColor = ~pal(.grupo), fillOpacity = 0.5,
+          color = "#e63946", weight = 1.5, opacity = 1,
+          popup = ~popup,
+          label = etiquetas[es_pol],
+          highlightOptions = leaflet::highlightOptions(
+            weight = 3, color = "#000000", fillOpacity = 0.8,
+            bringToFront = TRUE
+          )
+        )
+      }
+      if (nrow(mz_pto) > 0) {
+        m <- m %>% leaflet::addCircleMarkers(
+          data = sf::st_centroid(mz_pto),
+          group = "Manzanas a levantar",
+          radius = 7, fillColor = ~pal(.grupo), fillOpacity = 0.7,
+          color = "#e63946", weight = 1.5, opacity = 1,
+          popup = ~popup,
+          label = etiquetas[!es_pol]
+        )
+      }
+      m
+    } %>%
     leaflet::addLabelOnlyMarkers(
-      data = sf::st_point_on_surface(sf::st_geometry(capas$manzanas)) %>%
+      data = suppressWarnings(
+        sf::st_point_on_surface(sf::st_geometry(capas$manzanas))) %>%
         sf::st_sf(orden_ruta = capas$manzanas$orden_ruta),
       group = "Manzanas a levantar",
       label = ~as.character(orden_ruta),
