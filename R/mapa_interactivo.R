@@ -298,13 +298,22 @@ mapa_interactivo_ageb <- function(diseño, cartografia,
 # cluster_0 — columnas orden_ruta, toques_esperados, dentro_presupuesto y
 # puertas_presupuesto_seccion. Sin `ruta`, la dosis mostrada es n_0 y el
 # orden es el determinista (manzanas de cada sección por su clave).
-capas_leaflet_seccional <- function(diseño, cartografia, ruta = NULL) {
+capas_leaflet_seccional <- function(diseño, cartografia, ruta = NULL,
+                                    secciones = NULL) {
   shp <- if (inherits(cartografia, "Cartografia")) cartografia$shp else cartografia
   if ("shp" %in% names(shp) && !inherits(shp, "sf")) shp <- shp$shp
 
   bd <- diseño$muestra %>%
     purrr::pluck(length(diseño$muestra)) %>%
     tidyr::unnest(data)
+  # subconjunto opcional (p. ej. las secciones de UN municipio/estrato): con
+  # miles de manzanas un solo HTML no es operable — un mapa por equipo sí
+  if (!is.null(secciones)) {
+    bd <- bd %>% dplyr::filter(as.character(SECCION) %in%
+                                 as.character(secciones))
+    if (nrow(bd) == 0) stop("Ninguna sección de la muestra está en `secciones`.",
+                            call. = FALSE)
+  }
   viviendas <- diseño$n_i$cluster_0 %>%
     dplyr::select(cluster_0, viviendas = n_0)
 
@@ -455,9 +464,11 @@ capas_leaflet_seccional <- function(diseño, cartografia, ruta = NULL) {
 #' @seealso [mapa_interactivo_ageb()], [disenar_muestra_ine()]
 #' @export
 mapa_interactivo_seccional <- function(diseño, cartografia, ruta = NULL,
+                                       secciones = NULL,
                                        archivo = NULL,
                                        titulo = "Muestra seccional — planeación de rutas") {
-  capas <- capas_leaflet_seccional(diseño, cartografia, ruta = ruta)
+  capas <- capas_leaflet_seccional(diseño, cartografia, ruta = ruta,
+                                  secciones = secciones)
 
   capas$manzanas$.grupo <- as.character(capas$manzanas$SECCION)
   pal <- paleta_agebs(unique(capas$manzanas$.grupo))
@@ -535,11 +546,15 @@ mapa_interactivo_seccional <- function(diseño, cartografia, ruta = NULL,
       }
       m
     } %>%
+    # números de ruta SIEMPRE visibles: capa propia APAGADA por defecto —
+    # con miles de manzanas (p. ej. 15k) las etiquetas noHide congelan el
+    # navegador al cargar; campo la enciende ya con zoom en su sección (el
+    # número también va en el hover y el popup de cada manzana)
     leaflet::addLabelOnlyMarkers(
       data = suppressWarnings(
         sf::st_point_on_surface(sf::st_geometry(capas$manzanas))) %>%
         sf::st_sf(orden_ruta = capas$manzanas$orden_ruta),
-      group = "Manzanas a levantar",
+      group = "Números de ruta",
       label = ~as.character(orden_ruta),
       labelOptions = leaflet::labelOptions(
         noHide = TRUE, textOnly = TRUE, direction = "center",
@@ -550,9 +565,16 @@ mapa_interactivo_seccional <- function(diseño, cartografia, ruta = NULL,
     ) %>%
     leaflet::addLayersControl(
       baseGroups = c("Calles", "Satélite"),
-      overlayGroups = c("Municipios", "Secciones", "Manzanas a levantar"),
+      overlayGroups = c("Municipios", "Secciones", "Manzanas a levantar",
+                        "Números de ruta"),
       options = leaflet::layersControlOptions(collapsed = FALSE)
     ) %>%
+    {
+      # con pocos cientos de manzanas los números aguantan visibles; en un
+      # mapa estatal completo congelan el navegador -> apagados por defecto
+      if (nrow(capas$manzanas) > 2000) leaflet::hideGroup(., "Números de ruta")
+      else .
+    } %>%
     leaflet::addLegend(
       position = "bottomright",
       colors = c("#2a9d8f", "#adb5bd"),
