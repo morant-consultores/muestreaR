@@ -317,6 +317,14 @@ capas_leaflet_seccional <- function(diseño, cartografia, ruta = NULL,
   viviendas <- diseño$n_i$cluster_0 %>%
     dplyr::select(cluster_0, viviendas = n_0)
 
+  # identificador de CAMPO = cluster_2 (el id que captura el encuestador en el
+  # cuestionario y que nombra el PNG de Google); si el diseño no lo trae, cae
+  # a la SECCION. Es el que va como titular en popups y etiquetas.
+  .id_campo <- function(df) {
+    if ("cluster_2" %in% names(df)) paste0("Cluster ", df$cluster_2)
+    else paste0("Sección ", df$SECCION)
+  }
+
   candidatos_mza <- c("ENTIDAD", "DISTRITO_F", "DISTRITO_L", "MUNICIPIO",
                       "SECCION", "LOCALIDAD", "MANZANA", "id", "cluster_0")
 
@@ -350,12 +358,13 @@ capas_leaflet_seccional <- function(diseño, cartografia, ruta = NULL,
       dplyr::ungroup()
   }
 
+  manzanas$.lbl_campo <- .id_campo(manzanas)
   manzanas <- manzanas %>%
     dplyr::mutate(popup = paste0(
-      "<b>Sección ", SECCION, "</b> · Manzana <b>", orden_ruta, "</b>",
+      "<b>", .lbl_campo, "</b> · Manzana <b>", orden_ruta, "</b>",
       if ("cluster_2" %in% names(manzanas))
-        paste0("<br>cluster_2: ", manzanas$cluster_2,
-               " (mapa ", manzanas$cluster_2, ".png)") else "",
+        paste0("<br>Sección ", SECCION,
+               " · mapa ", manzanas$cluster_2, ".png") else "",
       if ("NOMBRE_MUN" %in% names(manzanas)) paste0("<br>", NOMBRE_MUN) else "",
       if ("MANZANA" %in% names(manzanas))
         paste0("<br>Clave de manzana: ", manzanas$MANZANA) else "",
@@ -402,11 +411,13 @@ capas_leaflet_seccional <- function(diseño, cartografia, ruta = NULL,
       bd %>% dplyr::distinct(dplyr::across(dplyr::all_of(
         intersect(c(llaves_secc, "NOMBRE_MUN", "cluster_2"), names(bd))))),
       by = llaves_secc) %>%
-    dplyr::left_join(resumen_secc, by = "SECCION") %>%
+    dplyr::left_join(resumen_secc, by = "SECCION")
+  secciones$.lbl_campo <- .id_campo(secciones)
+  secciones <- secciones %>%
     dplyr::mutate(popup = paste0(
-      "<b>Sección ", SECCION, "</b>",
+      "<b>", .lbl_campo, "</b>",
       if ("cluster_2" %in% names(.))
-        paste0(" · cluster_2 ", cluster_2, " (mapa ", cluster_2, ".png)")
+        paste0(" · Sección ", SECCION, " (mapa ", cluster_2, ".png)")
       else "",
       if ("NOMBRE_MUN" %in% names(.)) paste0("<br>", NOMBRE_MUN) else "",
       "<br>Manzanas sorteadas: ", mzas,
@@ -510,8 +521,8 @@ mapa_interactivo_seccional <- function(diseño, cartografia, ruta = NULL,
       group = "Secciones",
       fill = FALSE, color = "#1d3557", weight = 2, opacity = 0.9,
       popup = ~popup,
-      label = ~lapply(paste0("Sección <b>", SECCION, "</b> · ", detalle),
-                      htmltools::HTML)
+      label = lapply(paste0(capas$secciones$.lbl_campo, " · ",
+                            capas$secciones$detalle), htmltools::HTML)
     ) %>%
     {
       # el shapefile de MANZANA del INE mezcla polígonos con PUNTOS (manzanas
@@ -522,7 +533,7 @@ mapa_interactivo_seccional <- function(diseño, cartografia, ruta = NULL,
       es_pol <- tipo %in% c("POLYGON", "MULTIPOLYGON")
       mz_pol <- capas$manzanas[es_pol, ]
       mz_pto <- capas$manzanas[!es_pol, ]
-      etiquetas <- lapply(paste0("Sección ", capas$manzanas$.grupo,
+      etiquetas <- lapply(paste0(capas$manzanas$.lbl_campo,
                                  " · Manzana <b>", capas$manzanas$orden_ruta,
                                  "</b> · ", etiqueta_dosis),
                           htmltools::HTML)
