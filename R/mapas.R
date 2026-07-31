@@ -190,14 +190,33 @@ resumen_operativo <- function(diseño){
   muestra <- diseño$muestra %>% purrr::pluck(length(diseño$muestra))
   tasa <- resolver_tasa_rechazo(diseño)
 
-  muestra %>%
+  res <- muestra %>%
     left_join(diseño$n_i$cluster_0, by = "cluster_0") %>%
     group_by(!!rlang::sym(u_cluster)) %>%
     summarise(manzanas = n(), contactos = sum(n_0), .groups = "drop") %>%
-    arrange(!!rlang::sym(u_cluster)) %>%
+    arrange(!!rlang::sym(u_cluster))
+
+  # tasa POR CONGLOMERADO (attr "tasas_cluster": u_cluster + tasa) — la fija
+  # la calibración por AGEB (presupuesto de puertas): así el mapa imprime las
+  # entrevistas esperadas de ESE AGEB (contactos x su tasa de logro), no una
+  # media global que confunde a campo. Sin el attr, tasa global como siempre.
+  tasas_cluster <- attr(diseño, "tasas_cluster")
+  if (!is.null(tasas_cluster) &&
+      all(c(u_cluster, "tasa") %in% names(tasas_cluster))) {
+    res <- res %>%
+      left_join(tasas_cluster %>%
+                  select(dplyr::all_of(c(u_cluster, "tasa"))),
+                by = u_cluster) %>%
+      mutate(tasa = dplyr::coalesce(tasa, !!tasa))
+  } else {
+    res <- res %>% mutate(tasa = !!tasa)
+  }
+
+  res %>%
     mutate(entrevistas = round(contactos * (1 - tasa)),
            total_mapas = n(),
-           mapa = row_number())
+           mapa = row_number()) %>%
+    select(-tasa)
 }
 
 # Conglomerados con polígono en la cartografía (los que sobreviven el join):
@@ -221,7 +240,9 @@ clusters_dibujables <- function(cluster, shp_mapa, u_cluster){
 #' La numeración es **estable y reproducible**: dentro de cada conglomerado
 #' se ordena por la clave de manzana (`MZA` en el flujo censal, `MANZANA`
 #' en el electoral; `cluster_0` como último recurso), así que regenerar
-#' cualquier material produce los mismos números.
+#' cualquier material produce los mismos números. Si el diseño trae el attr
+#' `"numeracion_base"` (lo fija [ampliar_manzanas_ageb()]), esos números son
+#' inmutables y las manzanas nuevas continúan la secuencia (max+1, ...).
 #'
 #' @param diseño Objeto [Diseño] (o [DiseñoINE]) con la muestra extraída.
 #'
@@ -243,13 +264,69 @@ numerar_manzanas <- function(diseño){
   llave <- intersect(c("MZA", "MANZANA"), names(bd))[1]
   if (is.na(llave)) llave <- "cluster_0"
 
-  bd %>%
-    select(dplyr::all_of(unique(c(u_cluster, "cluster_0", llave)))) %>%
+  numer <- bd %>%
+    select(dplyr::all_of(unique(c(u_cluster, "cluster_0", llave))))
+
+  # Numeración BASE (attr "numeracion_base", la fija ampliar_manzanas_ageb):
+  # los números que campo YA tiene impresos en mapas/cuestionario son
+  # inmutables; las manzanas nuevas continúan (max+1, max+2, ...) ordenadas
+  # por la misma clave. Sin base, numeración estable 1..k por clave.
+  base <- attr(diseño, "numeracion_base")
+  if (is.null(base)) {
+    return(numer %>%
+      group_by(!!rlang::sym(u_cluster)) %>%
+      arrange(!!rlang::sym(llave), .by_group = TRUE) %>%
+      mutate(manzana_num = dplyr::row_number()) %>%
+      ungroup() %>%
+      select(dplyr::all_of(c(u_cluster, "cluster_0", "manzana_num"))))
+  }
+
+  conocidas <- base %>%
+    dplyr::semi_join(numer, by = "cluster_0") %>%
+    select(dplyr::all_of(c(u_cluster, "cluster_0", "manzana_num")))
+  topes <- conocidas %>%
+    group_by(!!rlang::sym(u_cluster)) %>%
+    summarise(.tope = max(manzana_num), .groups = "drop")
+  nuevas <- numer %>%
+    dplyr::anti_join(base, by = "cluster_0") %>%
+    dplyr::left_join(topes, by = u_cluster) %>%
+    mutate(.tope = dplyr::coalesce(.tope, 0L)) %>%
     group_by(!!rlang::sym(u_cluster)) %>%
     arrange(!!rlang::sym(llave), .by_group = TRUE) %>%
-    mutate(manzana_num = dplyr::row_number()) %>%
+    mutate(manzana_num = .tope + dplyr::row_number()) %>%
     ungroup() %>%
     select(dplyr::all_of(c(u_cluster, "cluster_0", "manzana_num")))
+  dplyr::bind_rows(conocidas, nuevas) %>%
+    arrange(!!rlang::sym(u_cluster), manzana_num)
+}
+
+# Zoom de Google Static Maps que ENCUADRA un bbox (Web Mercator): el mayor
+# nivel al que el bbox del conglomerado (con margen) cabe en un tile de
+# `size` px lógicos. Los mapas de campo lo calculan POR conglomerado, con el
+# `zoom` del usuario como techo de detalle: un zoom fijo corta manzanas
+# cuando la muestra crece (p. ej. ampliación de 4 a 9 manzanas por AGEB).
+zoom_para_bbox <- function(bbox, size = 640, margen = 1.15, zoom_max = 16){
+  merc <- function(lat) log(tan(pi / 4 + pmax(pmin(lat, 85), -85) * pi / 360))
+  lon_span <- as.numeric(bbox[["xmax"]] - bbox[["xmin"]])
+  lat_span <- merc(as.numeric(bbox[["ymax"]])) - merc(as.numeric(bbox[["ymin"]]))
+  z_lon <- if (isTRUE(lon_span > 0)) log2(size * 360 / (256 * lon_span * margen)) else Inf
+  z_lat <- if (isTRUE(lat_span > 0)) log2(size * 2 * pi / (256 * lat_span * margen)) else Inf
+  z <- suppressWarnings(floor(min(z_lon, z_lat)))
+  if (!is.finite(z)) z <- zoom_max
+  as.integer(max(1, min(zoom_max, z)))
+}
+
+# bbox conjunto del conglomerado (polígono del cluster + sus manzanas)
+bbox_cluster <- function(aux_mapeo, man){
+  bb <- sf::st_bbox(aux_mapeo)
+  if (nrow(man) > 0) {
+    bm <- sf::st_bbox(man)
+    bb[["xmin"]] <- min(bb[["xmin"]], bm[["xmin"]])
+    bb[["ymin"]] <- min(bb[["ymin"]], bm[["ymin"]])
+    bb[["xmax"]] <- max(bb[["xmax"]], bm[["xmax"]])
+    bb[["ymax"]] <- max(bb[["ymax"]], bm[["ymax"]])
+  }
+  bb
 }
 
 # Subtítulo del mapa a partir de una fila del resumen operativo y el zoom.
@@ -316,9 +393,15 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
     resumen_i <- resumen %>% filter(!!rlang::sym(u_cluster) == i)
     man <- man_shp %>% filter(!!rlang::sym(u_cluster) == i)
     aux_mapeo <- shp_mapa %>% filter(!!rlang::sym(u_cluster) == i)
-    caja <- aux_mapeo %>% sf::st_union() %>% sf::st_centroid() %>% sf::st_coordinates() %>% as.numeric()
+    # encuadre por conglomerado: centro del bbox AGEB+manzanas y el mayor
+    # zoom al que TODO cabe (con `zoom` como techo de detalle) — con zoom
+    # fijo, las muestras ampliadas dejan manzanas fuera del cuadro
+    bb <- bbox_cluster(aux_mapeo, man)
+    zoom_i <- zoom_para_bbox(bb, zoom_max = zoom)
+    caja <- c(mean(c(bb[["xmin"]], bb[["xmax"]])),
+              mean(c(bb[["ymin"]], bb[["ymax"]])))
     nc_map <- ggmap::get_map(location = caja, maptype = "roadmap",
-                             source = "google",force = T, zoom = zoom)
+                             source = "google",force = T, zoom = zoom_i)
     Google <- ggmap::ggmap(nc_map)
     # Google
     g <- Google +
@@ -337,7 +420,7 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
       guides(fill = "none") +
       theme_minimal() +
       ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOM_MUN)} \n Localidad: {unique(aux_mapeo$NOM_LOC)}  \n {u_cluster}: {i}")) +
-      labs(subtitle =  etiqueta_mapa(resumen_i, zoom),
+      labs(subtitle =  etiqueta_mapa(resumen_i, zoom_i),
            caption = glue::glue("{resumen_i$mapa}/{resumen_i$total_mapas}")) +
       theme(plot.title = element_text(hjust = 1),
             plot.subtitle = element_text(size = 10, hjust = 0),
@@ -406,9 +489,13 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
     resumen_i <- resumen %>% filter(!!rlang::sym(u_cluster) == i)
     man <- man_shp %>% filter(!!rlang::sym(u_cluster) == i)
     aux_mapeo <- shp_mapa %>% filter(!!rlang::sym(u_cluster) == i)
-    caja <- aux_mapeo %>% sf::st_make_valid() %>% sf::st_union() %>% sf::st_centroid() %>% sf::st_coordinates() %>% as.numeric()
+    # encuadre por conglomerado (ver google_maps): nada se queda fuera
+    bb <- bbox_cluster(sf::st_make_valid(aux_mapeo), man)
+    zoom_i <- zoom_para_bbox(bb, zoom_max = zoom)
+    caja <- c(mean(c(bb[["xmin"]], bb[["xmax"]])),
+              mean(c(bb[["ymin"]], bb[["ymax"]])))
     nc_map <- ggmap::get_map(location = caja, maptype = "roadmap",
-                             source = "google",force = T, zoom = zoom)
+                             source = "google",force = T, zoom = zoom_i)
     Google <- ggmap::ggmap(nc_map)
     # Google
     puntos <- man %>% filter(sf::st_geometry_type(.) == "POINT")
@@ -434,7 +521,7 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
       guides(fill = "none") +
       theme_minimal() +
       ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOMBRE_MUN)}  \n {u_cluster}: {i}")) +
-      labs(subtitle =  etiqueta_mapa(resumen_i, zoom),
+      labs(subtitle =  etiqueta_mapa(resumen_i, zoom_i),
            caption = glue::glue("{resumen_i$mapa}/{resumen_i$total_mapas}")) +
       theme(plot.title = element_text(hjust = 1),
             plot.subtitle = element_text(size = 10, hjust = 0),

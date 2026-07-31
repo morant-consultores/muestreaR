@@ -28,7 +28,9 @@ tres materiales.
 La numeración es \strong{estable y reproducible}: dentro de cada conglomerado
 se ordena por la clave de manzana (\code{MZA} en el flujo censal, \code{MANZANA}
 en el electoral; \code{cluster_0} como último recurso), así que regenerar
-cualquier material produce los mismos números.
+cualquier material produce los mismos números. Si el diseño trae el attr
+\code{"numeracion_base"} (lo fija \code{\link[=ampliar_manzanas_ageb]{ampliar_manzanas_ageb()}}), esos números son
+inmutables y las manzanas nuevas continúan la secuencia (max+1, ...).
 }
 \seealso{
 \code{\link[=google_maps]{google_maps()}}, \code{\link[=mapa_interactivo_ageb]{mapa_interactivo_ageb()}}
