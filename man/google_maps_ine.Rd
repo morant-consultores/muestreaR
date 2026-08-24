@@ -4,7 +4,15 @@
 \alias{google_maps_ine}
 \title{Exportar mapas de campo con Google Maps (marco electoral INE)}
 \usage{
-google_maps_ine(diseño, shp, zoom, dir = "Mapas", exportar = T, cluster = NULL)
+google_maps_ine(
+  diseño,
+  shp,
+  zoom,
+  dir = "Mapas",
+  exportar = T,
+  cluster = NULL,
+  contexto_m = NULL
+)
 }
 \arguments{
 \item{diseño}{Objeto de la clase \link{DiseñoINE} con la muestra extraída.}
@@ -19,6 +27,12 @@ google_maps_ine(diseño, shp, zoom, dir = "Mapas", exportar = T, cluster = NULL)
 
 \item{cluster}{Identificador opcional de un conglomerado para limitar la
 generación de mapas a ese conglomerado.}
+
+\item{contexto_m}{Margen en metros alrededor de las manzanas para encuadrar el
+mapa. \code{NULL} (default) encuadra el conglomerado completo, que es lo correcto
+cuando las manzanas cubren buena parte de él. Ponerlo es lo que mantiene
+legible un conglomerado mucho más grande que lo sorteado (ver
+\code{bbox_cluster()}).}
 }
 \value{
 Invisible. Se ejecuta por su efecto secundario (escribe los mapas).
