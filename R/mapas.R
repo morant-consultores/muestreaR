@@ -432,7 +432,11 @@ etiqueta_mapa <- function(resumen_i, zoom){
 #'
 #' @return Invisible. Se ejecuta por su efecto secundario (escribe los mapas).
 #' @export
-google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
+#' @param etiquetas_unidad Ver [google_maps_ine()]. Separa el título del nombre
+#'   del archivo.
+google_maps <- function(diseño, shp, zoom, dir = "Mapas",
+                        etiquetas_unidad = NULL){
+  .validar_etiquetas_unidad(etiquetas_unidad)
 
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
@@ -504,7 +508,7 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
                         ylim = c(bb[["ymin"]], bb[["ymax"]]),
                         expand = FALSE, default_crs = sf::st_crs(4326)) +
       theme_minimal() +
-      ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOM_MUN)} \n Localidad: {unique(aux_mapeo$NOM_LOC)}  \n {u_cluster}: {i}")) +
+      ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOM_MUN)} \n Localidad: {unique(aux_mapeo$NOM_LOC)}  \n {.etiqueta_unidad(i, u_cluster, etiquetas_unidad)}")) +
       labs(subtitle =  etiqueta_mapa(resumen_i, zoom_i),
            caption = glue::glue("{resumen_i$mapa}/{resumen_i$total_mapas}")) +
       theme(plot.title = element_text(hjust = 1),
@@ -542,8 +546,15 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
 #'   cuando las manzanas cubren buena parte de él. Ponerlo es lo que mantiene
 #'   legible un conglomerado mucho más grande que lo sorteado (ver
 #'   `bbox_cluster()`).
+#' @param etiquetas_unidad Vector o lista CON NOMBRES para separar el título del
+#'   nombre del archivo: el nombre es el identificador de la unidad (el que nombra
+#'   el PNG) y el valor es el texto que se imprime como título. `NULL` (default)
+#'   imprime `"{u_cluster}: {id}"`, el comportamiento anterior. Las unidades sin
+#'   entrada caen al default, así que se puede etiquetar solo algunas.
 google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T,
-                            cluster = NULL, contexto_m = NULL){
+                            cluster = NULL, contexto_m = NULL,
+                            etiquetas_unidad = NULL){
+  .validar_etiquetas_unidad(etiquetas_unidad)
 
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
@@ -619,7 +630,7 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T,
                         ylim = c(bb[["ymin"]], bb[["ymax"]]),
                         expand = FALSE, default_crs = sf::st_crs(4326)) +
       theme_minimal() +
-      ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOMBRE_MUN)}  \n {u_cluster}: {i}")) +
+      ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOMBRE_MUN)}  \n {.etiqueta_unidad(i, u_cluster, etiquetas_unidad)}")) +
       labs(subtitle =  etiqueta_mapa(resumen_i, zoom_i),
            caption = glue::glue("{resumen_i$mapa}/{resumen_i$total_mapas}")) +
       theme(plot.title = element_text(hjust = 1),

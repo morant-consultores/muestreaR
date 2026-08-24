@@ -11,7 +11,8 @@ google_maps_ine(
   dir = "Mapas",
   exportar = T,
   cluster = NULL,
-  contexto_m = NULL
+  contexto_m = NULL,
+  etiquetas_unidad = NULL
 )
 }
 \arguments{
@@ -33,6 +34,12 @@ mapa. \code{NULL} (default) encuadra el conglomerado completo, que es lo correct
 cuando las manzanas cubren buena parte de él. Ponerlo es lo que mantiene
 legible un conglomerado mucho más grande que lo sorteado (ver
 \code{bbox_cluster()}).}
+
+\item{etiquetas_unidad}{Vector o lista CON NOMBRES para separar el título del
+nombre del archivo: el nombre es el identificador de la unidad (el que nombra
+el PNG) y el valor es el texto que se imprime como título. \code{NULL} (default)
+imprime \code{"{u_cluster}: {id}"}, el comportamiento anterior. Las unidades sin
+entrada caen al default, así que se puede etiquetar solo algunas.}
 }
 \value{
 Invisible. Se ejecuta por su efecto secundario (escribe los mapas).

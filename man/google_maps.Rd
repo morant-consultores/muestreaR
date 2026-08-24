@@ -4,7 +4,7 @@
 \alias{google_maps}
 \title{Exportar mapas de campo con Google Maps (marco censal INEGI)}
 \usage{
-google_maps(diseño, shp, zoom, dir = "Mapas")
+google_maps(diseño, shp, zoom, dir = "Mapas", etiquetas_unidad = NULL)
 }
 \arguments{
 \item{diseño}{Objeto de la clase \link{Diseño} con la muestra extraída.}
@@ -14,6 +14,9 @@ google_maps(diseño, shp, zoom, dir = "Mapas")
 \item{zoom}{Nivel de zoom de Google Maps.}
 
 \item{dir}{Carpeta de destino de los mapas (por defecto \code{"Mapas"}).}
+
+\item{etiquetas_unidad}{Ver \code{\link[=google_maps_ine]{google_maps_ine()}}. Separa el título del nombre
+del archivo.}
 }
 \value{
 Invisible. Se ejecuta por su efecto secundario (escribe los mapas).
