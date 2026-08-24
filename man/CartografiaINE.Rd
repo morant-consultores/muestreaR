@@ -51,7 +51,7 @@ métodos para graficar mapas de la muestra y exportar los mapas de campo.
 \subsection{\code{Cartografia$crear_mapas()}}{
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{Cartografia$crear_mapas(diseño, zoom, dir)}
+    \preformatted{Cartografia$crear_mapas(diseño, zoom, dir, contexto_m = NULL)}
     \if{html}{\out{</div>}}
   }
 }

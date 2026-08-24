@@ -64,14 +64,17 @@ test_that("resumen_operativo opera igual sobre el flujo electoral INE", {
     diseno$extraer_muestra(nivel = 2)
   })
 
-  res <- resumen_operativo(diseno)
+  res <- suppressWarnings(resumen_operativo(diseno))
   expect_true(all(c("cluster_2", "manzanas", "contactos", "entrevistas")
                   %in% names(res)))
   expect_true(all(res$contactos > 0))
   expect_true(all(res$manzanas > 0))
-  # diseño hecho a mano, sin atributo "asignacion": sin tasa declarada, las
-  # entrevistas efectivas planeadas igualan a los contactos (rechazo 0)
-  expect_equal(res$entrevistas, res$contactos)
+  # diseño hecho a mano, SIN atributo "asignacion": no hay de dónde saber la tasa,
+  # así que las entrevistas quedan NA y se avisa. Antes caían al default 0, que
+  # hacía entrevistas = contactos: el mapa impreso prometía una entrevista por
+  # puerta, cuatro veces la realidad con una tasa típica de 0.23.
+  expect_true(all(is.na(res$entrevistas)))
+  expect_warning(resumen_operativo(diseno), "asignaci")
 })
 
 test_that("numerar_manzanas asigna 1..k por conglomerado, estable y compartible", {
@@ -106,10 +109,11 @@ test_that("resumen_operativo usa la tasa de rechazo de la asignación si existe"
   res <- resumen_operativo(diseno)
   expect_equal(res$entrevistas, round(res$contactos * 0.5))
 
-  # si se borra el atributo, cae al default (tasa 0): entrevistas = contactos
+  # si se borra el atributo, la tasa no se inventa: NA con aviso. El default de 0
+  # que había antes prometía una entrevista por puerta en el mapa impreso.
   attr(diseno, "asignacion") <- NULL
-  res0 <- resumen_operativo(diseno)
-  expect_equal(res0$entrevistas, res0$contactos)
+  expect_warning(res0 <- resumen_operativo(diseno), "asignaci")
+  expect_true(all(is.na(res0$entrevistas)))
 })
 
 test_that("resumen_operativo usa la tasa POR CONGLOMERADO si el diseño la trae", {
@@ -122,7 +126,7 @@ test_that("resumen_operativo usa la tasa POR CONGLOMERADO si el diseño la trae"
   res <- resumen_operativo(d)
   esperado <- round(base$contactos * (1 - tasas$tasa))
   expect_identical(res$entrevistas, esperado)
-  # sin el attr, se conserva el comportamiento global
+  # sin el attr, se conserva el comportamiento global (la asignación sigue ahí)
   attr(d, "tasas_cluster") <- NULL
   expect_identical(resumen_operativo(d)$entrevistas, base$entrevistas)
 })

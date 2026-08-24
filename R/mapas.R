@@ -170,10 +170,60 @@ graficar_mapa_muestra_ine <- function(lflt = NULL, muestra, shp, nivel){
 # NOTA: si el rechazo varía por estrato se usa el promedio (exacto en el caso
 # uniforme, el habitual); es una guía de planeación para el mapa — el número
 # exacto por conglomerado vive en el plan versionado (`plan_ageb$n_plan`).
+# La tasa de rechazo vive en el ATRIBUTO `asignacion` que pone
+# `disenar_muestra_ine()`. Devolver 0 cuando falta parecía un default inocente y
+# no lo es: `resumen_operativo()` calcula entrevistas = contactos x (1 - tasa),
+# así que con tasa 0 el mapa impreso promete UNA ENTREVISTA POR PUERTA. Con una
+# tasa realista de 0.23 eso es cuatro veces la realidad, y sale sin un solo aviso.
+#
+# El caso no es hipotético: `$clone()` de R6 NO copia los atributos del objeto, así
+# que cualquier diseño clonado —recortar la muestra a la ruta, por ejemplo— pierde
+# la asignación y cae aquí. Ver `clonar_diseno()`.
+#
+# Devuelve NA_real_ (no 0) cuando no hay de dónde saberla: quien la use decide qué
+# hacer con un dato que falta, en vez de recibir un número inventado.
 resolver_tasa_rechazo <- function(diseño){
   asig <- attr(diseño, "asignacion")
-  if(is.null(asig) || is.null(asig[["tasa_rechazo"]])) return(0)
+  if(is.null(asig) || is.null(asig[["tasa_rechazo"]])){
+    warning("El diseño no trae la asignación (atributo `asignacion`), así que no ",
+            "se puede saber la tasa de rechazo. Si el diseño viene de `$clone()`, ",
+            "usa `clonar_diseno()`: R6 no copia los atributos.",
+            call. = FALSE)
+    return(NA_real_)
+  }
   mean(asig[["tasa_rechazo"]], na.rm = TRUE)
+}
+
+#' Clonar un diseño conservando sus atributos
+#'
+#' `$clone()` de R6 copia los campos del objeto pero **no sus atributos**, y
+#' muestreaR guarda en atributos cosas que el diseño necesita para describirse:
+#' `asignacion` (de donde sale la tasa de rechazo y la dosis), `numeracion_base`,
+#' `tasas_cluster` y `plan_ageb`. Un clon los pierde en silencio.
+#'
+#' El síntoma típico es un mapa impreso que promete una entrevista por puerta:
+#' sin `asignacion`, [resumen_operativo()] no puede aplicar la tasa de rechazo.
+#'
+#' @param diseño Objeto de diseño (R6) a clonar.
+#' @param deep ¿Clonado profundo? (default `TRUE`, que es lo que se quiere cuando
+#'   se va a modificar la muestra del clon sin tocar el original).
+#' @return El clon, con los atributos del original.
+#' @examples
+#' \dontrun{
+#' d2 <- clonar_diseno(diseno)          # conserva la asignación
+#' identical(attr(d2, "asignacion"), attr(diseno, "asignacion"))  # TRUE
+#' }
+#' @export
+clonar_diseno <- function(diseño, deep = TRUE) {
+  if (!inherits(diseño, "R6")) {
+    stop("`diseño` debe ser un objeto R6 de diseño.", call. = FALSE)
+  }
+  clon <- diseño$clone(deep = deep)
+  # se copian TODOS los atributos del original salvo los que R gestiona solo
+  attrs <- attributes(diseño)
+  attrs <- attrs[setdiff(names(attrs), c("class", "names", "row.names"))]
+  for (nm in names(attrs)) attr(clon, nm) <- attrs[[nm]]
+  clon
 }
 
 # Resumen operativo por conglomerado (último nivel): manzanas de la muestra,
@@ -317,7 +367,29 @@ zoom_para_bbox <- function(bbox, size = 640, margen = 1.15, zoom_max = 16){
 }
 
 # bbox conjunto del conglomerado (polígono del cluster + sus manzanas)
-bbox_cluster <- function(aux_mapeo, man){
+# Encuadre del mapa de un conglomerado.
+#
+# Por default toma la UNIÓN del contorno del conglomerado y sus manzanas, que es
+# lo correcto cuando las manzanas cubren buena parte del conglomerado. Deja de
+# serlo cuando el conglomerado es mucho más grande que lo sorteado: medido en
+# Huehuetoca (ago-2026), una sección de 7 km con 4 manzanas juntas encuadraba a
+# zoom 13 y las manzanas salían como puntos ilegibles — el mapa dejaba de servir
+# para caminar.
+#
+# Con `contexto_m` el encuadre se calcula sobre las MANZANAS más ese margen en
+# metros, y el contorno del conglomerado sigue dibujándose (recortado por el
+# encuadre). En el mismo caso, el zoom pasó de 13 a 16.
+bbox_cluster <- function(aux_mapeo, man, contexto_m = NULL){
+  if (!is.null(contexto_m) && nrow(man) > 0) {
+    bm <- sf::st_bbox(man)
+    # grados por metro a esta latitud: la longitud se encoge con el coseno
+    lat_med <- mean(c(bm[["ymin"]], bm[["ymax"]]))
+    d_lat <- contexto_m / 110540
+    d_lon <- contexto_m / (111320 * max(cos(lat_med * pi / 180), 1e-6))
+    bm[["xmin"]] <- bm[["xmin"]] - d_lon; bm[["xmax"]] <- bm[["xmax"]] + d_lon
+    bm[["ymin"]] <- bm[["ymin"]] - d_lat; bm[["ymax"]] <- bm[["ymax"]] + d_lat
+    return(bm)
+  }
   bb <- sf::st_bbox(aux_mapeo)
   if (nrow(man) > 0) {
     bm <- sf::st_bbox(man)
@@ -331,11 +403,16 @@ bbox_cluster <- function(aux_mapeo, man){
 
 # Subtítulo del mapa a partir de una fila del resumen operativo y el zoom.
 etiqueta_mapa <- function(resumen_i, zoom){
+  # si no se pudo resolver la tasa, se dice que no se sabe. Antes se imprimía un
+  # número igual a los contactos —una entrevista por puerta— que campo lee como
+  # una meta alcanzable.
+  entrevistas <- if (is.na(resumen_i$entrevistas)) "no disponible (falta la asignación)"
+                 else resumen_i$entrevistas
   paste(
     glue::glue("Zoom: {zoom}"),
     glue::glue("Manzanas: {resumen_i$manzanas}"),
     glue::glue("Contactos planeados: {resumen_i$contactos}"),
-    glue::glue("Entrevistas planeadas: {resumen_i$entrevistas}"),
+    glue::glue("Entrevistas planeadas: {entrevistas}"),
     sep = "\n"
   )
 }
@@ -418,6 +495,14 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
                     alpha = 0.85, label.size = 0) +
       # scale_x_continuous(limits = c(caja[1], caja[3])) + scale_y_continuous(limits = c(caja[2],caja[4])) +
       guides(fill = "none") +
+      # Los límites se fijan AL ENCUADRE. Sin esto `geom_sf` del contorno del
+      # conglomerado expande las escalas hasta cubrirlo y el zoom calculado no
+      # sirve de nada: el mosaico de Google llega al zoom pedido pero el panel se
+      # abre para meter el polígono completo. `expand = FALSE` evita el margen
+      # extra que ggplot agrega por default.
+      ggplot2::coord_sf(xlim = c(bb[["xmin"]], bb[["xmax"]]),
+                        ylim = c(bb[["ymin"]], bb[["ymax"]]),
+                        expand = FALSE, default_crs = sf::st_crs(4326)) +
       theme_minimal() +
       ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOM_MUN)} \n Localidad: {unique(aux_mapeo$NOM_LOC)}  \n {u_cluster}: {i}")) +
       labs(subtitle =  etiqueta_mapa(resumen_i, zoom_i),
@@ -452,7 +537,13 @@ google_maps <- function(diseño, shp, zoom, dir = "Mapas"){
 #'
 #' @return Invisible. Se ejecuta por su efecto secundario (escribe los mapas).
 #' @export
-google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, cluster = NULL){
+#' @param contexto_m Margen en metros alrededor de las manzanas para encuadrar el
+#'   mapa. `NULL` (default) encuadra el conglomerado completo, que es lo correcto
+#'   cuando las manzanas cubren buena parte de él. Ponerlo es lo que mantiene
+#'   legible un conglomerado mucho más grande que lo sorteado (ver
+#'   `bbox_cluster()`).
+google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T,
+                            cluster = NULL, contexto_m = NULL){
 
   u_nivel <- diseño$niveles %>% filter(nivel == diseño$ultimo_nivel)
   u_cluster <- u_nivel %>% transmute(paste(tipo,nivel,sep = "_")) %>% pull(1)
@@ -490,7 +581,7 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
     man <- man_shp %>% filter(!!rlang::sym(u_cluster) == i)
     aux_mapeo <- shp_mapa %>% filter(!!rlang::sym(u_cluster) == i)
     # encuadre por conglomerado (ver google_maps): nada se queda fuera
-    bb <- bbox_cluster(sf::st_make_valid(aux_mapeo), man)
+    bb <- bbox_cluster(sf::st_make_valid(aux_mapeo), man, contexto_m = contexto_m)
     zoom_i <- zoom_para_bbox(bb, zoom_max = zoom)
     caja <- c(mean(c(bb[["xmin"]], bb[["xmax"]])),
               mean(c(bb[["ymin"]], bb[["ymax"]])))
@@ -519,6 +610,14 @@ google_maps_ine <- function(diseño, shp, zoom, dir = "Mapas", exportar = T, clu
                    vjust = "inward", size = 2) +
       # scale_x_continuous(limits = c(caja[1], caja[3])) + scale_y_continuous(limits = c(caja[2],caja[4])) +
       guides(fill = "none") +
+      # Los límites se fijan AL ENCUADRE. Sin esto `geom_sf` del contorno del
+      # conglomerado expande las escalas hasta cubrirlo y el zoom calculado no
+      # sirve de nada: el mosaico de Google llega al zoom pedido pero el panel se
+      # abre para meter el polígono completo. `expand = FALSE` evita el margen
+      # extra que ggplot agrega por default.
+      ggplot2::coord_sf(xlim = c(bb[["xmin"]], bb[["xmax"]]),
+                        ylim = c(bb[["ymin"]], bb[["ymax"]]),
+                        expand = FALSE, default_crs = sf::st_crs(4326)) +
       theme_minimal() +
       ggtitle(glue::glue("Municipio: {unique(aux_mapeo$NOMBRE_MUN)}  \n {u_cluster}: {i}")) +
       labs(subtitle =  etiqueta_mapa(resumen_i, zoom_i),

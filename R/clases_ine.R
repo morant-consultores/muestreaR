@@ -489,8 +489,9 @@ CartografiaINE <- R6::R6Class(
         nivel = nivel
       )
     },
-    crear_mapas = function(diseño, zoom, dir) {
-      google_maps_ine(diseño, shp = self$shp, zoom = zoom, dir = dir)
+    crear_mapas = function(diseño, zoom, dir, contexto_m = NULL) {
+      google_maps_ine(diseño, shp = self$shp, zoom = zoom, dir = dir,
+                      contexto_m = contexto_m)
     }
   )
 )
