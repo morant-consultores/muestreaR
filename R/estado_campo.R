@@ -13,6 +13,13 @@
 
 #' Estado de campo por manzana y por cluster
 #'
+#' Antes de calcular nada, exige que `ruta` y `cuotas` describan el mismo
+#' plan por cluster (misma `entrevistas_meta_cluster`/`entrevistas` y mismo
+#' `presupuesto_puertas_cluster`/`puertas`): si divergen, el material que
+#' campo trae impreso y el plan con el que se sortearon las cuotas ya no
+#' son el mismo, y la función se detiene en vez de reportar avance contra
+#' una meta ajena.
+#'
 #' @param toques Data frame con una fila por intento de puerta:
 #'   `cluster_2`, `manzana_num`, `resultado` (`"efectiva"`, `"rechazo"`,
 #'   `"no_abrio"`, `"sin_registro"`) y `clase_razon` (`"no_vivienda"`,
@@ -23,8 +30,10 @@
 #' @param reserva Reserva sorteada y NO impresa: `cluster`,
 #'   `orden_ruta`, `manzana`, `seccion`, `puertas_esperadas_manzana`.
 #' @param cuotas Cuotas por cluster: `cluster_2`, `SECCION`,
-#'   `entrevistas`, `puertas`. (Reservado para validaciones futuras contra
-#'   el plan de cuotas; hoy `estado_de_campo()` no lo usa todavía).
+#'   `entrevistas`, `puertas`. Se coteja contra `ruta` (ver la descripción
+#'   de arriba); si algún cluster difiere o falta de un lado,
+#'   `estado_de_campo()` se detiene con un error que nombra el o los
+#'   clusters y ambos valores.
 #' @param n_0 Entrevistas objetivo por manzana (default 6).
 #' @param tope_cierre Múltiplo de `puertas_a_tocar` a partir del cual la
 #'   manzana se considera cerrada por presupuesto (default 1.25). Sin
@@ -47,6 +56,58 @@ estado_de_campo <- function(toques, ruta, reserva, cuotas,
   falta <- setdiff(req, names(toques))
   if (length(falta)) {
     stop("`toques` no trae: ", paste(falta, collapse = ", "), call. = FALSE)
+  }
+
+  # ---- guarda: `ruta` y `cuotas` deben describir el MISMO plan por cluster
+  # `cuotas` es redundante con los totales de `ruta` A PROPÓSITO: esa
+  # redundancia es lo único que permite detectar que el material impreso y
+  # el plan con el que se sortearon las cuotas ya divergieron. Si divergen,
+  # el Excel reportaría el avance contra una meta que no es la del cluster
+  # y campo perseguiría un número ajeno. Este proyecto ya se quemó con
+  # divergencias silenciosas entre plan y material: la guarda falla
+  # ruidoso en vez de reportar metas falsas.
+  ruta_cl_chk <- ruta |>
+    dplyr::group_by(cluster_2 = as.integer(cluster)) |>
+    dplyr::summarise(
+      entrevistas_meta_cluster = dplyr::first(as.integer(entrevistas_meta_cluster)),
+      presupuesto_puertas_cluster = dplyr::first(as.integer(presupuesto_puertas_cluster)),
+      .groups = "drop")
+  cuotas_cl_chk <- dplyr::transmute(cuotas, cluster_2 = as.integer(cluster_2),
+                                    entrevistas = as.integer(entrevistas),
+                                    puertas = as.integer(puertas))
+  cotejo_chk <- dplyr::full_join(ruta_cl_chk, cuotas_cl_chk, by = "cluster_2")
+
+  solo_ruta_chk   <- is.na(cotejo_chk$entrevistas)
+  solo_cuotas_chk <- is.na(cotejo_chk$entrevistas_meta_cluster)
+  ambos_chk <- cotejo_chk[!solo_ruta_chk & !solo_cuotas_chk, ]
+  mal_entrevistas_chk <- ambos_chk$entrevistas_meta_cluster != ambos_chk$entrevistas
+  mal_puertas_chk <- ambos_chk$presupuesto_puertas_cluster != ambos_chk$puertas
+
+  # sprintf(), nunca paste0(), para armar cada línea: con un vector vacío
+  # paste0() recicla a "" (por diseño de R) y deja un mensaje fantasma
+  # ("cluster  esta en...") en vez de no aportar nada; sprintf() sí
+  # colapsa a character(0) cuando no hay ningún cluster que nombrar.
+  problemas_chk <- c(
+    if (any(solo_ruta_chk))
+      sprintf("cluster %d está en `ruta` pero no en `cuotas`",
+              cotejo_chk$cluster_2[solo_ruta_chk]),
+    if (any(solo_cuotas_chk))
+      sprintf("cluster %d está en `cuotas` pero no en `ruta`",
+              cotejo_chk$cluster_2[solo_cuotas_chk]),
+    if (any(mal_entrevistas_chk))
+      sprintf("cluster %d: entrevistas_meta_cluster (ruta) = %d vs entrevistas (cuotas) = %d",
+              ambos_chk$cluster_2[mal_entrevistas_chk],
+              ambos_chk$entrevistas_meta_cluster[mal_entrevistas_chk],
+              ambos_chk$entrevistas[mal_entrevistas_chk]),
+    if (any(mal_puertas_chk))
+      sprintf("cluster %d: presupuesto_puertas_cluster (ruta) = %d vs puertas (cuotas) = %d",
+              ambos_chk$cluster_2[mal_puertas_chk],
+              ambos_chk$presupuesto_puertas_cluster[mal_puertas_chk],
+              ambos_chk$puertas[mal_puertas_chk]))
+
+  if (length(problemas_chk)) {
+    stop("`ruta` y `cuotas` no describen el mismo plan:\n",
+         paste("-", problemas_chk, collapse = "\n"), call. = FALSE)
   }
 
   # ---- universo de manzanas del sorteo, ruta y reserva en la MISMA llave

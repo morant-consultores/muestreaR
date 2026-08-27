@@ -136,3 +136,22 @@ test_that("ningun cluster del plan desaparece, aunque no tenga ni un toque", {
   expect_equal(res$clusters$efectivas[res$clusters$cluster_2 == 2L], 0L)
   expect_true(is.na(res$clusters$tasa_medida[res$clusters$cluster_2 == 2L]))
 })
+
+test_that("cuando ruta y cuotas cuadran, la función corre sin error", {
+  # ruta_min() y cuotas_min() ya cuadran (12/36 y 6/10 por cluster); esto
+  # deja el invariante explícito en vez de darlo por hecho en los demás
+  # tests, que ya dependían de que la guarda no truene con estos fixtures
+  expect_no_error(estado_de_campo(toque(1, 1, "efectiva"), ruta_min(),
+                                  reserva_min(), cuotas_min()))
+})
+
+test_that("si `ruta` y `cuotas` discrepan, truena nombrando el cluster", {
+  # el bug que evita: si el material impreso (ruta) y el plan con el que
+  # se sortearon las cuotas divergen, el Excel reportaría avance contra
+  # una meta ajena a ese cluster; mejor que truene ruidoso a que la invente
+  cuotas_mala <- cuotas_min()
+  cuotas_mala$entrevistas[cuotas_mala$cluster_2 == 1L] <- 99L
+  expect_error(estado_de_campo(toque(1, 1, "efectiva"), ruta_min(),
+                               reserva_min(), cuotas_mala),
+              "cluster 1")
+})

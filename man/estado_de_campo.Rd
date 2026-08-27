@@ -20,8 +20,10 @@ estado_de_campo(toques, ruta, reserva, cuotas, n_0 = 6, tope_cierre = 1.25)
 \code{orden_ruta}, \code{manzana}, \code{seccion}, \code{puertas_esperadas_manzana}.}
 
 \item{cuotas}{Cuotas por cluster: \code{cluster_2}, \code{SECCION},
-\code{entrevistas}, \code{puertas}. (Reservado para validaciones futuras contra
-el plan de cuotas; hoy \code{estado_de_campo()} no lo usa todavía).}
+\code{entrevistas}, \code{puertas}. Se coteja contra \code{ruta} (ver la descripción
+de arriba); si algún cluster difiere o falta de un lado,
+\code{estado_de_campo()} se detiene con un error que nombra el o los
+clusters y ambos valores.}
 
 \item{n_0}{Entrevistas objetivo por manzana (default 6).}
 
@@ -44,5 +46,10 @@ restante, la tasa medida y el avance de la ruta impresa
 }
 }
 \description{
-Estado de campo por manzana y por cluster
+Antes de calcular nada, exige que \code{ruta} y \code{cuotas} describan el mismo
+plan por cluster (misma \code{entrevistas_meta_cluster}/\code{entrevistas} y mismo
+\code{presupuesto_puertas_cluster}/\code{puertas}): si divergen, el material que
+campo trae impreso y el plan con el que se sortearon las cuotas ya no
+son el mismo, y la función se detiene en vez de reportar avance contra
+una meta ajena.
 }
