@@ -48,15 +48,23 @@
 #'   * `manzanas`: una fila por manzana del sorteo (ruta + reserva) más las
 #'     manzanas tocadas fuera del sorteo, con su `estado`, la `accion` de
 #'     campo (`"CONTINUAR"`, `"SUSTITUIR con la manzana <n> (reserva)"`,
-#'     `"RESERVA AGOTADA..."`, `"CERRADA"` o `"FUERA DEL SORTEO..."`) y
+#'     `"RESERVA AGOTADA..."`, `"CERRADA"` o `"FUERA DEL SORTEO..."`),
 #'     `sustituta`: el `manzana_num` de la reserva asignada a esa manzana
 #'     problema, o `NA` si no aplica (la reserva se agotó o la manzana no
-#'     necesita sustituto) -para no tener que parsear el texto de `accion`.
+#'     necesita sustituto) -para no tener que parsear el texto de `accion`- y
+#'     `hay_dato_sucio`: `TRUE` si algún toque de esa manzana trae
+#'     `resultado` `NA` (redacción de `INT_N` fuera de catálogo, o dato
+#'     sucio real). Esos toques NO cuentan en `efectivas`/`rechazos`/
+#'     `no_abrio` (se descartan con `na.rm`, para que uno solo no ponga en
+#'     `NA` -y de ahí en 0- la manzana entera), pero tampoco desaparecen sin
+#'     dejar rastro: esta bandera es ese rastro, y es `FALSE` -no `NA`- tanto
+#'     para una manzana limpia como para una que nadie tocó todavía.
 #'   * `clusters`: una fila por cluster de la ruta (ninguno desaparece,
 #'     tenga o no toques) con el presupuesto de puertas consumido y
-#'     restante, la tasa medida y el avance de la ruta impresa
+#'     restante, la tasa medida, el avance de la ruta impresa
 #'     (`mzas_sin_iniciar` + `mzas_en_proceso` + `mzas_cerradas` +
-#'     `mzas_a_sustituir` == `manzanas_ruta`).
+#'     `mzas_a_sustituir` == `manzanas_ruta`) y `manzanas_dato_sucio`: cuántas
+#'     de sus manzanas (ruta + reserva activada) traen `hay_dato_sucio`.
 #' @export
 estado_de_campo <- function(toques, ruta, reserva, cuotas,
                             n_0 = 6, tope_cierre = 1.25) {
@@ -235,12 +243,29 @@ estado_de_campo <- function(toques, ruta, reserva, cuotas,
       # arriba SÍ cuentan solo con `resultado`: se tocaron y abrieron, y
       # eso consumió presupuesto real sin importar si la entrevista se
       # completó despues.
-      efectivas = sum(resultado == "efectiva" & registro_efectivo),
-      rechazos  = sum(resultado == "rechazo"),
-      no_abrio  = sum(resultado == "no_abrio"),
+      #
+      # na.rm = TRUE, CRITICAL de la revisión final: `resultado` se PRODUCE
+      # admitiendo NA por contrato (corte.R lo documenta: una redacción de
+      # INT_N fuera de catálogo cae ahí) pero se estaba CONSUMIENDO como si
+      # nunca lo fuera. `==` con NA da NA, y sum() sin na.rm hace que UN
+      # SOLO toque sucio ponga en NA la suma de TODA la manzana -que el
+      # coalesce(0L) de más abajo no puede distinguir de un cero legítimo
+      # ("nadie tocó esta manzana todavía") y convierte en 0 en silencio-.
+      # Verificado contra el corte vivo: una manzana de 11 efectivas cayó a
+      # 0 ensuciando un solo toque `no_abrio` -> NA, con `puertas_vivienda`
+      # intacto (por eso esa sí usa `%in%`, que nunca produce NA).
+      efectivas = sum(resultado == "efectiva" & registro_efectivo, na.rm = TRUE),
+      rechazos  = sum(resultado == "rechazo", na.rm = TRUE),
+      no_abrio  = sum(resultado == "no_abrio", na.rm = TRUE),
       hay_sin_acceso = any(!is.na(clase_razon) & clase_razon == "sin_acceso"),
       hay_recorrida  = any(!is.na(clase_razon) &
                              clase_razon == "recorrida_sin_entrevistas"),
+      # El toque sucio no puede desaparecer SIN DEJAR RASTRO solo porque
+      # na.rm lo saca de las sumas de arriba: esta bandera es el rastro. Sale
+      # del mismo `por_mza` que las demás -de ahí que el full_join de abajo
+      # pueda distinguirla de "la manzana no aparece aquí porque nadie la
+      # tocó"-, no de recalcularla sobre un valor ya coalescido.
+      hay_dato_sucio = anyNA(resultado),
       .groups = "drop")
 
   mz <- dplyr::full_join(sorteo, por_mza, by = c("cluster_2", "manzana_num")) |>
@@ -250,6 +275,15 @@ estado_de_campo <- function(toques, ruta, reserva, cuotas,
                       rechazos, no_abrio), ~dplyr::coalesce(.x, 0L)),
       hay_sin_acceso = dplyr::coalesce(hay_sin_acceso, FALSE),
       hay_recorrida  = dplyr::coalesce(hay_recorrida, FALSE),
+      # El indicador sale del JOIN, no de coalescear una suma: si la manzana
+      # no aparece en `por_mza`, este full_join la deja NA aquí -es cero
+      # LEGÍTIMO, nadie la tocó todavía- y se coalescea a FALSE porque en
+      # efecto no hay ningún toque sucio que señalar. Si la manzana SÍ
+      # aparece (tiene toques) pero trae `resultado` NA, `hay_dato_sucio`
+      # llega TRUE desde `por_mza` y no se pierde detrás del coalesce(0L) de
+      # los conteos de arriba: son dos situaciones distintas y esta columna
+      # es justo lo que las separa.
+      hay_dato_sucio = dplyr::coalesce(hay_dato_sucio, FALSE),
       tocada = puertas_vivienda + puertas_no_vivienda > 0,
       # El orden de las ramas es semántico, no cosmético: fuera_del_sorteo
       # va primero porque una manzana que no existe en el material no puede
@@ -313,7 +347,7 @@ estado_de_campo <- function(toques, ruta, reserva, cuotas,
     # agrega `sustituta` como dato de verdad.
     dplyr::select(cluster_2, manzana_num, origen, seccion, hoja, puertas_plan,
                   puertas_vivienda, puertas_no_vivienda, efectivas, rechazos,
-                  no_abrio, estado, accion, sustituta) |>
+                  no_abrio, hay_dato_sucio, estado, accion, sustituta) |>
     dplyr::arrange(cluster_2, manzana_num)
 
   # ---- resumen por cluster. Se parte del PLAN para que ningún cluster
@@ -357,14 +391,24 @@ estado_de_campo <- function(toques, ruta, reserva, cuotas,
                      by = c("cluster_2", "manzana_num")) |>
     dplyr::count(cluster_2, name = "toques_fuera_del_sorteo")
 
+  # cuantas manzanas de este cluster traen al menos un toque con `resultado`
+  # NA: mismo alcance que `consumo` (ruta + reserva activada, sin
+  # fuera_del_sorteo). Es el rastro de `hay_dato_sucio` a nivel cluster, para
+  # que quien consuma `clusters` sin bajar a `manzanas` tambien lo vea.
+  sucio_por_cluster <- manzanas |>
+    dplyr::filter(origen != "fuera_del_sorteo", hay_dato_sucio) |>
+    dplyr::count(cluster_2, name = "manzanas_dato_sucio")
+
   clusters <- plan_cl |>
     dplyr::left_join(consumo, by = "cluster_2") |>
     dplyr::left_join(avance_ruta, by = "cluster_2") |>
     dplyr::left_join(fuera_por_cluster, by = "cluster_2") |>
+    dplyr::left_join(sucio_por_cluster, by = "cluster_2") |>
     dplyr::mutate(
       dplyr::across(c(puertas_vivienda, efectivas, mzas_sin_iniciar,
                       mzas_en_proceso, mzas_cerradas, mzas_a_sustituir,
-                      toques_fuera_del_sorteo), ~dplyr::coalesce(.x, 0L)),
+                      toques_fuera_del_sorteo, manzanas_dato_sucio),
+                    ~dplyr::coalesce(.x, 0L)),
       presupuesto_restante = presupuesto_puertas - puertas_vivienda,
       # NA y no 0 cuando no hay puertas: una tasa de 0 sobre 0 puertas
       # diría "este cluster no funciona" cuando nadie fue todavía
@@ -373,7 +417,8 @@ estado_de_campo <- function(toques, ruta, reserva, cuotas,
     dplyr::select(cluster_2, seccion, entrevistas_meta, efectivas,
                   presupuesto_puertas, puertas_vivienda, presupuesto_restante,
                   tasa_medida, manzanas_ruta, mzas_sin_iniciar, mzas_en_proceso,
-                  mzas_cerradas, mzas_a_sustituir, toques_fuera_del_sorteo) |>
+                  mzas_cerradas, mzas_a_sustituir, toques_fuera_del_sorteo,
+                  manzanas_dato_sucio) |>
     dplyr::arrange(cluster_2)
 
   list(manzanas = manzanas, clusters = clusters)

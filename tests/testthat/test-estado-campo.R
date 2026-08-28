@@ -309,3 +309,58 @@ test_that("`sustituta` es NA cuando no aplica: manzana normal o reserva agotada"
   normal <- m[m$cluster_2 == 1L & m$manzana_num == 1L, ]
   expect_true(is.na(normal$sustituta))
 })
+
+# CRITICAL de la revision final de rama (2026-08-27): un toque con
+# `resultado` NA ponia en CERO las efectivas de TODA la manzana, no solo el
+# toque sucio. `sum(resultado == "efectiva" & registro_efectivo)` sin
+# na.rm: un solo NA en el vector hace que sum() de NA para el GRUPO
+# COMPLETO (via `NA & TRUE` = NA), y el coalesce(.x, 0L) puesto para el caso
+# legitimo "manzana que nadie toco todavia" no podia distinguir ese NA de un
+# cero real -lo convertia en 0 en silencio-. Verificado contra el corte vivo
+# de Huehuetoca: una manzana de 11 efectivas cayo a 0 con `puertas_vivienda`
+# intacto en 28, ensuciando UN SOLO toque `no_abrio` -> NA, y los cuatro
+# verificadores de la Fase 7 del proyecto salieron en verde.
+
+test_that("un toque con resultado NA no pone en cero las efectivas de la manzana", {
+  toques <- dplyr::bind_rows(
+    toque(1, 1, "efectiva"), toque(1, 1, "efectiva"), toque(1, 1, "efectiva"),
+    toque(1, 1, "efectiva"), toque(1, 1, "efectiva"),
+    # el toque sucio: `resultado` NA (redaccion de INT_N fuera de catalogo, o
+    # dato sucio real) con registro_efectivo = TRUE -mismo mecanismo que hace
+    # que `NA & TRUE` sea NA y contagie el sum() de todo el grupo-
+    toque(1, 1, NA_character_, registro_efectivo = TRUE))
+  m <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$manzanas
+  fila <- m[m$cluster_2 == 1L & m$manzana_num == 1L, ]
+  expect_equal(fila$efectivas, 5L)    # NO 0L: las 5 limpias se conservan
+  expect_false(is.na(fila$efectivas))
+  expect_equal(fila$puertas_vivienda, 5L)  # ya intacto antes del arreglo (usa %in%)
+})
+
+test_that("el toque con resultado NA queda visible (hay_dato_sucio), no como manzana sin tocar", {
+  # las dos situaciones que hoy colapsaban en el mismo 0 -"nadie fue" y "hubo
+  # un toque ilegible"- se distinguen por el INDICADOR DEL JOIN (presencia en
+  # `por_mza`), no por coalescear una suma: si la manzana no aparece en
+  # `por_mza` es un cero legitimo (`hay_dato_sucio` FALSE); si aparece con un
+  # `resultado` NA, es dato sucio real y tiene que quedar visible.
+  toques <- dplyr::bind_rows(
+    toque(1, 1, "efectiva"),
+    toque(1, 1, NA_character_, registro_efectivo = TRUE))
+  m <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$manzanas
+  sucia  <- m[m$cluster_2 == 1L & m$manzana_num == 1L, ]
+  limpia <- m[m$cluster_2 == 1L & m$manzana_num == 2L, ]  # nunca tocada
+  expect_true(sucia$hay_dato_sucio)
+  expect_false(limpia$hay_dato_sucio)   # cero legitimo, no dato sucio
+})
+
+test_that("las efectivas por cluster suman las YA corregidas de cada manzana con un toque sucio", {
+  # si el bug pusiera la manzana 1 en 0, el cluster tambien se veria corto:
+  # el resumen por cluster no debe recontar 'efectiva' cruda, solo sumar lo
+  # que ya corrigio cada manzana
+  toques <- dplyr::bind_rows(
+    toque(1, 1, "efectiva"), toque(1, 1, "efectiva"),
+    toque(1, 1, NA_character_, registro_efectivo = TRUE),
+    toque(1, 2, "efectiva"))
+  cl <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$clusters
+  c1 <- cl[cl$cluster_2 == 1L, ]
+  expect_equal(c1$efectivas, 3L)   # 2 en la manzana 1 (na.rm descarta el sucio) + 1 en la manzana 2
+})

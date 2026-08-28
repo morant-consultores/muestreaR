@@ -42,15 +42,23 @@ tope, un cluster se lleva varias veces su dosis.}
 \item \code{manzanas}: una fila por manzana del sorteo (ruta + reserva) más las
 manzanas tocadas fuera del sorteo, con su \code{estado}, la \code{accion} de
 campo (\code{"CONTINUAR"}, \code{"SUSTITUIR con la manzana <n> (reserva)"},
-\code{"RESERVA AGOTADA..."}, \code{"CERRADA"} o \code{"FUERA DEL SORTEO..."}) y
+\code{"RESERVA AGOTADA..."}, \code{"CERRADA"} o \code{"FUERA DEL SORTEO..."}),
 \code{sustituta}: el \code{manzana_num} de la reserva asignada a esa manzana
 problema, o \code{NA} si no aplica (la reserva se agotó o la manzana no
-necesita sustituto) -para no tener que parsear el texto de \code{accion}.
+necesita sustituto) -para no tener que parsear el texto de \code{accion}- y
+\code{hay_dato_sucio}: \code{TRUE} si algún toque de esa manzana trae
+\code{resultado} \code{NA} (redacción de \code{INT_N} fuera de catálogo, o dato
+sucio real). Esos toques NO cuentan en \code{efectivas}/\code{rechazos}/
+\code{no_abrio} (se descartan con \code{na.rm}, para que uno solo no ponga en
+\code{NA} -y de ahí en 0- la manzana entera), pero tampoco desaparecen sin
+dejar rastro: esta bandera es ese rastro, y es \code{FALSE} -no \code{NA}- tanto
+para una manzana limpia como para una que nadie tocó todavía.
 \item \code{clusters}: una fila por cluster de la ruta (ninguno desaparece,
 tenga o no toques) con el presupuesto de puertas consumido y
-restante, la tasa medida y el avance de la ruta impresa
+restante, la tasa medida, el avance de la ruta impresa
 (\code{mzas_sin_iniciar} + \code{mzas_en_proceso} + \code{mzas_cerradas} +
-\code{mzas_a_sustituir} == \code{manzanas_ruta}).
+\code{mzas_a_sustituir} == \code{manzanas_ruta}) y \code{manzanas_dato_sucio}: cuántas
+de sus manzanas (ruta + reserva activada) traen \code{hay_dato_sucio}.
 }
 }
 \description{
