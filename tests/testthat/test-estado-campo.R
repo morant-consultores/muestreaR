@@ -155,3 +155,69 @@ test_that("si `ruta` y `cuotas` discrepan, truena nombrando el cluster", {
                                reserva_min(), cuotas_mala),
               "cluster 1")
 })
+
+test_that("una manzana en ruta Y en reserva a la vez truena (llave duplicada)", {
+  # si comparten (cluster, orden_ruta), el full_join las duplicaria y una
+  # sola puerta efectiva se contaria DOS veces en el presupuesto del cluster
+  reserva_dup <- reserva_min()
+  reserva_dup$orden_ruta[reserva_dup$cluster == 1L][1] <- 1L  # choca con ruta cluster 1, orden 1
+  expect_error(estado_de_campo(toque(1, 1, "efectiva"), ruta_min(), reserva_dup,
+                               cuotas_min()),
+              "cluster 1")
+})
+
+test_that("si solo `puertas` discrepa (entrevistas cuadra), truena nombrando el cluster", {
+  # la guarda de cuotas tiene 3 chequeos independientes (entrevistas,
+  # puertas, presencia en ambos lados); este cubre la rama de puertas SOLA,
+  # que ningun test anterior ejercitaba
+  cuotas_mala <- cuotas_min()
+  cuotas_mala$puertas[cuotas_mala$cluster_2 == 2L] <- 999L
+  expect_error(estado_de_campo(toque(1, 1, "efectiva"), ruta_min(), reserva_min(),
+                               cuotas_mala),
+              "cluster 2")
+})
+
+test_that("un cluster en `ruta` ausente de `cuotas` truena nombrandolo", {
+  cuotas_corta <- cuotas_min()
+  cuotas_corta <- cuotas_corta[cuotas_corta$cluster_2 != 2L, ]  # cuotas nunca trae al cluster 2
+  expect_error(estado_de_campo(toque(1, 1, "efectiva"), ruta_min(), reserva_min(),
+                               cuotas_corta),
+              "cluster 2")
+})
+
+test_that("un cluster en `cuotas` ausente de `ruta` truena nombrandolo", {
+  cuotas_extra <- dplyr::bind_rows(cuotas_min(),
+                                   tibble::tibble(cluster_2 = 3L, SECCION = "9999",
+                                                  entrevistas = 5L, puertas = 20L))
+  expect_error(estado_de_campo(toque(1, 1, "efectiva"), ruta_min(), reserva_min(),
+                               cuotas_extra),
+              "cluster 3")
+})
+
+test_that("dos clusters con huecos simultaneos reparten CADA UNO desde su propia reserva", {
+  # cluster 1 tiene 2 reservas libres (orden 4 y 5) y cluster 2 solo 1
+  # (orden 2). Si el reparto perdiera su group_by(cluster_2) y numerara
+  # los turnos de forma GLOBAL, el desfase que deja el cluster 1 (2 libres,
+  # 1 hueco) correria el turno del cluster 2 y su hueco veria "RESERVA
+  # AGOTADA" aunque su reserva SI esta disponible
+  toques <- dplyr::bind_rows(toque(1, 1, "sin_registro", "sin_acceso"),
+                             toque(2, 1, "sin_registro", "sin_acceso"))
+  m <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$manzanas
+  acc_c1 <- m$accion[m$cluster_2 == 1L & m$manzana_num == 1L]
+  acc_c2 <- m$accion[m$cluster_2 == 2L & m$manzana_num == 1L]
+  expect_match(acc_c1, "SUSTITUIR")
+  expect_match(acc_c1, "4")
+  expect_match(acc_c2, "SUSTITUIR")
+  expect_match(acc_c2, "2")
+})
+
+test_that("un valor de `cuotas` no coercible a entero truena en espanol, no con el error de R", {
+  # antes: as.integer("diez") = NA, y una comparacion `!=` contra ese NA
+  # hacia tronar if(any(...)) con el error criptico de R base, justo en el
+  # caso de dato sucio para el que esta guarda existe
+  cuotas_sucia <- cuotas_min()
+  cuotas_sucia$puertas[cuotas_sucia$cluster_2 == 2L] <- "diez"
+  expect_error(estado_de_campo(toque(1, 1, "efectiva"), ruta_min(), reserva_min(),
+                               cuotas_sucia),
+              "no coercible")
+})

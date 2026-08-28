@@ -58,6 +58,46 @@ estado_de_campo <- function(toques, ruta, reserva, cuotas,
     stop("`toques` no trae: ", paste(falta, collapse = ", "), call. = FALSE)
   }
 
+  # ---- guarda: esquema y coerción de `ruta`/`cuotas` ANTES de comparar
+  # Un valor no coercible (o ya ausente) en estas columnas se vuelve NA vía
+  # as.integer() sin avisar con claridad, y una comparación `!=` contra un
+  # NA hace que `any()` truene con el error críptico de R base ("valor
+  # ausente donde TRUE/FALSE es necesario") justo en el caso de dato sucio
+  # para el que existe esta guarda. Se revisa ANTES de comparar para dar
+  # el diagnóstico en español que la guarda promete, no el de R.
+  req_ruta_chk <- c("cluster", "entrevistas_meta_cluster", "presupuesto_puertas_cluster")
+  falta_ruta_chk <- setdiff(req_ruta_chk, names(ruta))
+  if (length(falta_ruta_chk)) {
+    stop("`ruta` no trae: ", paste(falta_ruta_chk, collapse = ", "), call. = FALSE)
+  }
+  req_cuotas_chk <- c("cluster_2", "entrevistas", "puertas")
+  falta_cuotas_chk <- setdiff(req_cuotas_chk, names(cuotas))
+  if (length(falta_cuotas_chk)) {
+    stop("`cuotas` no trae: ", paste(falta_cuotas_chk, collapse = ", "), call. = FALSE)
+  }
+
+  cols_enteras_chk <- list(
+    list(tabla = "ruta", columna = "cluster", valores = ruta$cluster),
+    list(tabla = "ruta", columna = "entrevistas_meta_cluster",
+         valores = ruta$entrevistas_meta_cluster),
+    list(tabla = "ruta", columna = "presupuesto_puertas_cluster",
+         valores = ruta$presupuesto_puertas_cluster),
+    list(tabla = "cuotas", columna = "cluster_2", valores = cuotas$cluster_2),
+    list(tabla = "cuotas", columna = "entrevistas", valores = cuotas$entrevistas),
+    list(tabla = "cuotas", columna = "puertas", valores = cuotas$puertas))
+  for (col_chk in cols_enteras_chk) {
+    malos_chk <- is.na(col_chk$valores) |
+      is.na(suppressWarnings(as.integer(col_chk$valores)))
+    if (any(malos_chk)) {
+      ofensores_chk <- unique(vapply(col_chk$valores[malos_chk], function(v) {
+        if (is.na(v)) "NA" else as.character(v)
+      }, character(1)))
+      stop("`", col_chk$tabla, "$", col_chk$columna, "` trae valor(es) no ",
+           "coercibles a entero: ", paste(ofensores_chk, collapse = ", "),
+           call. = FALSE)
+    }
+  }
+
   # ---- guarda: `ruta` y `cuotas` deben describir el MISMO plan por cluster
   # `cuotas` es redundante con los totales de `ruta` A PROPÓSITO: esa
   # redundancia es lo único que permite detectar que el material impreso y
@@ -77,8 +117,13 @@ estado_de_campo <- function(toques, ruta, reserva, cuotas,
                                     puertas = as.integer(puertas))
   cotejo_chk <- dplyr::full_join(ruta_cl_chk, cuotas_cl_chk, by = "cluster_2")
 
-  solo_ruta_chk   <- is.na(cotejo_chk$entrevistas)
-  solo_cuotas_chk <- is.na(cotejo_chk$entrevistas_meta_cluster)
+  # "ausente" (NA por no tener fila del otro lado) y "presente pero NA" son
+  # cosas distintas: is.na() sobre la columna de VALOR después del join las
+  # confunde y manda a buscar en la tabla equivocada. Comparar LLAVES con
+  # %in% es correcto por construcción (la guarda de coerción de arriba ya
+  # descarta el caso "presente pero NA", pero esto no depende de ese orden).
+  solo_ruta_chk   <- !cotejo_chk$cluster_2 %in% cuotas_cl_chk$cluster_2
+  solo_cuotas_chk <- !cotejo_chk$cluster_2 %in% ruta_cl_chk$cluster_2
   ambos_chk <- cotejo_chk[!solo_ruta_chk & !solo_cuotas_chk, ]
   mal_entrevistas_chk <- ambos_chk$entrevistas_meta_cluster != ambos_chk$entrevistas
   mal_puertas_chk <- ambos_chk$presupuesto_puertas_cluster != ambos_chk$puertas
@@ -124,6 +169,25 @@ estado_de_campo <- function(toques, ruta, reserva, cuotas,
                      hoja = NA_character_,
                      puertas_plan = as.integer(puertas_esperadas_manzana),
                      origen = "reserva"))
+
+  # ---- guarda: ninguna manzana puede estar a la vez en ruta y en reserva
+  # Si `ruta` y `reserva` comparten un (cluster, orden_ruta), el full_join
+  # de más abajo duplica esa fila y una sola puerta efectiva se cuenta DOS
+  # veces en puertas_vivienda/efectivas, corrompiendo presupuesto_restante
+  # y tasa_medida EN SILENCIO (sin error ni warning). Hoy Huehuetoca no
+  # tiene traslape (la reserva continúa la ruta sin huecos en los 64
+  # clusters), pero esta función vive en un paquete para reusarse en cada
+  # encuesta futura: aquí truena en vez de corromper.
+  dup_chk <- sorteo |>
+    dplyr::count(cluster_2, manzana_num, name = "n_chk") |>
+    dplyr::filter(n_chk > 1L)
+  if (nrow(dup_chk)) {
+    stop("`ruta` y `reserva` comparten manzana(s) (una manzana no puede ",
+         "estar a la vez en ruta y en reserva): ",
+         paste(sprintf("cluster %d, manzana %d", dup_chk$cluster_2,
+                       dup_chk$manzana_num), collapse = "; "),
+         call. = FALSE)
+  }
 
   t <- dplyr::mutate(toques,
                      cluster_2 = as.integer(cluster_2),
