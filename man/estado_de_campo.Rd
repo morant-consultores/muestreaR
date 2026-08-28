@@ -10,7 +10,12 @@ estado_de_campo(toques, ruta, reserva, cuotas, n_0 = 6, tope_cierre = 1.25)
 \item{toques}{Data frame con una fila por intento de puerta:
 \code{cluster_2}, \code{manzana_num}, \code{resultado} (\code{"efectiva"}, \code{"rechazo"},
 \code{"no_abrio"}, \code{"sin_registro"}) y \code{clase_razon} (\code{"no_vivienda"},
-\code{"sin_acceso"}, \code{"recorrida_sin_entrevistas"} o \code{NA}).}
+\code{"sin_acceso"}, \code{"recorrida_sin_entrevistas"} o \code{NA}). Puede traer
+\code{registro_efectivo} (lógico): \code{TRUE} si el registro de ese \code{SbjNum}
+llegó completo, no solo la puerta. Es OPCIONAL por compatibilidad: si
+falta, se asume \code{TRUE} para todos (el comportamiento de antes) y se
+avisa con un \code{warning}, porque sin ella las efectivas pueden salir
+sobrecontadas.}
 
 \item{ruta}{Ruta impresa: \code{cluster}, \code{orden_ruta}, \code{manzana},
 \code{seccion}, \code{hoja}, \code{puertas_a_tocar},
@@ -35,9 +40,12 @@ tope, un cluster se lleva varias veces su dosis.}
 \code{list} con dos tibbles:
 \itemize{
 \item \code{manzanas}: una fila por manzana del sorteo (ruta + reserva) más las
-manzanas tocadas fuera del sorteo, con su \code{estado} y la \code{accion} de
+manzanas tocadas fuera del sorteo, con su \code{estado}, la \code{accion} de
 campo (\code{"CONTINUAR"}, \code{"SUSTITUIR con la manzana <n> (reserva)"},
-\code{"RESERVA AGOTADA..."}, \code{"CERRADA"} o \code{"FUERA DEL SORTEO..."}).
+\code{"RESERVA AGOTADA..."}, \code{"CERRADA"} o \code{"FUERA DEL SORTEO..."}) y
+\code{sustituta}: el \code{manzana_num} de la reserva asignada a esa manzana
+problema, o \code{NA} si no aplica (la reserva se agotó o la manzana no
+necesita sustituto) -para no tener que parsear el texto de \code{accion}.
 \item \code{clusters}: una fila por cluster de la ruta (ninguno desaparece,
 tenga o no toques) con el presupuesto de puertas consumido y
 restante, la tasa medida y el avance de la ruta impresa

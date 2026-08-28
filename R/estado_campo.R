@@ -23,7 +23,12 @@
 #' @param toques Data frame con una fila por intento de puerta:
 #'   `cluster_2`, `manzana_num`, `resultado` (`"efectiva"`, `"rechazo"`,
 #'   `"no_abrio"`, `"sin_registro"`) y `clase_razon` (`"no_vivienda"`,
-#'   `"sin_acceso"`, `"recorrida_sin_entrevistas"` o `NA`).
+#'   `"sin_acceso"`, `"recorrida_sin_entrevistas"` o `NA`). Puede traer
+#'   `registro_efectivo` (lógico): `TRUE` si el registro de ese `SbjNum`
+#'   llegó completo, no solo la puerta. Es OPCIONAL por compatibilidad: si
+#'   falta, se asume `TRUE` para todos (el comportamiento de antes) y se
+#'   avisa con un `warning`, porque sin ella las efectivas pueden salir
+#'   sobrecontadas.
 #' @param ruta Ruta impresa: `cluster`, `orden_ruta`, `manzana`,
 #'   `seccion`, `hoja`, `puertas_a_tocar`,
 #'   `presupuesto_puertas_cluster`, `entrevistas_meta_cluster`.
@@ -41,9 +46,12 @@
 #'
 #' @return `list` con dos tibbles:
 #'   * `manzanas`: una fila por manzana del sorteo (ruta + reserva) más las
-#'     manzanas tocadas fuera del sorteo, con su `estado` y la `accion` de
+#'     manzanas tocadas fuera del sorteo, con su `estado`, la `accion` de
 #'     campo (`"CONTINUAR"`, `"SUSTITUIR con la manzana <n> (reserva)"`,
-#'     `"RESERVA AGOTADA..."`, `"CERRADA"` o `"FUERA DEL SORTEO..."`).
+#'     `"RESERVA AGOTADA..."`, `"CERRADA"` o `"FUERA DEL SORTEO..."`) y
+#'     `sustituta`: el `manzana_num` de la reserva asignada a esa manzana
+#'     problema, o `NA` si no aplica (la reserva se agotó o la manzana no
+#'     necesita sustituto) -para no tener que parsear el texto de `accion`.
 #'   * `clusters`: una fila por cluster de la ruta (ninguno desaparece,
 #'     tenga o no toques) con el presupuesto de puertas consumido y
 #'     restante, la tasa medida y el avance de la ruta impresa
@@ -56,6 +64,26 @@ estado_de_campo <- function(toques, ruta, reserva, cuotas,
   falta <- setdiff(req, names(toques))
   if (length(falta)) {
     stop("`toques` no trae: ", paste(falta, collapse = ", "), call. = FALSE)
+  }
+
+  # ---- compatibilidad: `registro_efectivo` es OPCIONAL
+  # `resultado` es lo que campo vio EN LA PUERTA (abrió, aceptó, empezó el
+  # cuestionario); si el registro se COMPLETÓ es una propiedad del
+  # REGISTRO, no de la puerta, y sin esta columna no hay forma de
+  # distinguir una entrevista completa de un toque que solo llegó al
+  # filtro y ahí se quedó -el hallazgo real que motiva esta columna: 30
+  # toques marcados "efectiva" en un corte donde el registro nunca pasó de
+  # la pregunta de filtro-. Un estudio armado antes de que `corte.R`
+  # empezara a mandar esta columna no debe romperse al llamar a esta
+  # función, pero tampoco debe recibir un conteo inflado sin enterarse: se
+  # asume `TRUE` para todos (el comportamiento de siempre) y se avisa.
+  if (!"registro_efectivo" %in% names(toques)) {
+    warning("`toques` no trae la columna `registro_efectivo`: se asume ",
+            "TRUE para todos los toques (comportamiento anterior). Las ",
+            "efectivas pueden estar sobrecontadas si algun toque marcado ",
+            "'efectiva' pertenece a un registro que no se completo.",
+            call. = FALSE)
+    toques$registro_efectivo <- TRUE
   }
 
   # ---- guarda: esquema y coerción de `ruta`/`cuotas` ANTES de comparar
@@ -201,7 +229,13 @@ estado_de_campo <- function(toques, ruta, reserva, cuotas,
       # rechazo) o no abrió. La que no era vivienda no gastó presupuesto.
       puertas_vivienda    = sum(resultado %in% c("efectiva", "rechazo", "no_abrio")),
       puertas_no_vivienda = sum(!is.na(clase_razon) & clase_razon == "no_vivienda"),
-      efectivas = sum(resultado == "efectiva"),
+      # una "efectiva" en la puerta no basta: el registro tiene que haberse
+      # completado también (ver la guarda de compatibilidad de
+      # `registro_efectivo` al inicio de la función). Las puertas de
+      # arriba SÍ cuentan solo con `resultado`: se tocaron y abrieron, y
+      # eso consumió presupuesto real sin importar si la entrevista se
+      # completó despues.
+      efectivas = sum(resultado == "efectiva" & registro_efectivo),
       rechazos  = sum(resultado == "rechazo"),
       no_abrio  = sum(resultado == "no_abrio"),
       hay_sin_acceso = any(!is.na(clase_razon) & clase_razon == "sin_acceso"),
@@ -270,9 +304,16 @@ estado_de_campo <- function(toques, ruta, reserva, cuotas,
         "RESERVA AGOTADA - escalar con el lider de campo",
       startsWith(estado, "cerrada") ~ "CERRADA",
       TRUE ~ "CONTINUAR")) |>
+    # `sustituta` ya se calculaba arriba (via `huecos`) para poder redactar
+    # el texto de `accion`, pero no se exponia como columna: quien
+    # necesitara saber que manzana de reserva sustituye a cual tenia que
+    # parsear el texto de `accion` con una expresion regular -que se rompe
+    # si ese texto cambia (asi lo leia hoy excel_manzanas_pendientes.R)-.
+    # Se deja `accion` intacta, para no romper a quien ya la lee, y se
+    # agrega `sustituta` como dato de verdad.
     dplyr::select(cluster_2, manzana_num, origen, seccion, hoja, puertas_plan,
                   puertas_vivienda, puertas_no_vivienda, efectivas, rechazos,
-                  no_abrio, estado, accion) |>
+                  no_abrio, estado, accion, sustituta) |>
     dplyr::arrange(cluster_2, manzana_num)
 
   # ---- resumen por cluster. Se parte del PLAN para que ningún cluster
