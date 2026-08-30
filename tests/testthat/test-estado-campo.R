@@ -1,0 +1,366 @@
+# Estado de campo contra la ruta y la reserva impresas.
+#
+# La aritmética que importa: una puerta que NO era vivienda (iglesia, baldío)
+# no consumió presupuesto y no cuenta como fallo, así que la tasa se mide
+# sobre puertas de VIVIENDA. Y una manzana sin acceso se sustituye por la
+# siguiente de reserva, que ya está sorteada: no se toca el diseño.
+
+ruta_min <- function() {
+  tibble::tibble(
+    cluster    = c(1L, 1L, 1L, 2L),
+    orden_ruta = c(1L, 2L, 3L, 1L),
+    manzana    = c(3L, 5L, 6L, 1L),
+    seccion    = c("1957", "1957", "1957", "1958"),
+    hoja       = c("1-A", "1-A", "1-A", "2-A"),
+    puertas_a_tocar = c(12L, 12L, 12L, 10L),
+    presupuesto_puertas_cluster = c(36L, 36L, 36L, 10L),
+    entrevistas_meta_cluster    = c(12L, 12L, 12L, 6L)
+  )
+}
+reserva_min <- function() {
+  tibble::tibble(
+    cluster    = c(1L, 1L, 2L),
+    orden_ruta = c(4L, 5L, 2L),
+    manzana    = c(7L, 8L, 4L),
+    seccion    = c("1957", "1957", "1958"),
+    puertas_esperadas_manzana = c(12L, 12L, 10L)
+  )
+}
+cuotas_min <- function() {
+  tibble::tibble(cluster_2 = c(1L, 2L), SECCION = c("1957", "1958"),
+                 entrevistas = c(12L, 6L), puertas = c(36L, 10L))
+}
+toque <- function(cluster_2, manzana_num, resultado, clase_razon = NA_character_,
+                   registro_efectivo = TRUE) {
+  tibble::tibble(cluster_2 = as.integer(cluster_2),
+                 manzana_num = as.integer(manzana_num),
+                 resultado = resultado, clase_razon = clase_razon,
+                 registro_efectivo = registro_efectivo)
+}
+
+test_that("las puertas que no eran vivienda NO consumen presupuesto", {
+  toques <- dplyr::bind_rows(
+    toque(1, 1, "efectiva"), toque(1, 1, "rechazo"), toque(1, 1, "no_abrio"),
+    # cuatro puertas que resultaron ser una iglesia: no son fallo ni gasto
+    toque(1, 1, "sin_registro", "no_vivienda"),
+    toque(1, 1, "sin_registro", "no_vivienda"),
+    toque(1, 1, "sin_registro", "no_vivienda"),
+    toque(1, 1, "sin_registro", "no_vivienda"))
+  cl <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$clusters
+  c1 <- cl[cl$cluster_2 == 1L, ]
+  expect_equal(c1$puertas_vivienda, 3L)
+  expect_equal(c1$presupuesto_restante, 33L)   # 36 - 3, NO 36 - 7
+  expect_equal(c1$tasa_medida, 1 / 3)          # 1 efectiva / 3 puertas de vivienda
+})
+
+test_that("una manzana sin acceso se manda a sustituir con la SIGUIENTE de reserva", {
+  toques <- toque(1, 2, "sin_registro", "sin_acceso")
+  res <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())
+  m <- res$manzanas[res$manzanas$cluster_2 == 1L & res$manzanas$manzana_num == 2L, ]
+  expect_equal(m$estado, "sin_acceso")
+  expect_match(m$accion, "SUSTITUIR")
+  expect_match(m$accion, "4")   # el primer orden_ruta libre de la reserva del cluster 1
+})
+
+test_that("dos manzanas sin acceso reciben reservas DISTINTAS", {
+  # si las dos apuntaran a la misma, campo caminaría una manzana y creería
+  # haber cubierto dos huecos
+  toques <- dplyr::bind_rows(toque(1, 1, "sin_registro", "sin_acceso"),
+                             toque(1, 2, "sin_registro", "sin_acceso"))
+  m <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$manzanas
+  acc <- m$accion[m$cluster_2 == 1L & m$manzana_num %in% 1:2]
+  expect_length(unique(acc), 2)
+  expect_true(all(grepl("SUSTITUIR", acc)))
+})
+
+test_that("una reserva YA recorrida no se vuelve a asignar", {
+  toques <- dplyr::bind_rows(
+    toque(1, 4, "efectiva"),                              # ya se caminó la reserva 4
+    toque(1, 1, "sin_registro", "sin_acceso"))
+  m <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$manzanas
+  acc <- m$accion[m$cluster_2 == 1L & m$manzana_num == 1L]
+  expect_match(acc, "5")            # brinca la 4
+  expect_false(grepl("\\b4\\b", acc))
+})
+
+test_that("cuando la reserva se agota, la acción lo dice en vez de inventar", {
+  toques <- dplyr::bind_rows(toque(2, 1, "sin_registro", "sin_acceso"),
+                             toque(2, 2, "sin_registro", "sin_acceso"))
+  m <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$manzanas
+  acc <- m$accion[m$cluster_2 == 2L & m$manzana_num %in% 1:2]
+  expect_true(any(grepl("RESERVA AGOTADA", acc)))
+})
+
+test_that("'se recorrio y no dio entrevistas' CIERRA la manzana", {
+  # el bug del 309: esto se leia igual que "nunca visitada" y campo regresaba
+  toques <- toque(1, 3, "sin_registro", "recorrida_sin_entrevistas")
+  m <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$manzanas
+  fila <- m[m$cluster_2 == 1L & m$manzana_num == 3L, ]
+  expect_equal(fila$estado, "cerrada_por_recorrido")
+  expect_equal(fila$accion, "CERRADA")
+})
+
+test_that("la manzana se cierra al agotar su presupuesto, con tope", {
+  # tope_cierre 1.25 sobre 12 puertas de plan = 15
+  toques <- dplyr::bind_rows(replicate(15, toque(1, 1, "no_abrio"), simplify = FALSE))
+  m <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min(),
+                       tope_cierre = 1.25)$manzanas
+  fila <- m[m$cluster_2 == 1L & m$manzana_num == 1L, ]
+  expect_equal(fila$estado, "cerrada_por_presupuesto")
+})
+
+test_that("una manzana sin tocar queda sin_iniciar y se manda a CONTINUAR", {
+  res <- estado_de_campo(toque(1, 1, "efectiva"), ruta_min(), reserva_min(),
+                         cuotas_min())
+  fila <- res$manzanas[res$manzanas$cluster_2 == 1L & res$manzanas$manzana_num == 2L, ]
+  expect_equal(fila$estado, "sin_iniciar")
+  expect_equal(fila$accion, "CONTINUAR")
+  expect_equal(res$clusters$mzas_sin_iniciar[res$clusters$cluster_2 == 1L], 2L)
+})
+
+test_that("un toque en manzana que no existe en el sorteo se marca y NO entra al presupuesto", {
+  # el dropdown de manzana del Opinometro ofrece 1..45 igual para los 64
+  # clusters, sin condicionar: nada impide capturar una manzana inexistente.
+  # Esas puertas tienen probabilidad de seleccion DESCONOCIDA.
+  toques <- dplyr::bind_rows(toque(1, 1, "efectiva"), toque(1, 40, "efectiva"))
+  res <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())
+  expect_equal(res$clusters$toques_fuera_del_sorteo[res$clusters$cluster_2 == 1L], 1L)
+  expect_equal(res$clusters$puertas_vivienda[res$clusters$cluster_2 == 1L], 1L)
+  fuera <- res$manzanas[res$manzanas$manzana_num == 40L, ]
+  expect_equal(fuera$origen, "fuera_del_sorteo")
+  expect_match(fuera$accion, "FUERA DEL SORTEO")
+})
+
+test_that("ningun cluster del plan desaparece, aunque no tenga ni un toque", {
+  res <- estado_de_campo(toque(1, 1, "efectiva"), ruta_min(), reserva_min(),
+                         cuotas_min())
+  expect_setequal(res$clusters$cluster_2, c(1L, 2L))
+  expect_equal(res$clusters$efectivas[res$clusters$cluster_2 == 2L], 0L)
+  expect_true(is.na(res$clusters$tasa_medida[res$clusters$cluster_2 == 2L]))
+})
+
+test_that("cuando ruta y cuotas cuadran, la función corre sin error", {
+  # ruta_min() y cuotas_min() ya cuadran (12/36 y 6/10 por cluster); esto
+  # deja el invariante explícito en vez de darlo por hecho en los demás
+  # tests, que ya dependían de que la guarda no truene con estos fixtures
+  expect_no_error(estado_de_campo(toque(1, 1, "efectiva"), ruta_min(),
+                                  reserva_min(), cuotas_min()))
+})
+
+test_that("si `ruta` y `cuotas` discrepan, truena nombrando el cluster", {
+  # el bug que evita: si el material impreso (ruta) y el plan con el que
+  # se sortearon las cuotas divergen, el Excel reportaría avance contra
+  # una meta ajena a ese cluster; mejor que truene ruidoso a que la invente
+  cuotas_mala <- cuotas_min()
+  cuotas_mala$entrevistas[cuotas_mala$cluster_2 == 1L] <- 99L
+  expect_error(estado_de_campo(toque(1, 1, "efectiva"), ruta_min(),
+                               reserva_min(), cuotas_mala),
+              "cluster 1")
+})
+
+test_that("una manzana en ruta Y en reserva a la vez truena (llave duplicada)", {
+  # si comparten (cluster, orden_ruta), el full_join las duplicaria y una
+  # sola puerta efectiva se contaria DOS veces en el presupuesto del cluster
+  reserva_dup <- reserva_min()
+  reserva_dup$orden_ruta[reserva_dup$cluster == 1L][1] <- 1L  # choca con ruta cluster 1, orden 1
+  expect_error(estado_de_campo(toque(1, 1, "efectiva"), ruta_min(), reserva_dup,
+                               cuotas_min()),
+              "cluster 1")
+})
+
+test_that("si solo `puertas` discrepa (entrevistas cuadra), truena nombrando el cluster", {
+  # la guarda de cuotas tiene 3 chequeos independientes (entrevistas,
+  # puertas, presencia en ambos lados); este cubre la rama de puertas SOLA,
+  # que ningun test anterior ejercitaba
+  cuotas_mala <- cuotas_min()
+  cuotas_mala$puertas[cuotas_mala$cluster_2 == 2L] <- 999L
+  expect_error(estado_de_campo(toque(1, 1, "efectiva"), ruta_min(), reserva_min(),
+                               cuotas_mala),
+              "cluster 2")
+})
+
+test_that("un cluster en `ruta` ausente de `cuotas` truena nombrandolo", {
+  cuotas_corta <- cuotas_min()
+  cuotas_corta <- cuotas_corta[cuotas_corta$cluster_2 != 2L, ]  # cuotas nunca trae al cluster 2
+  expect_error(estado_de_campo(toque(1, 1, "efectiva"), ruta_min(), reserva_min(),
+                               cuotas_corta),
+              "cluster 2")
+})
+
+test_that("un cluster en `cuotas` ausente de `ruta` truena nombrandolo", {
+  cuotas_extra <- dplyr::bind_rows(cuotas_min(),
+                                   tibble::tibble(cluster_2 = 3L, SECCION = "9999",
+                                                  entrevistas = 5L, puertas = 20L))
+  expect_error(estado_de_campo(toque(1, 1, "efectiva"), ruta_min(), reserva_min(),
+                               cuotas_extra),
+              "cluster 3")
+})
+
+test_that("dos clusters con huecos simultaneos reparten CADA UNO desde su propia reserva", {
+  # cluster 1 tiene 2 reservas libres (orden 4 y 5) y cluster 2 solo 1
+  # (orden 2). Si el reparto perdiera su group_by(cluster_2) y numerara
+  # los turnos de forma GLOBAL, el desfase que deja el cluster 1 (2 libres,
+  # 1 hueco) correria el turno del cluster 2 y su hueco veria "RESERVA
+  # AGOTADA" aunque su reserva SI esta disponible
+  toques <- dplyr::bind_rows(toque(1, 1, "sin_registro", "sin_acceso"),
+                             toque(2, 1, "sin_registro", "sin_acceso"))
+  m <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$manzanas
+  acc_c1 <- m$accion[m$cluster_2 == 1L & m$manzana_num == 1L]
+  acc_c2 <- m$accion[m$cluster_2 == 2L & m$manzana_num == 1L]
+  expect_match(acc_c1, "SUSTITUIR")
+  expect_match(acc_c1, "4")
+  expect_match(acc_c2, "SUSTITUIR")
+  expect_match(acc_c2, "2")
+})
+
+test_that("un valor de `cuotas` no coercible a entero truena en espanol, no con el error de R", {
+  # antes: as.integer("diez") = NA, y una comparacion `!=` contra ese NA
+  # hacia tronar if(any(...)) con el error criptico de R base, justo en el
+  # caso de dato sucio para el que esta guarda existe
+  cuotas_sucia <- cuotas_min()
+  cuotas_sucia$puertas[cuotas_sucia$cluster_2 == 2L] <- "diez"
+  expect_error(estado_de_campo(toque(1, 1, "efectiva"), ruta_min(), reserva_min(),
+                               cuotas_sucia),
+              "no coercible")
+})
+
+# `registro_efectivo`: la puerta ya no basta para contar efectiva ----------
+#
+# El hallazgo real (corte de Huehuetoca, 2026-08-27): 193 registros
+# efectivos producen 223 toques marcados "efectiva" en la puerta -30 de mas
+# pertenecen a registros que solo llegaron al filtro y no se completaron.
+# `resultado` sigue siendo lo que campo vio EN LA PUERTA; `registro_efectivo`
+# es lo que le pasa al REGISTRO despues.
+
+test_that("efectivas por manzana solo cuenta 'efectiva' con registro_efectivo (no solo la puerta)", {
+  # 3 toques marcados "efectiva"; solo 2 corresponden a un registro que de
+  # verdad se completo -el otro abrio, acepto el filtro, y ahi se quedo-
+  toques <- dplyr::bind_rows(
+    toque(1, 1, "efectiva", registro_efectivo = TRUE),
+    toque(1, 1, "efectiva", registro_efectivo = TRUE),
+    toque(1, 1, "efectiva", registro_efectivo = FALSE))
+  m <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$manzanas
+  fila <- m[m$cluster_2 == 1L & m$manzana_num == 1L, ]
+  expect_equal(fila$efectivas, 2L)
+})
+
+test_that("las efectivas del resumen por cluster suman las YA corregidas de cada manzana", {
+  # si el resumen por cluster recontara "efectiva" cruda en vez de sumar las
+  # efectivas ya corregidas de cada manzana, este cluster daria 3 en vez de
+  # 2 (1 real + 1 fake en la manzana 1, 1 real en la manzana 2)
+  toques <- dplyr::bind_rows(
+    toque(1, 1, "efectiva", registro_efectivo = TRUE),
+    toque(1, 1, "efectiva", registro_efectivo = FALSE),
+    toque(1, 2, "efectiva", registro_efectivo = TRUE))
+  cl <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$clusters
+  c1 <- cl[cl$cluster_2 == 1L, ]
+  expect_equal(c1$efectivas, 2L)
+})
+
+test_that("una puerta 'efectiva' sin registro completo SI cuenta como puerta de vivienda", {
+  # la puerta se toco y abrio -eso consumio presupuesto de verdad-, sin
+  # importar si el registro se quedo a medias. puertas_vivienda NO debe
+  # mirar registro_efectivo.
+  toques <- dplyr::bind_rows(
+    toque(1, 1, "efectiva", registro_efectivo = FALSE),
+    toque(1, 1, "rechazo"),
+    toque(1, 1, "no_abrio"))
+  cl <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$clusters
+  c1 <- cl[cl$cluster_2 == 1L, ]
+  expect_equal(c1$puertas_vivienda, 3L)
+  expect_equal(c1$efectivas, 0L)              # ninguna con registro efectivo
+  expect_equal(c1$presupuesto_restante, 33L)  # 36 - 3: la puerta SI se gasto
+})
+
+test_that("sin la columna `registro_efectivo`, se asume TRUE para todos y se avisa", {
+  # compatibilidad: un estudio armado antes de que corte.R mandara esta
+  # columna no debe romperse, pero tampoco debe recibir un conteo inflado
+  # sin enterarse
+  toques <- toque(1, 1, "efectiva")
+  toques$registro_efectivo <- NULL
+  expect_warning(
+    res <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min()),
+    "registro_efectivo")
+  fila <- res$manzanas[res$manzanas$cluster_2 == 1L & res$manzanas$manzana_num == 1L, ]
+  expect_equal(fila$efectivas, 1L)   # se asumio TRUE: comportamiento de antes
+})
+
+test_that("`sustituta` trae el manzana_num de la reserva asignada a la manzana problema", {
+  # Task 10: antes habia que parsear el texto de `accion` con una regex
+  # para saber esto; ahora es una columna
+  toques <- toque(1, 2, "sin_registro", "sin_acceso")
+  m <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$manzanas
+  fila <- m[m$cluster_2 == 1L & m$manzana_num == 2L, ]
+  expect_equal(fila$sustituta, 4L)   # mismo valor que ya viaja en el texto de `accion`
+  expect_match(fila$accion, "4")
+})
+
+test_that("`sustituta` es NA cuando no aplica: manzana normal o reserva agotada", {
+  toques <- dplyr::bind_rows(toque(2, 1, "sin_registro", "sin_acceso"),
+                             toque(2, 2, "sin_registro", "sin_acceso"))
+  m <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$manzanas
+  # cluster 2 solo tiene UNA reserva: la manzana 1 (ruta) se queda sin
+  # sustituto -mismo fixture que "cuando la reserva se agota" arriba-
+  agotada <- m[m$cluster_2 == 2L & m$manzana_num == 1L, ]
+  expect_true(grepl("RESERVA AGOTADA", agotada$accion))
+  expect_true(is.na(agotada$sustituta))
+  # una manzana que sigue normal (cluster 1, manzana 1, sin tocar) tampoco
+  # tiene sustituta
+  normal <- m[m$cluster_2 == 1L & m$manzana_num == 1L, ]
+  expect_true(is.na(normal$sustituta))
+})
+
+# CRITICAL de la revision final de rama (2026-08-27): un toque con
+# `resultado` NA ponia en CERO las efectivas de TODA la manzana, no solo el
+# toque sucio. `sum(resultado == "efectiva" & registro_efectivo)` sin
+# na.rm: un solo NA en el vector hace que sum() de NA para el GRUPO
+# COMPLETO (via `NA & TRUE` = NA), y el coalesce(.x, 0L) puesto para el caso
+# legitimo "manzana que nadie toco todavia" no podia distinguir ese NA de un
+# cero real -lo convertia en 0 en silencio-. Verificado contra el corte vivo
+# de Huehuetoca: una manzana de 11 efectivas cayo a 0 con `puertas_vivienda`
+# intacto en 28, ensuciando UN SOLO toque `no_abrio` -> NA, y los cuatro
+# verificadores de la Fase 7 del proyecto salieron en verde.
+
+test_that("un toque con resultado NA no pone en cero las efectivas de la manzana", {
+  toques <- dplyr::bind_rows(
+    toque(1, 1, "efectiva"), toque(1, 1, "efectiva"), toque(1, 1, "efectiva"),
+    toque(1, 1, "efectiva"), toque(1, 1, "efectiva"),
+    # el toque sucio: `resultado` NA (redaccion de INT_N fuera de catalogo, o
+    # dato sucio real) con registro_efectivo = TRUE -mismo mecanismo que hace
+    # que `NA & TRUE` sea NA y contagie el sum() de todo el grupo-
+    toque(1, 1, NA_character_, registro_efectivo = TRUE))
+  m <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$manzanas
+  fila <- m[m$cluster_2 == 1L & m$manzana_num == 1L, ]
+  expect_equal(fila$efectivas, 5L)    # NO 0L: las 5 limpias se conservan
+  expect_false(is.na(fila$efectivas))
+  expect_equal(fila$puertas_vivienda, 5L)  # ya intacto antes del arreglo (usa %in%)
+})
+
+test_that("el toque con resultado NA queda visible (hay_dato_sucio), no como manzana sin tocar", {
+  # las dos situaciones que hoy colapsaban en el mismo 0 -"nadie fue" y "hubo
+  # un toque ilegible"- se distinguen por el INDICADOR DEL JOIN (presencia en
+  # `por_mza`), no por coalescear una suma: si la manzana no aparece en
+  # `por_mza` es un cero legitimo (`hay_dato_sucio` FALSE); si aparece con un
+  # `resultado` NA, es dato sucio real y tiene que quedar visible.
+  toques <- dplyr::bind_rows(
+    toque(1, 1, "efectiva"),
+    toque(1, 1, NA_character_, registro_efectivo = TRUE))
+  m <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$manzanas
+  sucia  <- m[m$cluster_2 == 1L & m$manzana_num == 1L, ]
+  limpia <- m[m$cluster_2 == 1L & m$manzana_num == 2L, ]  # nunca tocada
+  expect_true(sucia$hay_dato_sucio)
+  expect_false(limpia$hay_dato_sucio)   # cero legitimo, no dato sucio
+})
+
+test_that("las efectivas por cluster suman las YA corregidas de cada manzana con un toque sucio", {
+  # si el bug pusiera la manzana 1 en 0, el cluster tambien se veria corto:
+  # el resumen por cluster no debe recontar 'efectiva' cruda, solo sumar lo
+  # que ya corrigio cada manzana
+  toques <- dplyr::bind_rows(
+    toque(1, 1, "efectiva"), toque(1, 1, "efectiva"),
+    toque(1, 1, NA_character_, registro_efectivo = TRUE),
+    toque(1, 2, "efectiva"))
+  cl <- estado_de_campo(toques, ruta_min(), reserva_min(), cuotas_min())$clusters
+  c1 <- cl[cl$cluster_2 == 1L, ]
+  expect_equal(c1$efectivas, 3L)   # 2 en la manzana 1 (na.rm descarta el sucio) + 1 en la manzana 2
+})
